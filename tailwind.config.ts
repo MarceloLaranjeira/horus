@@ -57,6 +57,13 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        nectar: {
+          glow: "hsl(var(--nectar-glow))",
+          gold: "hsl(var(--nectar-gold))",
+          green: "hsl(var(--nectar-green))",
+          red: "hsl(var(--nectar-red))",
+          orange: "hsl(var(--nectar-orange))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
