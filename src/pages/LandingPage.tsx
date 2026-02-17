@@ -48,7 +48,7 @@ const LandingPage = () => {
           <motion.h1 variants={fadeUp} className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
             Tony Stark tem o Jarvis.
             <br />
-            <span className="text-gradient-blue">Você tem o Néctar.</span>
+            <span className="text-gradient-blue">Você tem o AuraTask.</span>
           </motion.h1>
 
           <motion.p variants={fadeUp} className="text-lg md:text-xl text-muted-foreground mb-4">
@@ -69,7 +69,7 @@ const LandingPage = () => {
                   <div className="w-3 h-3 rounded-full bg-[hsl(var(--nectar-green))]/60" />
                 </div>
                 <div className="flex-1 text-center text-xs text-muted-foreground flex items-center justify-center gap-1">
-                  <Shield className="w-3 h-3" /> app.meu-nectar.com
+                  <Shield className="w-3 h-3" /> app.auratask.com
                 </div>
               </div>
               <div className="p-6 space-y-3">
@@ -117,7 +117,7 @@ const LandingPage = () => {
       <section className="py-20 px-4">
         <motion.div className="max-w-6xl mx-auto" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
           <motion.div variants={fadeUp} className="text-center mb-16">
-            <p className="text-primary text-sm font-semibold mb-2">Conheça o Néctar por Dentro</p>
+            <p className="text-primary text-sm font-semibold mb-2">Conheça o AuraTask por Dentro</p>
             <h2 className="text-3xl md:text-5xl font-bold mb-4">
               Cada área da sua vida,<br /><span className="text-gradient-blue">organizada em um só lugar</span>
             </h2>
@@ -147,7 +147,7 @@ const LandingPage = () => {
           <motion.div variants={fadeUp} className="text-center mb-16">
             <p className="text-primary text-sm font-semibold mb-2">A Diferença é Real</p>
             <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              IAs Comuns <span className="text-muted-foreground">vs</span> <span className="text-gradient-blue">Néctar</span>
+              IAs Comuns <span className="text-muted-foreground">vs</span> <span className="text-gradient-blue">AuraTask</span>
             </h2>
             <p className="text-muted-foreground">Veja a diferença entre chatbots que só respondem e um assistente que <strong className="text-foreground">organiza toda sua vida</strong>.</p>
           </motion.div>
@@ -176,7 +176,7 @@ const LandingPage = () => {
               <Card className="bg-card border-primary/30 h-full glow-blue">
                 <CardContent className="p-6">
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-primary" /> Néctar AI
+                    <Zap className="w-5 h-5 text-primary" /> AuraTask AI
                   </h3>
                   <p className="text-sm text-muted-foreground mb-4">Entende, executa e organiza</p>
                   <div className="space-y-2">
@@ -225,13 +225,13 @@ const LandingPage = () => {
           <motion.div variants={fadeUp} className="text-center mb-16">
             <p className="text-primary text-sm font-semibold mb-2">Como Funciona a Mágica</p>
             <h2 className="text-3xl md:text-5xl font-bold">
-              Por que ter o <span className="text-gradient-blue">Néctar</span> como seu Jarvis pessoal?
+              Por que ter o <span className="text-gradient-blue">AuraTask</span> como seu Jarvis pessoal?
             </h2>
           </motion.div>
 
           {[
             { step: "1", title: "Você Conversa Naturalmente", desc: "Fale como fala com um amigo. Misture tarefas, compromissos, hábitos e finanças numa única mensagem." },
-            { step: "2", title: "Néctar Processa e Entende", desc: "O Néctar analisa, categoriza e organiza tudo automaticamente usando processamento de linguagem natural avançado." },
+            { step: "2", title: "AuraTask Processa e Entende", desc: "O AuraTask analisa, categoriza e organiza tudo automaticamente usando processamento de linguagem natural avançado." },
             { step: "3", title: "Tudo Organizado Automaticamente", desc: "Sua vida organizada em segundos. Tudo categorizado, priorizado e pronto para ação." },
           ].map((item, i) => (
             <motion.div key={i} variants={fadeUp} className="flex gap-6 mb-12 last:mb-0">
@@ -267,7 +267,7 @@ const LandingPage = () => {
                         <h3 className="font-semibold">{c.name}</h3>
                         <p className="text-sm text-muted-foreground">{c.problem}</p>
                       </div>
-                      <span className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-full font-medium">VS Néctar</span>
+                      <span className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-full font-medium">VS AuraTask</span>
                     </div>
                     <div className="space-y-2">
                       {c.issues.map((issue, j) => (

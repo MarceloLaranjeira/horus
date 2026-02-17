@@ -16,7 +16,7 @@ const initialMessages: Message[] = [
   {
     id: "1",
     role: "assistant",
-    content: "Olá! 👋 Eu sou o Néctar, seu assistente pessoal com IA. Posso te ajudar a organizar tarefas, hábitos, finanças, lembretes e muito mais. Como posso te ajudar hoje?",
+    content: "Olá! 👋 Eu sou o AuraTask, seu assistente pessoal com IA. Posso te ajudar a organizar tarefas, hábitos, finanças, lembretes e muito mais. Como posso te ajudar hoje?",
     timestamp: new Date(),
   },
 ];
@@ -74,7 +74,7 @@ export const ChatView = () => {
           <Sparkles className="w-4 h-4 text-primary" />
         </div>
         <div>
-          <h2 className="font-semibold text-sm">Chat com Néctar IA</h2>
+          <h2 className="font-semibold text-sm">Chat com AuraTask IA</h2>
           <p className="text-xs text-muted-foreground">Seu assistente pessoal inteligente</p>
         </div>
       </div>
