@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Check, X, Mic, MessageSquare, Calendar, Shield, Star, Zap, Brain, Target, Clock, DollarSign, Bell, FolderKanban, BarChart3, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import aurataskLogo from "@/assets/auratask-logo.png";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -45,6 +46,9 @@ const LandingPage = () => {
         </div>
 
         <motion.div className="relative z-10 text-center max-w-4xl mx-auto" initial="hidden" animate="visible" variants={stagger}>
+          <motion.div variants={fadeUp} className="flex justify-center mb-6">
+            <img src={aurataskLogo} alt="AuraTask" className="w-24 h-24 md:w-32 md:h-32 object-contain" />
+          </motion.div>
           <motion.h1 variants={fadeUp} className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
             Tony Stark tem o Jarvis.
             <br />

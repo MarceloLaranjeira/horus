@@ -1,4 +1,5 @@
 import { MessageSquare, CheckSquare, BarChart3, DollarSign, Bell, FolderKanban, Settings, Mic, Sparkles } from "lucide-react";
+import aurataskLogo from "@/assets/auratask-logo.png";
 import { cn } from "@/lib/utils";
 import type { AppView } from "@/pages/AppDashboard";
 
@@ -21,9 +22,7 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
     <aside className="w-16 md:w-64 bg-sidebar border-r border-sidebar-border flex flex-col shrink-0">
       {/* Logo */}
       <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
-        <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
-          <Sparkles className="w-5 h-5 text-primary" />
-        </div>
+        <img src={aurataskLogo} alt="AuraTask" className="w-9 h-9 rounded-xl object-cover shrink-0" />
         <span className="font-bold text-lg hidden md:block">AuraTask</span>
       </div>
 
