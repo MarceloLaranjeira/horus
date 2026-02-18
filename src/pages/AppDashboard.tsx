@@ -7,6 +7,7 @@ import { FinancesView } from "@/components/app/FinancesView";
 import { RemindersView } from "@/components/app/RemindersView";
 import { ProjectsView } from "@/components/app/ProjectsView";
 import { DashboardView } from "@/components/app/DashboardView";
+import { SettingsAIView } from "@/components/app/SettingsAIView";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 export type AppView =
@@ -17,7 +18,7 @@ export type AppView =
   | "reminders" | "reminders-upcoming" | "reminders-overdue"
   | "finances" | "finances-income" | "finances-expenses" | "finances-budget"
   | "projects" | "projects-kanban" | "projects-calendar"
-  | "settings" | "settings-profile" | "settings-notifications" | "settings-appearance";
+  | "settings" | "settings-profile" | "settings-notifications" | "settings-appearance" | "settings-ai";
 
 const AppDashboard = () => {
   const [activeView, setActiveView] = useState<AppView>("dashboard");
@@ -30,6 +31,7 @@ const AppDashboard = () => {
     if (activeView.startsWith("finances")) return <FinancesView subView={activeView} />;
     if (activeView.startsWith("reminders")) return <RemindersView subView={activeView} />;
     if (activeView.startsWith("projects")) return <ProjectsView subView={activeView} />;
+    if (activeView === "settings-ai") return <SettingsAIView />;
     if (activeView.startsWith("settings")) return <SettingsPlaceholder subView={activeView} />;
     return <DashboardView onNavigate={setActiveView} />;
   };

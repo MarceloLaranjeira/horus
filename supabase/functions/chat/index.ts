@@ -6,20 +6,93 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Você é o AuraTask, um assistente pessoal de IA avançado inspirado no Jarvis do Homem de Ferro. Você é inteligente, proativo e amigável.
+const tools = [
+  {
+    type: "function",
+    function: {
+      name: "create_task",
+      description: "Cria uma nova tarefa para o usuário",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título da tarefa" },
+          priority: { type: "string", enum: ["low", "medium", "high", "urgent"], description: "Prioridade" },
+          due_date: { type: "string", description: "Data de vencimento no formato YYYY-MM-DD" },
+        },
+        required: ["title"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_habit",
+      description: "Cria um novo hábito para acompanhamento diário",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Nome do hábito" },
+          icon: { type: "string", description: "Emoji ícone do hábito" },
+          target_days_per_week: { type: "number", description: "Dias por semana (1-7)" },
+        },
+        required: ["name"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_finance",
+      description: "Registra uma transação financeira (receita ou despesa)",
+      parameters: {
+        type: "object",
+        properties: {
+          description: { type: "string", description: "Descrição da transação" },
+          amount: { type: "number", description: "Valor em reais" },
+          type: { type: "string", enum: ["income", "expense"], description: "Tipo: receita ou despesa" },
+        },
+        required: ["description", "amount", "type"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_reminder",
+      description: "Cria um lembrete com data e hora",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título do lembrete" },
+          due_date: { type: "string", description: "Data/hora no formato ISO 8601" },
+        },
+        required: ["title", "due_date"],
+        additionalProperties: false,
+      },
+    },
+  },
+];
+
+function buildSystemPrompt(assistantName: string): string {
+  return `Você é o ${assistantName}, um assistente pessoal de IA avançado inspirado no Jarvis do Homem de Ferro. Você é inteligente, proativo e amigável.
 
 Suas capacidades:
-- Ajudar a organizar tarefas, hábitos, finanças, lembretes e projetos
+- Criar tarefas, hábitos, transações financeiras e lembretes usando as ferramentas disponíveis
 - Entender comandos complexos em linguagem natural
 - Extrair múltiplas intenções de uma única frase
 - Responder sempre em português brasileiro
 
 Diretrizes:
 - Seja conciso mas informativo
-- Use emojis com moderação para tornar as respostas mais visuais
-- Quando o usuário pedir para criar tarefas, hábitos ou registrar finanças, confirme o que foi entendido
-- Ofereça sugestões proativas quando apropriado
-- Mantenha um tom profissional mas acolhedor`;
+- Use emojis com moderação
+- Quando o usuário pedir para criar algo, USE AS FERRAMENTAS disponíveis para executar a ação
+- Se o usuário mencionar datas relativas como "amanhã", "sexta-feira", calcule a data real (hoje é ${new Date().toISOString().split("T")[0]})
+- Mantenha um tom profissional mas acolhedor
+- Após executar ações, confirme o que foi feito`;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -27,28 +100,64 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, mode = "chat", model = "google/gemini-3-flash-preview", assistantName = "AuraTask", executedActions } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
+    const systemPrompt = buildSystemPrompt(assistantName);
+
+    // If actions were executed, add context
+    const systemMessages = [{ role: "system", content: systemPrompt }];
+    if (executedActions && executedActions.length > 0) {
+      systemMessages.push({
+        role: "system",
+        content: `As seguintes ações foram executadas com sucesso pelo sistema: ${executedActions.join(", ")}. Confirme ao usuário de forma natural e amigável.`,
+      });
+    }
+
+    if (mode === "actions") {
+      // Non-streaming call with tools for action extraction
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            ...messages,
-          ],
-          stream: true,
+          model,
+          messages: [...systemMessages, ...messages],
+          tools,
+          tool_choice: "auto",
         }),
+      });
+
+      if (!response.ok) {
+        const t = await response.text();
+        console.error("AI gateway error (actions):", response.status, t);
+        return new Response(JSON.stringify({ choices: [{ message: { tool_calls: [] } }] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-    );
+
+      const data = await response.json();
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Streaming chat response
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [...systemMessages, ...messages],
+        stream: true,
+      }),
+    });
 
     if (!response.ok) {
       if (response.status === 429) {
