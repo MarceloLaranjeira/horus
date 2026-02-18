@@ -1,3 +1,5 @@
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import {
   MessageSquare,
   CheckSquare,
@@ -21,6 +23,7 @@ import {
   BellRing,
   Palette,
   ChevronRight,
+  LogOut,
 } from "lucide-react";
 import aurataskLogo from "@/assets/auratask-logo.png";
 import type { AppView } from "@/pages/AppDashboard";
@@ -153,6 +156,8 @@ interface AppSidebarProps {
 
 export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
   const { state } = useSidebar();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   const collapsed = state === "collapsed";
 
   const isItemActive = (item: NavItem) => {
@@ -233,6 +238,15 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
       <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>
           {renderMenuItem(settingsItem)}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={async () => { await signOut(); navigate("/"); }}
+              tooltip="Sair"
+            >
+              <LogOut className="shrink-0" />
+              <span>Sair</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
