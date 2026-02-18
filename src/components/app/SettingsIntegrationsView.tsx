@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Calendar, MessageCircle, Eye, EyeOff, Loader2, Wifi, CheckCircle2, XCircle } from "lucide-react";
+import { Calendar, MessageCircle, Eye, EyeOff, Loader2, Wifi, CheckCircle2, XCircle, QrCode, Smartphone } from "lucide-react";
 
 interface IntegrationConfig {
   evolution_api: {
@@ -33,6 +34,10 @@ export const SettingsIntegrationsView = () => {
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const [evoTestStatus, setEvoTestStatus] = useState<TestStatus>("idle");
   const [evoTestMsg, setEvoTestMsg] = useState("");
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -111,6 +116,49 @@ export const SettingsIntegrationsView = () => {
   };
 
   const toggleSecret = (key: string) => setShowSecrets((p) => ({ ...p, [key]: !p[key] }));
+
+  const fetchQrCode = useCallback(async () => {
+    setQrLoading(true);
+    setQrError("");
+    setQrCode(null);
+    try {
+      await saveIntegration();
+      const { data, error } = await supabase.functions.invoke("test-evolution-api", {
+        body: { action: "get_qrcode" },
+      });
+
+      if (error) {
+        setQrError(error.message || "Erro ao obter QR Code");
+        return;
+      }
+
+      if (data?.success) {
+        // Evolution API returns base64 QR or pairingCode
+        const qrBase64 = data.data?.base64 || data.data?.qrcode?.base64 || data.data?.qr || null;
+        const pairingCode = data.data?.pairingCode || data.data?.code || null;
+
+        if (qrBase64) {
+          // If it's already a data URI, use as-is; otherwise prepend
+          setQrCode(qrBase64.startsWith("data:") ? qrBase64 : `data:image/png;base64,${qrBase64}`);
+        } else if (pairingCode) {
+          setQrCode(pairingCode);
+        } else {
+          setQrError("QR Code não disponível. A instância pode já estar conectada.");
+        }
+      } else {
+        setQrError(data?.error || "Falha ao gerar QR Code");
+      }
+    } catch (e: any) {
+      setQrError(e.message || "Erro inesperado");
+    } finally {
+      setQrLoading(false);
+    }
+  }, [config]);
+
+  const openQrDialog = () => {
+    setQrDialogOpen(true);
+    fetchQrCode();
+  };
 
   const TestResultBadge = ({ status, message }: { status: TestStatus; message: string }) => {
     if (status === "idle") return null;
@@ -214,6 +262,14 @@ export const SettingsIntegrationsView = () => {
               {evoTestStatus === "testing" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wifi className="w-4 h-4 mr-2" />}
               Testar Conexão
             </Button>
+            <Button
+              variant="outline"
+              onClick={openQrDialog}
+              disabled={!config.evolution_api.instance_name || !config.evolution_api.api_url || !config.evolution_api.api_key}
+            >
+              <QrCode className="w-4 h-4 mr-2" />
+              Conectar WhatsApp
+            </Button>
           </div>
           {evoTestStatus !== "idle" && (
             <div className="pt-2">
@@ -222,6 +278,59 @@ export const SettingsIntegrationsView = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* QR Code Dialog */}
+      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="w-5 h-5" />
+              Conectar WhatsApp
+            </DialogTitle>
+            <DialogDescription>
+              Escaneie o QR Code abaixo com o WhatsApp no seu celular para conectar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            {qrLoading && (
+              <div className="flex flex-col items-center gap-2 py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Gerando QR Code...</p>
+              </div>
+            )}
+            {qrError && (
+              <div className="flex flex-col items-center gap-2 py-4">
+                <XCircle className="w-8 h-8 text-destructive" />
+                <p className="text-sm text-destructive text-center">{qrError}</p>
+                <Button variant="outline" size="sm" onClick={fetchQrCode}>
+                  Tentar novamente
+                </Button>
+              </div>
+            )}
+            {qrCode && !qrLoading && !qrError && (
+              <>
+                {qrCode.startsWith("data:") ? (
+                  <div className="bg-white p-4 rounded-xl">
+                    <img src={qrCode} alt="WhatsApp QR Code" className="w-64 h-64 object-contain" />
+                  </div>
+                ) : (
+                  <div className="text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">Código de pareamento:</p>
+                    <p className="text-2xl font-mono font-bold tracking-widest">{qrCode}</p>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground text-center max-w-xs">
+                  Abra o WhatsApp → Menu (⋮) → Aparelhos conectados → Conectar um aparelho
+                </p>
+                <Button variant="outline" size="sm" onClick={fetchQrCode}>
+                  <QrCode className="w-4 h-4 mr-2" />
+                  Gerar novo QR Code
+                </Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
