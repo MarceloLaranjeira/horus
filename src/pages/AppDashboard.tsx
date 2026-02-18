@@ -11,6 +11,7 @@ import { SettingsAIView } from "@/components/app/SettingsAIView";
 import { SettingsProfileView } from "@/components/app/SettingsProfileView";
 import { SettingsNotificationsView } from "@/components/app/SettingsNotificationsView";
 import { SettingsAppearanceView } from "@/components/app/SettingsAppearanceView";
+import { SettingsIntegrationsView } from "@/components/app/SettingsIntegrationsView";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 export type AppView =
@@ -21,7 +22,7 @@ export type AppView =
   | "reminders" | "reminders-upcoming" | "reminders-overdue"
   | "finances" | "finances-income" | "finances-expenses" | "finances-budget"
   | "projects" | "projects-kanban" | "projects-calendar"
-  | "settings" | "settings-profile" | "settings-notifications" | "settings-appearance" | "settings-ai";
+  | "settings" | "settings-profile" | "settings-notifications" | "settings-appearance" | "settings-ai" | "settings-integrations";
 
 const AppDashboard = () => {
   const [activeView, setActiveView] = useState<AppView>("dashboard");
@@ -38,6 +39,7 @@ const AppDashboard = () => {
     if (activeView === "settings-profile") return <SettingsProfileView />;
     if (activeView === "settings-notifications") return <SettingsNotificationsView />;
     if (activeView === "settings-appearance") return <SettingsAppearanceView />;
+    if (activeView === "settings-integrations") return <SettingsIntegrationsView />;
     return <DashboardView onNavigate={setActiveView} />;
   };
 
