@@ -8,6 +8,9 @@ import { RemindersView } from "@/components/app/RemindersView";
 import { ProjectsView } from "@/components/app/ProjectsView";
 import { DashboardView } from "@/components/app/DashboardView";
 import { SettingsAIView } from "@/components/app/SettingsAIView";
+import { SettingsProfileView } from "@/components/app/SettingsProfileView";
+import { SettingsNotificationsView } from "@/components/app/SettingsNotificationsView";
+import { SettingsAppearanceView } from "@/components/app/SettingsAppearanceView";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 export type AppView =
@@ -32,7 +35,9 @@ const AppDashboard = () => {
     if (activeView.startsWith("reminders")) return <RemindersView subView={activeView} />;
     if (activeView.startsWith("projects")) return <ProjectsView subView={activeView} />;
     if (activeView === "settings-ai") return <SettingsAIView />;
-    if (activeView.startsWith("settings")) return <SettingsPlaceholder subView={activeView} />;
+    if (activeView === "settings-profile") return <SettingsProfileView />;
+    if (activeView === "settings-notifications") return <SettingsNotificationsView />;
+    if (activeView === "settings-appearance") return <SettingsAppearanceView />;
     return <DashboardView onNavigate={setActiveView} />;
   };
 
@@ -50,21 +55,6 @@ const AppDashboard = () => {
         </div>
       </div>
     </SidebarProvider>
-  );
-};
-
-const SettingsPlaceholder = ({ subView }: { subView: string }) => {
-  const labels: Record<string, string> = {
-    settings: "Configurações Gerais",
-    "settings-profile": "Perfil do Usuário",
-    "settings-notifications": "Notificações",
-    "settings-appearance": "Aparência",
-  };
-  return (
-    <div className="flex flex-col h-full items-center justify-center text-muted-foreground">
-      <p className="text-lg font-semibold text-foreground mb-2">{labels[subView] || "Configurações"}</p>
-      <p className="text-sm">Em breve disponível</p>
-    </div>
   );
 };
 

@@ -7,11 +7,33 @@ export type AIModel =
   | "openai/gpt-5"
   | "openai/gpt-5-mini";
 
+export interface ElevenLabsVoice {
+  id: string;
+  name: string;
+}
+
+export const elevenLabsVoices: ElevenLabsVoice[] = [
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah" },
+  { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger" },
+  { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura" },
+  { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie" },
+  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George" },
+  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam" },
+  { id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice" },
+  { id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda" },
+  { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel" },
+  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily" },
+  { id: "cjVigY5qzO86Huf0OWal", name: "Eric" },
+  { id: "nPczCjzI2devNBz1zQrb", name: "Brian" },
+];
+
 export interface AISettings {
   assistantName: string;
   model: AIModel;
   voiceEnabled: boolean;
   voiceLang: string;
+  ttsEnabled: boolean;
+  ttsVoiceId: string;
 }
 
 const defaultSettings: AISettings = {
@@ -19,6 +41,8 @@ const defaultSettings: AISettings = {
   model: "google/gemini-3-flash-preview",
   voiceEnabled: true,
   voiceLang: "pt-BR",
+  ttsEnabled: false,
+  ttsVoiceId: "EXAVITQu4vr4xnSDxMaL",
 };
 
 const STORAGE_KEY = "auratask-ai-settings";
