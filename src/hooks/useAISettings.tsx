@@ -34,6 +34,7 @@ export interface AISettings {
   voiceLang: string;
   ttsEnabled: boolean;
   ttsVoiceId: string;
+  customPrompt: string;
 }
 
 const defaultSettings: AISettings = {
@@ -43,6 +44,7 @@ const defaultSettings: AISettings = {
   voiceLang: "pt-BR",
   ttsEnabled: false,
   ttsVoiceId: "EXAVITQu4vr4xnSDxMaL",
+  customPrompt: "",
 };
 
 const STORAGE_KEY = "auratask-ai-settings";

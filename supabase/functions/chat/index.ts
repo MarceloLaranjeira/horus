@@ -76,14 +76,15 @@ const tools = [
   },
 ];
 
-function buildSystemPrompt(assistantName: string): string {
-  return `Você é o ${assistantName}, um assistente pessoal de IA avançado inspirado no Jarvis do Homem de Ferro. Você é inteligente, proativo e amigável.
+function buildSystemPrompt(assistantName: string, customPrompt?: string): string {
+  let base = `Você é o ${assistantName}, um assistente pessoal de IA avançado inspirado no Jarvis do Homem de Ferro. Você é inteligente, proativo e amigável.
 
 Suas capacidades:
 - Criar tarefas, hábitos, transações financeiras e lembretes usando as ferramentas disponíveis
 - Entender comandos complexos em linguagem natural
 - Extrair múltiplas intenções de uma única frase
 - Responder sempre em português brasileiro
+- Lembrar do contexto das conversas anteriores
 
 Diretrizes:
 - Seja conciso mas informativo
@@ -91,7 +92,14 @@ Diretrizes:
 - Quando o usuário pedir para criar algo, USE AS FERRAMENTAS disponíveis para executar a ação
 - Se o usuário mencionar datas relativas como "amanhã", "sexta-feira", calcule a data real (hoje é ${new Date().toISOString().split("T")[0]})
 - Mantenha um tom profissional mas acolhedor
-- Após executar ações, confirme o que foi feito`;
+- Após executar ações, confirme o que foi feito
+- NUNCA repita a mesma introdução ou saudação. Varie suas respostas e seja natural.
+- Use o contexto da conversa para personalizar suas respostas`;
+
+  if (customPrompt?.trim()) {
+    base += `\n\nInstruções personalizadas do usuário:\n${customPrompt.trim()}`;
+  }
+  return base;
 }
 
 serve(async (req) => {
@@ -100,11 +108,11 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, mode = "chat", model = "google/gemini-3-flash-preview", assistantName = "AuraTask", executedActions } = await req.json();
+    const { messages, mode = "chat", model = "google/gemini-3-flash-preview", assistantName = "AuraTask", executedActions, customPrompt } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const systemPrompt = buildSystemPrompt(assistantName);
+    const systemPrompt = buildSystemPrompt(assistantName, customPrompt);
 
     // If actions were executed, add context
     const systemMessages = [{ role: "system", content: systemPrompt }];

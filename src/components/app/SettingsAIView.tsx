@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Bot, Volume2, Sparkles, Save, Mic, AudioLines } from "lucide-react";
+import { Bot, Volume2, Sparkles, Save, Mic, AudioLines, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAISettings, type AIModel, elevenLabsVoices } from "@/hooks/useAISettings";
 import { useToast } from "@/hooks/use-toast";
@@ -28,9 +29,10 @@ export const SettingsAIView = () => {
   const { settings, updateSettings } = useAISettings();
   const { toast } = useToast();
   const [name, setName] = useState(settings.assistantName);
+  const [customPrompt, setCustomPrompt] = useState(settings.customPrompt);
 
   const handleSave = () => {
-    updateSettings({ assistantName: name.trim() || "AuraTask" });
+    updateSettings({ assistantName: name.trim() || "AuraTask", customPrompt });
     toast({ title: "Configurações salvas!", description: "As alterações foram aplicadas." });
   };
 
@@ -171,8 +173,26 @@ export const SettingsAIView = () => {
           )}
         </motion.div>
 
+        {/* Custom System Prompt */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+          className="bg-card border border-border/50 rounded-xl p-6 card-glow space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <MessageSquare className="w-4 h-4 text-primary" />
+            </div>
+            <h3 className="font-semibold text-sm">Instruções Personalizadas</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">Adicione instruções específicas para o agente. Ex: "Me chame de João", "Sempre responda de forma direta", "Sou desenvolvedor e prefiro respostas técnicas".</p>
+          <Textarea
+            value={customPrompt}
+            onChange={(e) => setCustomPrompt(e.target.value)}
+            placeholder="Ex: Me chame de João. Prefiro respostas curtas e objetivas. Sou estudante de engenharia..."
+            className="bg-secondary/50 border-border/50 min-h-[100px]"
+          />
+        </motion.div>
+
         {/* Save */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
           <Button onClick={handleSave} className="w-full glow-cyan bg-primary text-primary-foreground hover:bg-primary/90">
             <Save className="w-4 h-4 mr-2" /> Salvar Configurações
           </Button>
