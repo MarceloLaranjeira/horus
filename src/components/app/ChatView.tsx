@@ -313,11 +313,122 @@ export const ChatView = () => {
           } catch { /* ignore */ }
         }
       }
+      // Play TTS for the final response
+      if (assistantSoFar) playTTS(assistantSoFar);
     } catch (e: any) {
       console.error("Chat error:", e);
       toast({ title: "Erro no chat", description: e.message, variant: "destructive" });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSendFromVoice = async (text: string) => {
+    if (!text.trim() || isLoading) return;
+    setInput("");
+    // Small delay to let state update, then call handleSend logic directly
+    const userMsg: Message = { role: "user", content: text };
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
+    setInput("");
+    setIsLoading(true);
+
+    const apiMessages = updatedMessages.map((m) => ({ role: m.role, content: m.content }));
+
+    try {
+      const actionResp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+        body: JSON.stringify({ messages: apiMessages, mode: "actions", model: settings.model, assistantName: settings.assistantName }),
+      });
+      let actionResults: ActionResult[] = [];
+      if (actionResp.ok) {
+        const actionData = await actionResp.json();
+        const toolCalls = actionData.choices?.[0]?.message?.tool_calls;
+        if (toolCalls?.length) actionResults = await executeActions(toolCalls);
+      }
+
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+        body: JSON.stringify({ messages: apiMessages, mode: "chat", model: settings.model, assistantName: settings.assistantName, executedActions: actionResults.length > 0 ? actionResults.map((a) => `${a.type}: "${a.title}" criado com sucesso`) : undefined }),
+      });
+
+      if (!resp.ok) throw new Error(`Erro ${resp.status}`);
+      if (!resp.body) throw new Error("Stream não disponível");
+
+      let assistantSoFar = "";
+      const upsertAssistant = (chunk: string) => {
+        assistantSoFar += chunk;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant" && prev.length > updatedMessages.length) {
+            return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar, actions: actionResults.length > 0 ? actionResults : undefined } : m);
+          }
+          return [...prev, { role: "assistant", content: assistantSoFar, actions: actionResults.length > 0 ? actionResults : undefined }];
+        });
+      };
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let streamDone = false;
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") { streamDone = true; break; }
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) upsertAssistant(content);
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+      // Play TTS for the complete response
+      if (assistantSoFar) playTTS(assistantSoFar);
+    } catch (e: any) {
+      console.error("Chat error:", e);
+      toast({ title: "Erro no chat", description: e.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const playTTS = async (text: string) => {
+    if (!settings.ttsEnabled) return;
+    try {
+      const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000);
+      if (!cleanText.trim()) return;
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ text: cleanText, voiceId: settings.ttsVoiceId }),
+        }
+      );
+      if (!response.ok) return;
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+    } catch (e) {
+      console.error("TTS error:", e);
     }
   };
 
@@ -330,9 +441,13 @@ export const ChatView = () => {
     setIsListening(true);
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-    recognition.lang = "pt-BR";
+    recognition.lang = settings.voiceLang || "pt-BR";
     recognition.interimResults = false;
-    recognition.onresult = (event: any) => { setInput(event.results[0][0].transcript); setIsListening(false); };
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setIsListening(false);
+      handleSendFromVoice(transcript);
+    };
     recognition.onerror = () => setIsListening(false);
     recognition.onend = () => setIsListening(false);
     recognition.start();
