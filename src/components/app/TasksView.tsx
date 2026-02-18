@@ -19,7 +19,7 @@ const priorityColors: Record<string, string> = {
   baixa: "bg-muted text-muted-foreground border-border",
 };
 
-export const TasksView = () => {
+export const TasksView = ({ subView }: { subView?: string }) => {
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-border flex items-center justify-between">

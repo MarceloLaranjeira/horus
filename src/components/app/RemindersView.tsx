@@ -10,7 +10,7 @@ const reminders = [
   { id: 4, title: "Fazer backup dos arquivos", datetime: "11/02 10:15", priority: "baixa", overdue: true },
 ];
 
-export const RemindersView = () => {
+export const RemindersView = ({ subView }: { subView?: string }) => {
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-border flex items-center gap-3">
