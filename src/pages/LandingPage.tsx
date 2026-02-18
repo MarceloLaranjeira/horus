@@ -104,7 +104,7 @@ const LandingPage = () => {
           </motion.div>
 
           <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button size="lg" className="text-lg px-8 py-6 glow-blue" onClick={() => navigate("/app")}>
+            <Button size="lg" className="text-lg px-8 py-6 glow-blue" onClick={() => navigate("/auth")}>
               Ativar meu Jarvis agora <ArrowRight className="ml-2" />
             </Button>
           </motion.div>
