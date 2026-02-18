@@ -12,11 +12,13 @@ import { SettingsProfileView } from "@/components/app/SettingsProfileView";
 import { SettingsNotificationsView } from "@/components/app/SettingsNotificationsView";
 import { SettingsAppearanceView } from "@/components/app/SettingsAppearanceView";
 import { SettingsIntegrationsView } from "@/components/app/SettingsIntegrationsView";
+import { WhatsAppView } from "@/components/app/WhatsAppView";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 export type AppView =
   | "dashboard"
   | "chat"
+  | "whatsapp"
   | "tasks" | "tasks-today" | "tasks-overdue" | "tasks-completed"
   | "habits" | "habits-stats"
   | "reminders" | "reminders-upcoming" | "reminders-overdue"
@@ -30,6 +32,7 @@ const AppDashboard = () => {
   const renderView = () => {
     if (activeView === "dashboard") return <DashboardView onNavigate={setActiveView} />;
     if (activeView === "chat") return <ChatView />;
+    if (activeView === "whatsapp") return <WhatsAppView />;
     if (activeView.startsWith("tasks")) return <TasksView subView={activeView} />;
     if (activeView.startsWith("habits")) return <HabitsView subView={activeView} />;
     if (activeView.startsWith("finances")) return <FinancesView subView={activeView} />;
