@@ -156,3 +156,12 @@
   box-shadow: 0 0 20px -8px hsl(var(--cyan) / 0.3);
   border-color: hsl(var(--cyan) / 0.2);
 }
+
+/* Scanline effect */
+@keyframes scanline {
+  0% { top: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  50% { top: 100%; opacity: 1; }
+  60% { opacity: 0; }
+  100% { top: 0%; opacity: 0; }
+}

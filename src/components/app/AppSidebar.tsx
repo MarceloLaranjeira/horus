@@ -24,6 +24,7 @@ import {
   Palette,
   ChevronRight,
   LogOut,
+  Bot,
 } from "lucide-react";
 import aurataskLogo from "@/assets/auratask-logo.png";
 import type { AppView } from "@/pages/AppDashboard";
@@ -144,6 +145,7 @@ const settingsItem: NavItem = {
   icon: Settings,
   label: "Configurações",
   subItems: [
+    { id: "settings-ai", icon: Bot, label: "Assistente IA" },
     { id: "settings-profile", icon: User, label: "Perfil" },
     { id: "settings-notifications", icon: BellRing, label: "Notificações" },
     { id: "settings-appearance", icon: Palette, label: "Aparência" },

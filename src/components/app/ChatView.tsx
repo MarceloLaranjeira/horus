@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Mic, MicOff, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Send, Mic, MicOff, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,52 +7,129 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAISettings } from "@/hooks/useAISettings";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 type Message = {
   role: "user" | "assistant";
   content: string;
+  actions?: ActionResult[];
 };
 
-const welcomeMessage: Message = {
-  role: "assistant",
-  content:
-    "Olá! 👋 Eu sou o **AuraTask**, seu assistente pessoal com IA. Posso te ajudar a organizar tarefas, hábitos, finanças, lembretes e muito mais. Como posso te ajudar hoje?",
+type ActionResult = {
+  type: string;
+  title: string;
+  success: boolean;
 };
 
-/** Animated globe avatar inspired by Jarvis/Iron Man */
-const AuraGlobe = ({ isThinking }: { isThinking: boolean }) => (
-  <div className="relative w-10 h-10 shrink-0">
-    {/* Outer ring */}
-    <div className={cn(
-      "absolute inset-0 rounded-full border border-primary/40",
-      isThinking ? "animate-arc-spin" : "animate-globe-rotate"
-    )} />
-    {/* Middle ring */}
-    <div className={cn(
-      "absolute inset-1 rounded-full border border-primary/30",
-      isThinking ? "animate-arc-spin-reverse" : ""
-    )} />
-    {/* Core glow */}
-    <div className={cn(
-      "absolute inset-2 rounded-full bg-primary/20 flex items-center justify-center",
-      isThinking && "animate-globe-pulse"
-    )}>
-      <div className="w-3 h-3 rounded-full bg-primary/60 shadow-[0_0_10px_2px_hsl(var(--cyan)/0.5)]" />
+/** Enhanced Jarvis Globe with particles and scan-line */
+const AuraGlobe = ({ isThinking, size = "sm" }: { isThinking: boolean; size?: "sm" | "lg" }) => {
+  const dim = size === "lg" ? "w-20 h-20" : "w-10 h-10";
+  const particles = useMemo(() =>
+    Array.from({ length: 8 }, (_, i) => ({
+      id: i,
+      angle: (i / 8) * 360,
+      delay: i * 0.3,
+      radius: size === "lg" ? 36 : 18,
+    })), [size]);
+
+  return (
+    <div className={cn("relative shrink-0", dim)}>
+      {/* Particles orbiting */}
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="absolute inset-0"
+          style={{
+            animation: `arc-spin ${6 + p.id * 0.5}s linear infinite`,
+            animationDelay: `${p.delay}s`,
+          }}
+        >
+          <div
+            className={cn(
+              "absolute rounded-full bg-primary",
+              size === "lg" ? "w-1.5 h-1.5" : "w-1 h-1",
+              isThinking ? "opacity-90" : "opacity-40"
+            )}
+            style={{
+              top: "0%",
+              left: "50%",
+              transform: "translateX(-50%)",
+              boxShadow: isThinking
+                ? "0 0 6px 1px hsl(var(--cyan) / 0.6)"
+                : "0 0 3px 0px hsl(var(--cyan) / 0.3)",
+            }}
+          />
+        </div>
+      ))}
+
+      {/* Outer ring */}
+      <div className={cn(
+        "absolute inset-0 rounded-full border border-primary/40",
+        isThinking ? "animate-arc-spin" : "animate-globe-rotate"
+      )} />
+      {/* Dashed middle ring */}
+      <div className={cn(
+        "absolute rounded-full border border-dashed border-primary/20",
+        size === "lg" ? "inset-2" : "inset-1",
+        isThinking ? "animate-arc-spin-reverse" : ""
+      )} />
+      {/* Scan-line effect */}
+      <div className={cn(
+        "absolute inset-0 rounded-full overflow-hidden",
+        isThinking && "animate-globe-pulse"
+      )}>
+        <div
+          className="absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-primary/60 to-transparent"
+          style={{
+            animation: "scanline 2s ease-in-out infinite",
+            top: "50%",
+          }}
+        />
+      </div>
+      {/* Core glow */}
+      <div className={cn(
+        "absolute rounded-full bg-primary/15 flex items-center justify-center",
+        size === "lg" ? "inset-4" : "inset-2"
+      )}>
+        <div
+          className={cn(
+            "rounded-full bg-primary/50",
+            size === "lg" ? "w-5 h-5" : "w-3 h-3"
+          )}
+          style={{
+            boxShadow: isThinking
+              ? "0 0 15px 4px hsl(var(--cyan) / 0.6), 0 0 30px 8px hsl(var(--cyan) / 0.2)"
+              : "0 0 10px 2px hsl(var(--cyan) / 0.4)",
+          }}
+        />
+      </div>
+      {/* Outer ambient glow */}
+      <div className={cn(
+        "absolute rounded-full bg-primary/5 blur-md",
+        size === "lg" ? "-inset-3" : "-inset-1"
+      )} />
     </div>
-    {/* Outer glow effect */}
-    <div className="absolute -inset-1 rounded-full bg-primary/5 blur-sm" />
-  </div>
-);
+  );
+};
 
 export const ChatView = () => {
-  const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
+  const [messages, setMessages] = useState<Message[]>([{
+    role: "assistant",
+    content: "Olá! 👋 Eu sou o **AuraTask**, seu assistente pessoal com IA. Posso te ajudar a organizar tarefas, hábitos, finanças, lembretes e muito mais.\n\nExperimente dizer algo como:\n- *\"Crie uma tarefa para terminar o relatório até sexta\"*\n- *\"Adicione R$ 50 como despesa de almoço\"*\n- *\"Crie um hábito de meditar 15 min por dia\"*",
+  }]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { settings } = useAISettings();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -60,6 +137,64 @@ export const ChatView = () => {
       if (viewport) viewport.scrollTop = viewport.scrollHeight;
     }
   }, [messages]);
+
+  const executeActions = async (toolCalls: any[]): Promise<ActionResult[]> => {
+    const results: ActionResult[] = [];
+    for (const call of toolCalls) {
+      try {
+        const args = JSON.parse(call.function.arguments);
+        const name = call.function.name;
+
+        if (name === "create_task" && user) {
+          const { error } = await supabase.from("tasks").insert({
+            title: args.title,
+            priority: args.priority || "medium",
+            due_date: args.due_date || null,
+            user_id: user.id,
+          });
+          if (!error) {
+            queryClient.invalidateQueries({ queryKey: ["tasks"] });
+            results.push({ type: "task", title: args.title, success: true });
+          }
+        } else if (name === "create_habit" && user) {
+          const { error } = await supabase.from("habits").insert({
+            name: args.name,
+            icon: args.icon || "🎯",
+            target_days_per_week: args.target_days_per_week || 7,
+            user_id: user.id,
+          });
+          if (!error) {
+            queryClient.invalidateQueries({ queryKey: ["habits"] });
+            results.push({ type: "habit", title: args.name, success: true });
+          }
+        } else if (name === "add_finance" && user) {
+          const { error } = await supabase.from("finances").insert({
+            description: args.description,
+            amount: args.amount,
+            type: args.type,
+            user_id: user.id,
+          });
+          if (!error) {
+            queryClient.invalidateQueries({ queryKey: ["finances"] });
+            results.push({ type: "finance", title: args.description, success: true });
+          }
+        } else if (name === "create_reminder" && user) {
+          const { error } = await supabase.from("reminders").insert({
+            title: args.title,
+            due_date: args.due_date,
+            user_id: user.id,
+          });
+          if (!error) {
+            queryClient.invalidateQueries({ queryKey: ["reminders"] });
+            results.push({ type: "reminder", title: args.title, success: true });
+          }
+        }
+      } catch (e) {
+        console.error("Action error:", e);
+      }
+    }
+    return results;
+  };
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -72,27 +207,48 @@ export const ChatView = () => {
     setIsLoading(true);
 
     const apiMessages = updatedMessages.map((m) => ({ role: m.role, content: m.content }));
-    let assistantSoFar = "";
-
-    const upsertAssistant = (chunk: string) => {
-      assistantSoFar += chunk;
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.role === "assistant" && prev.length > updatedMessages.length) {
-          return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
-        }
-        return [...prev, { role: "assistant", content: assistantSoFar }];
-      });
-    };
 
     try {
+      // First: non-streaming call to check for tool calls
+      const actionResp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: apiMessages,
+          mode: "actions",
+          model: settings.model,
+          assistantName: settings.assistantName,
+        }),
+      });
+
+      let actionResults: ActionResult[] = [];
+      if (actionResp.ok) {
+        const actionData = await actionResp.json();
+        const toolCalls = actionData.choices?.[0]?.message?.tool_calls;
+        if (toolCalls && toolCalls.length > 0) {
+          actionResults = await executeActions(toolCalls);
+        }
+      }
+
+      // Second: streaming call for the response
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({
+          messages: apiMessages,
+          mode: "chat",
+          model: settings.model,
+          assistantName: settings.assistantName,
+          executedActions: actionResults.length > 0
+            ? actionResults.map((a) => `${a.type}: "${a.title}" criado com sucesso`)
+            : undefined,
+        }),
       });
 
       if (!resp.ok) {
@@ -100,6 +256,18 @@ export const ChatView = () => {
         throw new Error(err.error || `Erro ${resp.status}`);
       }
       if (!resp.body) throw new Error("Stream não disponível");
+
+      let assistantSoFar = "";
+      const upsertAssistant = (chunk: string) => {
+        assistantSoFar += chunk;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant" && prev.length > updatedMessages.length) {
+            return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar, actions: actionResults.length > 0 ? actionResults : undefined } : m);
+          }
+          return [...prev, { role: "assistant", content: assistantSoFar, actions: actionResults.length > 0 ? actionResults : undefined }];
+        });
+      };
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -110,7 +278,6 @@ export const ChatView = () => {
         const { done, value } = await reader.read();
         if (done) break;
         textBuffer += decoder.decode(value, { stream: true });
-
         let newlineIndex: number;
         while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
           let line = textBuffer.slice(0, newlineIndex);
@@ -175,14 +342,16 @@ export const ChatView = () => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
+  const assistantName = settings.assistantName || "AuraTask";
+
   return (
     <div className="flex flex-col h-full jarvis-grid">
       {/* Header */}
       <div className="px-6 py-4 border-b border-border/50 flex items-center gap-4 bg-card/50 backdrop-blur-sm">
         <AuraGlobe isThinking={isLoading} />
         <div>
-          <h2 className="font-semibold text-sm text-gradient-cyan">AuraTask IA</h2>
-          <p className="text-xs text-muted-foreground">Assistente pessoal · Gemini 3 Flash</p>
+          <h2 className="font-semibold text-sm text-gradient-cyan">{assistantName} IA</h2>
+          <p className="text-xs text-muted-foreground">Assistente pessoal · {settings.model.split("/")[1] || settings.model}</p>
         </div>
         {isLoading && (
           <div className="ml-auto flex items-center gap-2 text-xs text-primary/70">
@@ -204,21 +373,41 @@ export const ChatView = () => {
                 transition={{ duration: 0.2 }}
                 className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}
               >
-                {msg.role === "assistant" && <AuraGlobe isThinking={false} />}
-                <div
-                  className={cn(
-                    "max-w-[75%] rounded-2xl px-4 py-3 text-sm",
-                    msg.role === "user"
-                      ? "bg-primary/15 border border-primary/30 text-foreground rounded-br-md"
-                      : "bg-card border border-border/50 rounded-bl-md"
-                  )}
-                >
-                  {msg.role === "assistant" ? (
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-primary prose-headings:text-primary">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                {msg.role === "assistant" && <AuraGlobe isThinking={false} size="sm" />}
+                <div className="max-w-[75%] space-y-2">
+                  <div
+                    className={cn(
+                      "rounded-2xl px-4 py-3 text-sm",
+                      msg.role === "user"
+                        ? "bg-primary/15 border border-primary/30 text-foreground rounded-br-md"
+                        : "bg-card border border-border/50 rounded-bl-md"
+                    )}
+                  >
+                    {msg.role === "assistant" ? (
+                      <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-primary prose-headings:text-primary">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      msg.content
+                    )}
+                  </div>
+                  {/* Action chips */}
+                  {msg.actions && msg.actions.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pl-1">
+                      {msg.actions.map((a, j) => (
+                        <motion.div
+                          key={j}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: j * 0.1 }}
+                          className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary"
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span className="capitalize">{a.type}:</span>
+                          <span className="text-foreground/80">{a.title}</span>
+                        </motion.div>
+                      ))}
                     </div>
-                  ) : (
-                    msg.content
                   )}
                 </div>
               </motion.div>
@@ -226,11 +415,7 @@ export const ChatView = () => {
           </AnimatePresence>
 
           {isLoading && messages[messages.length - 1]?.role === "user" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex gap-3 justify-start"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3 justify-start">
               <AuraGlobe isThinking={true} />
               <div className="bg-card border border-border/50 rounded-2xl rounded-bl-md px-4 py-3">
                 <div className="flex gap-1.5">
@@ -252,7 +437,7 @@ export const ChatView = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Fale com o AuraTask..."
+              placeholder={`Fale com o ${assistantName}...`}
               className="min-h-[44px] max-h-[120px] resize-none bg-secondary/50 border-border/50 focus:border-primary/50 focus:shadow-[0_0_15px_-5px_hsl(var(--cyan)/0.3)] transition-shadow pr-2"
               rows={1}
             />
