@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Calendar, MessageCircle, Loader2, CheckCircle2, XCircle, QrCode, Smartphone, Wifi } from "lucide-react";
+import { WhatsAppSetupGuide } from "./WhatsAppSetupGuide";
 
 type ConnectionStatus = "idle" | "checking" | "connected" | "disconnected" | "error";
 
@@ -221,6 +222,7 @@ export const SettingsIntegrationsView = () => {
             <p className="text-xs text-muted-foreground">
               Informe a URL do seu servidor com whatsapp-web.js (endpoints: /qr, /status, /send)
             </p>
+            <WhatsAppSetupGuide />
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
