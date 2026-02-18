@@ -429,6 +429,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_integrations: {
+        Row: {
+          created_at: string
+          credentials: Json
+          enabled: boolean
+          id: string
+          integration_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credentials?: Json
+          enabled?: boolean
+          id?: string
+          integration_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credentials?: Json
+          enabled?: boolean
+          id?: string
+          integration_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
