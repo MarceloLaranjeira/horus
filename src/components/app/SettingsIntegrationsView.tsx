@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Calendar, MessageCircle, Eye, EyeOff, Loader2, Wifi, CheckCircle2, XCircle, QrCode, Smartphone } from "lucide-react";
+import { Calendar, MessageCircle, Eye, EyeOff, Loader2, Wifi, CheckCircle2, XCircle, QrCode, Smartphone, Settings } from "lucide-react";
 
 interface IntegrationConfig {
   evolution_api: {
@@ -223,52 +224,17 @@ export const SettingsIntegrationsView = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>URL da API</Label>
-            <Input
-              value={config.evolution_api.api_url}
-              onChange={(e) => setConfig((p) => ({ ...p, evolution_api: { ...p.evolution_api, api_url: e.target.value } }))}
-              placeholder="https://sua-instancia.evolution-api.com"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>API Key</Label>
-            <div className="relative">
-              <Input
-                type={showSecrets.evo_key ? "text" : "password"}
-                value={config.evolution_api.api_key}
-                onChange={(e) => setConfig((p) => ({ ...p, evolution_api: { ...p.evolution_api, api_key: e.target.value } }))}
-                placeholder="••••••••••••"
-              />
-              <button type="button" onClick={() => toggleSecret("evo_key")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                {showSecrets.evo_key ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Nome da Instância</Label>
-            <Input
-              value={config.evolution_api.instance_name}
-              onChange={(e) => setConfig((p) => ({ ...p, evolution_api: { ...p.evolution_api, instance_name: e.target.value } }))}
-              placeholder="minha-instancia"
-            />
-          </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <Button onClick={saveIntegration} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Salvar
-            </Button>
-            <Button variant="outline" onClick={testEvolutionApi} disabled={evoTestStatus === "testing"}>
-              {evoTestStatus === "testing" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wifi className="w-4 h-4 mr-2" />}
-              Testar Conexão
-            </Button>
             <Button
-              variant="outline"
               onClick={openQrDialog}
               disabled={!config.evolution_api.instance_name || !config.evolution_api.api_url || !config.evolution_api.api_key}
             >
               <QrCode className="w-4 h-4 mr-2" />
               Conectar WhatsApp
+            </Button>
+            <Button variant="outline" onClick={testEvolutionApi} disabled={evoTestStatus === "testing"}>
+              {evoTestStatus === "testing" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wifi className="w-4 h-4 mr-2" />}
+              Testar Conexão
             </Button>
           </div>
           {evoTestStatus !== "idle" && (
@@ -276,6 +242,59 @@ export const SettingsIntegrationsView = () => {
               <TestResultBadge status={evoTestStatus} message={evoTestMsg} />
             </div>
           )}
+
+          {(!config.evolution_api.api_url || !config.evolution_api.api_key || !config.evolution_api.instance_name) && (
+            <div className="rounded-lg border border-border bg-muted/50 p-3">
+              <p className="text-sm text-muted-foreground">
+                Configure suas credenciais da Evolution API abaixo para habilitar a conexão.
+              </p>
+            </div>
+          )}
+
+          <Collapsible>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+                <Settings className="w-4 h-4" />
+                Configuração avançada
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 pt-3">
+              <div className="space-y-2">
+                <Label>URL da API</Label>
+                <Input
+                  value={config.evolution_api.api_url}
+                  onChange={(e) => setConfig((p) => ({ ...p, evolution_api: { ...p.evolution_api, api_url: e.target.value } }))}
+                  placeholder="https://sua-instancia.evolution-api.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>API Key</Label>
+                <div className="relative">
+                  <Input
+                    type={showSecrets.evo_key ? "text" : "password"}
+                    value={config.evolution_api.api_key}
+                    onChange={(e) => setConfig((p) => ({ ...p, evolution_api: { ...p.evolution_api, api_key: e.target.value } }))}
+                    placeholder="••••••••••••"
+                  />
+                  <button type="button" onClick={() => toggleSecret("evo_key")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    {showSecrets.evo_key ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Nome da Instância</Label>
+                <Input
+                  value={config.evolution_api.instance_name}
+                  onChange={(e) => setConfig((p) => ({ ...p, evolution_api: { ...p.evolution_api, instance_name: e.target.value } }))}
+                  placeholder="minha-instancia"
+                />
+              </div>
+              <Button onClick={saveIntegration} disabled={saving} size="sm">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Salvar credenciais
+              </Button>
+            </CollapsibleContent>
+          </Collapsible>
         </CardContent>
       </Card>
 
