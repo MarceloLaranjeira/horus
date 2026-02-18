@@ -6,46 +6,48 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
+    --background: 222 47% 5%;
     --foreground: 210 40% 96%;
 
-    --card: 222 47% 9%;
+    --card: 222 47% 8%;
     --card-foreground: 210 40% 96%;
 
-    --popover: 222 47% 9%;
+    --popover: 222 47% 8%;
     --popover-foreground: 210 40% 96%;
 
-    --primary: 210 100% 56%;
-    --primary-foreground: 222 47% 6%;
+    --primary: 187 100% 50%;
+    --primary-foreground: 222 47% 5%;
 
-    --secondary: 222 30% 14%;
+    --secondary: 222 30% 12%;
     --secondary-foreground: 210 40% 96%;
 
-    --muted: 222 30% 14%;
+    --muted: 222 30% 12%;
     --muted-foreground: 215 20% 55%;
 
-    --accent: 38 100% 60%;
-    --accent-foreground: 222 47% 6%;
+    --accent: 187 80% 40%;
+    --accent-foreground: 222 47% 5%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 222 30% 18%;
-    --input: 222 30% 18%;
-    --ring: 210 100% 56%;
+    --border: 222 30% 16%;
+    --input: 222 30% 16%;
+    --ring: 187 100% 50%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 222 47% 7%;
+    --sidebar-background: 222 47% 6%;
     --sidebar-foreground: 210 40% 80%;
-    --sidebar-primary: 210 100% 56%;
+    --sidebar-primary: 187 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 30% 12%;
+    --sidebar-accent: 222 30% 11%;
     --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 222 30% 15%;
-    --sidebar-ring: 210 100% 56%;
+    --sidebar-border: 222 30% 14%;
+    --sidebar-ring: 187 100% 50%;
 
-    --nectar-glow: 210 100% 56%;
+    --cyan: 187 100% 50%;
+    --cyan-glow: 187 100% 60%;
+    --nectar-glow: 187 100% 50%;
     --nectar-gold: 38 100% 60%;
     --nectar-green: 142 70% 45%;
     --nectar-red: 0 84% 60%;
@@ -81,11 +83,22 @@
 }
 
 /* Glow effects */
+.glow-cyan {
+  box-shadow: 0 0 20px -5px hsl(var(--cyan) / 0.4);
+}
+.glow-cyan-strong {
+  box-shadow: 0 0 30px -5px hsl(var(--cyan) / 0.5), 0 0 60px -10px hsl(var(--cyan) / 0.2);
+}
 .glow-blue {
   box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.4);
 }
 .glow-gold {
-  box-shadow: 0 0 20px -5px hsl(var(--accent) / 0.4);
+  box-shadow: 0 0 20px -5px hsl(var(--nectar-gold) / 0.4);
+}
+.text-gradient-cyan {
+  background: linear-gradient(135deg, hsl(187 100% 50%), hsl(187 100% 70%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .text-gradient-blue {
   background: linear-gradient(135deg, hsl(210 100% 56%), hsl(210 100% 72%));
@@ -98,5 +111,48 @@
   -webkit-text-fill-color: transparent;
 }
 .bg-gradient-dark {
-  background: linear-gradient(180deg, hsl(222 47% 6%) 0%, hsl(222 47% 4%) 100%);
+  background: linear-gradient(180deg, hsl(222 47% 5%) 0%, hsl(222 47% 3%) 100%);
+}
+
+/* Jarvis grid pattern */
+.jarvis-grid {
+  background-image: 
+    linear-gradient(hsl(var(--cyan) / 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--cyan) / 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Globe animation */
+@keyframes globe-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes globe-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+@keyframes arc-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.animate-globe-rotate {
+  animation: globe-rotate 20s linear infinite;
+}
+.animate-globe-pulse {
+  animation: globe-pulse 3s ease-in-out infinite;
+}
+.animate-arc-spin {
+  animation: arc-spin 8s linear infinite;
+}
+.animate-arc-spin-reverse {
+  animation: arc-spin 12s linear infinite reverse;
+}
+
+/* Card hover glow */
+.card-glow {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.card-glow:hover {
+  box-shadow: 0 0 20px -8px hsl(var(--cyan) / 0.3);
+  border-color: hsl(var(--cyan) / 0.2);
 }

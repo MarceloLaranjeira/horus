@@ -64,6 +64,10 @@ export default {
           red: "hsl(var(--nectar-red))",
           orange: "hsl(var(--nectar-orange))",
         },
+        cyan: {
+          DEFAULT: "hsl(var(--cyan))",
+          glow: "hsl(var(--cyan-glow))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
