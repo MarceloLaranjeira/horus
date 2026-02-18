@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Mic, MicOff, Sparkles, Loader2 } from "lucide-react";
+import { Send, Mic, MicOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
+import { motion, AnimatePresence } from "framer-motion";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
@@ -20,16 +21,39 @@ const welcomeMessage: Message = {
     "Olá! 👋 Eu sou o **AuraTask**, seu assistente pessoal com IA. Posso te ajudar a organizar tarefas, hábitos, finanças, lembretes e muito mais. Como posso te ajudar hoje?",
 };
 
+/** Animated globe avatar inspired by Jarvis/Iron Man */
+const AuraGlobe = ({ isThinking }: { isThinking: boolean }) => (
+  <div className="relative w-10 h-10 shrink-0">
+    {/* Outer ring */}
+    <div className={cn(
+      "absolute inset-0 rounded-full border border-primary/40",
+      isThinking ? "animate-arc-spin" : "animate-globe-rotate"
+    )} />
+    {/* Middle ring */}
+    <div className={cn(
+      "absolute inset-1 rounded-full border border-primary/30",
+      isThinking ? "animate-arc-spin-reverse" : ""
+    )} />
+    {/* Core glow */}
+    <div className={cn(
+      "absolute inset-2 rounded-full bg-primary/20 flex items-center justify-center",
+      isThinking && "animate-globe-pulse"
+    )}>
+      <div className="w-3 h-3 rounded-full bg-primary/60 shadow-[0_0_10px_2px_hsl(var(--cyan)/0.5)]" />
+    </div>
+    {/* Outer glow effect */}
+    <div className="absolute -inset-1 rounded-full bg-primary/5 blur-sm" />
+  </div>
+);
+
 export const ChatView = () => {
   const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (scrollRef.current) {
       const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
@@ -47,12 +71,7 @@ export const ChatView = () => {
     setInput("");
     setIsLoading(true);
 
-    // Only send role+content (no welcome message metadata)
-    const apiMessages = updatedMessages.map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
-
+    const apiMessages = updatedMessages.map((m) => ({ role: m.role, content: m.content }));
     let assistantSoFar = "";
 
     const upsertAssistant = (chunk: string) => {
@@ -60,9 +79,7 @@ export const ChatView = () => {
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (last?.role === "assistant" && prev.length > updatedMessages.length) {
-          return prev.map((m, i) =>
-            i === prev.length - 1 ? { ...m, content: assistantSoFar } : m
-          );
+          return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
         }
         return [...prev, { role: "assistant", content: assistantSoFar }];
       });
@@ -82,7 +99,6 @@ export const ChatView = () => {
         const err = await resp.json().catch(() => ({ error: "Erro desconhecido" }));
         throw new Error(err.error || `Erro ${resp.status}`);
       }
-
       if (!resp.body) throw new Error("Stream não disponível");
 
       const reader = resp.body.getReader();
@@ -99,17 +115,11 @@ export const ChatView = () => {
         while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
           let line = textBuffer.slice(0, newlineIndex);
           textBuffer = textBuffer.slice(newlineIndex + 1);
-
           if (line.endsWith("\r")) line = line.slice(0, -1);
           if (line.startsWith(":") || line.trim() === "") continue;
           if (!line.startsWith("data: ")) continue;
-
           const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") {
-            streamDone = true;
-            break;
-          }
-
+          if (jsonStr === "[DONE]") { streamDone = true; break; }
           try {
             const parsed = JSON.parse(jsonStr);
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
@@ -121,7 +131,6 @@ export const ChatView = () => {
         }
       }
 
-      // Final flush
       if (textBuffer.trim()) {
         for (let raw of textBuffer.split("\n")) {
           if (!raw) continue;
@@ -139,11 +148,7 @@ export const ChatView = () => {
       }
     } catch (e: any) {
       console.error("Chat error:", e);
-      toast({
-        title: "Erro no chat",
-        description: e.message || "Não foi possível obter resposta da IA.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro no chat", description: e.message, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -151,101 +156,104 @@ export const ChatView = () => {
 
   const toggleVoice = () => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-      toast({ title: "Reconhecimento de voz não suportado neste navegador.", variant: "destructive" });
+      toast({ title: "Voz não suportada neste navegador.", variant: "destructive" });
       return;
     }
-
-    if (isListening) {
-      setIsListening(false);
-      return;
-    }
-
+    if (isListening) { setIsListening(false); return; }
     setIsListening(true);
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = "pt-BR";
     recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(transcript);
-      setIsListening(false);
-    };
-
+    recognition.onresult = (event: any) => { setInput(event.results[0][0].transcript); setIsListening(false); };
     recognition.onerror = () => setIsListening(false);
     recognition.onend = () => setIsListening(false);
     recognition.start();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full jarvis-grid">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-border flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-          <Sparkles className="w-4 h-4 text-primary" />
-        </div>
+      <div className="px-6 py-4 border-b border-border/50 flex items-center gap-4 bg-card/50 backdrop-blur-sm">
+        <AuraGlobe isThinking={isLoading} />
         <div>
-          <h2 className="font-semibold text-sm">Chat com AuraTask IA</h2>
-          <p className="text-xs text-muted-foreground">Assistente pessoal inteligente · Gemini 3 Flash</p>
+          <h2 className="font-semibold text-sm text-gradient-cyan">AuraTask IA</h2>
+          <p className="text-xs text-muted-foreground">Assistente pessoal · Gemini 3 Flash</p>
         </div>
+        {isLoading && (
+          <div className="ml-auto flex items-center gap-2 text-xs text-primary/70">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            Processando...
+          </div>
+        )}
       </div>
 
       {/* Messages */}
       <ScrollArea className="flex-1 px-6 py-4" ref={scrollRef}>
         <div className="max-w-3xl mx-auto space-y-4">
-          {messages.map((msg, i) => (
-            <div key={i} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
-              <div
-                className={cn(
-                  "max-w-[80%] rounded-2xl px-4 py-3 text-sm",
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-md"
-                    : "bg-secondary border border-border rounded-bl-md"
-                )}
+          <AnimatePresence initial={false}>
+            {messages.map((msg, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}
               >
-                {msg.role === "assistant" ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
-                ) : (
-                  msg.content
-                )}
-              </div>
-            </div>
-          ))}
+                {msg.role === "assistant" && <AuraGlobe isThinking={false} />}
+                <div
+                  className={cn(
+                    "max-w-[75%] rounded-2xl px-4 py-3 text-sm",
+                    msg.role === "user"
+                      ? "bg-primary/15 border border-primary/30 text-foreground rounded-br-md"
+                      : "bg-card border border-border/50 rounded-bl-md"
+                  )}
+                >
+                  {msg.role === "assistant" ? (
+                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-primary prose-headings:text-primary">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    msg.content
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
           {isLoading && messages[messages.length - 1]?.role === "user" && (
-            <div className="flex justify-start">
-              <div className="bg-secondary border border-border rounded-2xl rounded-bl-md px-4 py-3">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" />
-                  <span className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.1s]" />
-                  <span className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.2s]" />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex gap-3 justify-start"
+            >
+              <AuraGlobe isThinking={true} />
+              <div className="bg-card border border-border/50 rounded-2xl rounded-bl-md px-4 py-3">
+                <div className="flex gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce" />
+                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0.15s]" />
+                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0.3s]" />
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
       </ScrollArea>
 
       {/* Input */}
-      <div className="px-6 py-4 border-t border-border">
+      <div className="px-6 py-4 border-t border-border/50 bg-card/30 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto flex items-end gap-2">
           <div className="flex-1 relative">
             <Textarea
-              ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Digite sua mensagem..."
-              className="min-h-[44px] max-h-[120px] resize-none bg-secondary border-border pr-2"
+              placeholder="Fale com o AuraTask..."
+              className="min-h-[44px] max-h-[120px] resize-none bg-secondary/50 border-border/50 focus:border-primary/50 focus:shadow-[0_0_15px_-5px_hsl(var(--cyan)/0.3)] transition-shadow pr-2"
               rows={1}
             />
           </div>
@@ -253,11 +261,21 @@ export const ChatView = () => {
             variant="ghost"
             size="icon"
             onClick={toggleVoice}
-            className={cn("shrink-0", isListening ? "text-destructive animate-pulse" : "text-muted-foreground")}
+            className={cn(
+              "shrink-0 transition-all",
+              isListening
+                ? "text-destructive animate-pulse shadow-[0_0_15px_-3px_hsl(0_84%_60%/0.5)]"
+                : "text-muted-foreground hover:text-primary"
+            )}
           >
             {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </Button>
-          <Button size="icon" onClick={handleSend} disabled={!input.trim() || isLoading} className="shrink-0">
+          <Button
+            size="icon"
+            onClick={handleSend}
+            disabled={!input.trim() || isLoading}
+            className="shrink-0 glow-cyan bg-primary text-primary-foreground hover:bg-primary/90"
+          >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </Button>
         </div>

@@ -70,8 +70,9 @@ interface NavCategory {
 
 const navCategories: NavCategory[] = [
   {
-    label: "Assistente",
+    label: "Principal",
     items: [
+      { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
       { id: "chat", icon: MessageSquare, label: "Chat IA" },
     ],
   },

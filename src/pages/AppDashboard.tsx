@@ -6,9 +6,11 @@ import { HabitsView } from "@/components/app/HabitsView";
 import { FinancesView } from "@/components/app/FinancesView";
 import { RemindersView } from "@/components/app/RemindersView";
 import { ProjectsView } from "@/components/app/ProjectsView";
+import { DashboardView } from "@/components/app/DashboardView";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 export type AppView =
+  | "dashboard"
   | "chat"
   | "tasks" | "tasks-today" | "tasks-overdue" | "tasks-completed"
   | "habits" | "habits-stats"
@@ -18,25 +20,26 @@ export type AppView =
   | "settings" | "settings-profile" | "settings-notifications" | "settings-appearance";
 
 const AppDashboard = () => {
-  const [activeView, setActiveView] = useState<AppView>("chat");
+  const [activeView, setActiveView] = useState<AppView>("dashboard");
 
   const renderView = () => {
-    // Group sub-views to their parent view component
+    if (activeView === "dashboard") return <DashboardView onNavigate={setActiveView} />;
+    if (activeView === "chat") return <ChatView />;
     if (activeView.startsWith("tasks")) return <TasksView subView={activeView} />;
     if (activeView.startsWith("habits")) return <HabitsView subView={activeView} />;
     if (activeView.startsWith("finances")) return <FinancesView subView={activeView} />;
     if (activeView.startsWith("reminders")) return <RemindersView subView={activeView} />;
     if (activeView.startsWith("projects")) return <ProjectsView subView={activeView} />;
     if (activeView.startsWith("settings")) return <SettingsPlaceholder subView={activeView} />;
-    return <ChatView />;
+    return <DashboardView onNavigate={setActiveView} />;
   };
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full">
+      <div className="flex min-h-screen w-full bg-gradient-dark">
         <AppSidebar activeView={activeView} onViewChange={setActiveView} />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="h-12 flex items-center border-b border-border px-2 shrink-0">
+          <header className="h-12 flex items-center border-b border-border/50 px-2 shrink-0 bg-card/30 backdrop-blur-sm">
             <SidebarTrigger />
           </header>
           <main className="flex-1 overflow-hidden">
@@ -48,7 +51,6 @@ const AppDashboard = () => {
   );
 };
 
-// Placeholder for settings views
 const SettingsPlaceholder = ({ subView }: { subView: string }) => {
   const labels: Record<string, string> = {
     settings: "Configurações Gerais",
