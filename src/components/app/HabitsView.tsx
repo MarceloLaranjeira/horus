@@ -12,7 +12,7 @@ const habits = [
   { id: 6, title: "Praticar violão", streak: 0, best: 12, progress: 0, goal: 25 },
 ];
 
-export const HabitsView = () => {
+export const HabitsView = ({ subView }: { subView?: string }) => {
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-border flex items-center gap-3">

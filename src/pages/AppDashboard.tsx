@@ -8,21 +8,27 @@ import { RemindersView } from "@/components/app/RemindersView";
 import { ProjectsView } from "@/components/app/ProjectsView";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
-export type AppView = "chat" | "tasks" | "habits" | "finances" | "reminders" | "projects";
+export type AppView =
+  | "chat"
+  | "tasks" | "tasks-today" | "tasks-overdue" | "tasks-completed"
+  | "habits" | "habits-stats"
+  | "reminders" | "reminders-upcoming" | "reminders-overdue"
+  | "finances" | "finances-income" | "finances-expenses" | "finances-budget"
+  | "projects" | "projects-kanban" | "projects-calendar"
+  | "settings" | "settings-profile" | "settings-notifications" | "settings-appearance";
 
 const AppDashboard = () => {
   const [activeView, setActiveView] = useState<AppView>("chat");
 
   const renderView = () => {
-    switch (activeView) {
-      case "chat": return <ChatView />;
-      case "tasks": return <TasksView />;
-      case "habits": return <HabitsView />;
-      case "finances": return <FinancesView />;
-      case "reminders": return <RemindersView />;
-      case "projects": return <ProjectsView />;
-      default: return <ChatView />;
-    }
+    // Group sub-views to their parent view component
+    if (activeView.startsWith("tasks")) return <TasksView subView={activeView} />;
+    if (activeView.startsWith("habits")) return <HabitsView subView={activeView} />;
+    if (activeView.startsWith("finances")) return <FinancesView subView={activeView} />;
+    if (activeView.startsWith("reminders")) return <RemindersView subView={activeView} />;
+    if (activeView.startsWith("projects")) return <ProjectsView subView={activeView} />;
+    if (activeView.startsWith("settings")) return <SettingsPlaceholder subView={activeView} />;
+    return <ChatView />;
   };
 
   return (
@@ -39,6 +45,22 @@ const AppDashboard = () => {
         </div>
       </div>
     </SidebarProvider>
+  );
+};
+
+// Placeholder for settings views
+const SettingsPlaceholder = ({ subView }: { subView: string }) => {
+  const labels: Record<string, string> = {
+    settings: "Configurações Gerais",
+    "settings-profile": "Perfil do Usuário",
+    "settings-notifications": "Notificações",
+    "settings-appearance": "Aparência",
+  };
+  return (
+    <div className="flex flex-col h-full items-center justify-center text-muted-foreground">
+      <p className="text-lg font-semibold text-foreground mb-2">{labels[subView] || "Configurações"}</p>
+      <p className="text-sm">Em breve disponível</p>
+    </div>
   );
 };
 

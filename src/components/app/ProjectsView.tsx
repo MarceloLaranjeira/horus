@@ -17,7 +17,7 @@ const statusColors: Record<string, string> = {
   cancelado: "text-destructive bg-destructive/10",
 };
 
-export const ProjectsView = () => {
+export const ProjectsView = ({ subView }: { subView?: string }) => {
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-border flex items-center gap-3">

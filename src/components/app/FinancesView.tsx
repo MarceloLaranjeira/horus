@@ -15,7 +15,7 @@ const transactions = [
 const totalIncome = transactions.filter(t => t.type === "income").reduce((a, t) => a + t.amount, 0);
 const totalExpense = transactions.filter(t => t.type === "expense").reduce((a, t) => a + Math.abs(t.amount), 0);
 
-export const FinancesView = () => {
+export const FinancesView = ({ subView }: { subView?: string }) => {
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-border flex items-center gap-3">
