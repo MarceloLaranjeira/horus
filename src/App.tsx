@@ -6,8 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { AISettingsProvider } from "@/hooks/useAISettings";
 import { ProtectedRoute } from "@/components/app/ProtectedRoute";
-import LandingPage from "./pages/LandingPage";
 import AppDashboard from "./pages/AppDashboard";
+import { Navigate } from "react-router-dom";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
@@ -23,7 +23,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<LandingPage />} />
+              <Route path="/" element={<Navigate to="/app" replace />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/app" element={<ProtectedRoute><AppDashboard /></ProtectedRoute>} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
