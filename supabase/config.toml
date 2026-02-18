@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.elevenlabs-tts]
 verify_jwt = false
+
+[functions.test-google-calendar]
+verify_jwt = false
+
+[functions.test-evolution-api]
+verify_jwt = false
