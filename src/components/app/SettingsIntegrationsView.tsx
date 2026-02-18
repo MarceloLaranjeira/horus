@@ -8,14 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Calendar, MessageCircle, Eye, EyeOff, Loader2, Wifi, WifiOff, CheckCircle2, XCircle } from "lucide-react";
+import { Calendar, MessageCircle, Eye, EyeOff, Loader2, Wifi, CheckCircle2, XCircle } from "lucide-react";
 
 interface IntegrationConfig {
-  google_calendar: {
-    client_id: string;
-    client_secret: string;
-    enabled: boolean;
-  };
   evolution_api: {
     api_url: string;
     api_key: string;
@@ -25,7 +20,6 @@ interface IntegrationConfig {
 }
 
 const defaultConfig: IntegrationConfig = {
-  google_calendar: { client_id: "", client_secret: "", enabled: false },
   evolution_api: { api_url: "", api_key: "", instance_name: "", enabled: false },
 };
 
@@ -37,8 +31,6 @@ export const SettingsIntegrationsView = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
-  const [gcTestStatus, setGcTestStatus] = useState<TestStatus>("idle");
-  const [gcTestMsg, setGcTestMsg] = useState("");
   const [evoTestStatus, setEvoTestStatus] = useState<TestStatus>("idle");
   const [evoTestMsg, setEvoTestMsg] = useState("");
 
@@ -53,9 +45,6 @@ export const SettingsIntegrationsView = () => {
       if (data) {
         const newConfig = { ...defaultConfig };
         data.forEach((row: any) => {
-          if (row.integration_type === "google_calendar") {
-            newConfig.google_calendar = { ...newConfig.google_calendar, ...row.credentials, enabled: row.enabled };
-          }
           if (row.integration_type === "evolution_api") {
             newConfig.evolution_api = { ...newConfig.evolution_api, ...row.credentials, enabled: row.enabled };
           }
@@ -67,20 +56,20 @@ export const SettingsIntegrationsView = () => {
     load();
   }, [user]);
 
-  const saveIntegration = async (type: "google_calendar" | "evolution_api") => {
+  const saveIntegration = async () => {
     if (!user) return;
     setSaving(true);
 
-    const integrationData = type === "google_calendar"
-      ? { client_id: config.google_calendar.client_id, client_secret: config.google_calendar.client_secret }
-      : { api_url: config.evolution_api.api_url, api_key: config.evolution_api.api_key, instance_name: config.evolution_api.instance_name };
-
-    const enabled = type === "google_calendar" ? config.google_calendar.enabled : config.evolution_api.enabled;
+    const integrationData = {
+      api_url: config.evolution_api.api_url,
+      api_key: config.evolution_api.api_key,
+      instance_name: config.evolution_api.instance_name,
+    };
 
     const { error } = await supabase
       .from("user_integrations")
       .upsert(
-        { user_id: user.id, integration_type: type, credentials: integrationData, enabled },
+        { user_id: user.id, integration_type: "evolution_api", credentials: integrationData, enabled: config.evolution_api.enabled },
         { onConflict: "user_id,integration_type" }
       );
 
@@ -92,42 +81,11 @@ export const SettingsIntegrationsView = () => {
     setSaving(false);
   };
 
-  const testGoogleCalendar = async () => {
-    setGcTestStatus("testing");
-    setGcTestMsg("");
-    try {
-      // Save first
-      await saveIntegration("google_calendar");
-
-      const { data, error } = await supabase.functions.invoke("test-google-calendar", {
-        body: { action: "test" },
-      });
-
-      if (error) {
-        setGcTestStatus("error");
-        setGcTestMsg(error.message || "Erro ao testar conexão");
-        return;
-      }
-
-      if (data?.success) {
-        setGcTestStatus("success");
-        setGcTestMsg(data.message);
-      } else {
-        setGcTestStatus("error");
-        setGcTestMsg(data?.error || "Falha na validação");
-      }
-    } catch (e: any) {
-      setGcTestStatus("error");
-      setGcTestMsg(e.message || "Erro inesperado");
-    }
-  };
-
   const testEvolutionApi = async () => {
     setEvoTestStatus("testing");
     setEvoTestMsg("");
     try {
-      // Save first
-      await saveIntegration("evolution_api");
+      await saveIntegration();
 
       const { data, error } = await supabase.functions.invoke("test-evolution-api", {
         body: { action: "test" },
@@ -176,63 +134,24 @@ export const SettingsIntegrationsView = () => {
         <p className="text-muted-foreground">Configure suas credenciais para conectar serviços externos.</p>
       </div>
 
-      {/* Google Calendar */}
+      {/* Google Calendar - OAuth gerenciado */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Calendar className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Google Calendar</CardTitle>
-                <CardDescription>Sincronize seus eventos e compromissos</CardDescription>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Calendar className="w-5 h-5 text-primary" />
             </div>
-            <Switch
-              checked={config.google_calendar.enabled}
-              onCheckedChange={(v) => setConfig((p) => ({ ...p, google_calendar: { ...p.google_calendar, enabled: v } }))}
-            />
+            <div>
+              <CardTitle className="text-lg">Google Calendar</CardTitle>
+              <CardDescription>Autenticação gerenciada via login com Google — nenhuma configuração manual necessária.</CardDescription>
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Client ID</Label>
-            <Input
-              value={config.google_calendar.client_id}
-              onChange={(e) => setConfig((p) => ({ ...p, google_calendar: { ...p.google_calendar, client_id: e.target.value } }))}
-              placeholder="seu-client-id.apps.googleusercontent.com"
-            />
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-primary" />
+            <span className="text-sm text-muted-foreground">Conectado automaticamente ao fazer login com Google.</span>
           </div>
-          <div className="space-y-2">
-            <Label>Client Secret</Label>
-            <div className="relative">
-              <Input
-                type={showSecrets.gc_secret ? "text" : "password"}
-                value={config.google_calendar.client_secret}
-                onChange={(e) => setConfig((p) => ({ ...p, google_calendar: { ...p.google_calendar, client_secret: e.target.value } }))}
-                placeholder="••••••••••••"
-              />
-              <button type="button" onClick={() => toggleSecret("gc_secret")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                {showSecrets.gc_secret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button onClick={() => saveIntegration("google_calendar")} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Salvar
-            </Button>
-            <Button variant="outline" onClick={testGoogleCalendar} disabled={gcTestStatus === "testing"}>
-              {gcTestStatus === "testing" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wifi className="w-4 h-4 mr-2" />}
-              Testar Conexão
-            </Button>
-          </div>
-          {gcTestStatus !== "idle" && (
-            <div className="pt-2">
-              <TestResultBadge status={gcTestStatus} message={gcTestMsg} />
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -287,7 +206,7 @@ export const SettingsIntegrationsView = () => {
             />
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <Button onClick={() => saveIntegration("evolution_api")} disabled={saving}>
+            <Button onClick={saveIntegration} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Salvar
             </Button>
