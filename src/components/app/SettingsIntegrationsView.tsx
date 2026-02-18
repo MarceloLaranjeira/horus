@@ -5,38 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Calendar, MessageCircle, Eye, EyeOff, Loader2, Wifi, CheckCircle2, XCircle, QrCode, Smartphone, Settings } from "lucide-react";
+import { Calendar, MessageCircle, Loader2, CheckCircle2, XCircle, QrCode, Smartphone, Wifi } from "lucide-react";
 
-interface IntegrationConfig {
-  evolution_api: {
-    api_url: string;
-    api_key: string;
-    instance_name: string;
-    enabled: boolean;
-  };
-}
-
-const defaultConfig: IntegrationConfig = {
-  evolution_api: { api_url: "", api_key: "", instance_name: "", enabled: false },
-};
-
-type TestStatus = "idle" | "testing" | "success" | "error";
+type ConnectionStatus = "idle" | "checking" | "connected" | "disconnected" | "error";
 
 export const SettingsIntegrationsView = () => {
   const { user } = useAuth();
-  const [config, setConfig] = useState<IntegrationConfig>(defaultConfig);
+  const [serverUrl, setServerUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
-  const [evoTestStatus, setEvoTestStatus] = useState<TestStatus>("idle");
-  const [evoTestMsg, setEvoTestMsg] = useState("");
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("idle");
+  const [connectionMsg, setConnectionMsg] = useState("");
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrError, setQrError] = useState("");
 
@@ -46,85 +31,81 @@ export const SettingsIntegrationsView = () => {
       const { data } = await supabase
         .from("user_integrations")
         .select("*")
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .eq("integration_type", "whatsapp_server")
+        .maybeSingle();
 
-      if (data) {
-        const newConfig = { ...defaultConfig };
-        data.forEach((row: any) => {
-          if (row.integration_type === "evolution_api") {
-            newConfig.evolution_api = { ...newConfig.evolution_api, ...row.credentials, enabled: row.enabled };
-          }
-        });
-        setConfig(newConfig);
+      if (data?.credentials) {
+        const creds = data.credentials as { server_url?: string };
+        setServerUrl(creds.server_url || "");
       }
       setLoading(false);
     };
     load();
   }, [user]);
 
-  const saveIntegration = async () => {
+  const saveServerUrl = async () => {
     if (!user) return;
     setSaving(true);
-
-    const integrationData = {
-      api_url: config.evolution_api.api_url,
-      api_key: config.evolution_api.api_key,
-      instance_name: config.evolution_api.instance_name,
-    };
-
     const { error } = await supabase
       .from("user_integrations")
       .upsert(
-        { user_id: user.id, integration_type: "evolution_api", credentials: integrationData, enabled: config.evolution_api.enabled },
+        {
+          user_id: user.id,
+          integration_type: "whatsapp_server",
+          credentials: { server_url: serverUrl },
+          enabled: true,
+        },
         { onConflict: "user_id,integration_type" }
       );
 
     if (error) {
       toast.error("Erro ao salvar: " + error.message);
     } else {
-      toast.success("Integração salva com sucesso!");
+      toast.success("URL do servidor salva!");
     }
     setSaving(false);
   };
 
-  const testEvolutionApi = async () => {
-    setEvoTestStatus("testing");
-    setEvoTestMsg("");
+  const checkStatus = async () => {
+    setConnectionStatus("checking");
+    setConnectionMsg("");
     try {
-      await saveIntegration();
-
-      const { data, error } = await supabase.functions.invoke("test-evolution-api", {
-        body: { action: "test" },
+      await saveServerUrl();
+      const { data, error } = await supabase.functions.invoke("whatsapp", {
+        body: { action: "status" },
       });
 
       if (error) {
-        setEvoTestStatus("error");
-        setEvoTestMsg(error.message || "Erro ao testar conexão");
+        setConnectionStatus("error");
+        setConnectionMsg(error.message);
         return;
       }
 
-      if (data?.success) {
-        setEvoTestStatus("success");
-        setEvoTestMsg(data.message + (data.instances ? ` (${data.instances} instância(s) encontrada(s))` : ""));
+      if (data?.success && data?.connected) {
+        setConnectionStatus("connected");
+        setConnectionMsg("WhatsApp conectado!");
+      } else if (data?.success) {
+        setConnectionStatus("disconnected");
+        setConnectionMsg("Servidor online, WhatsApp desconectado");
       } else {
-        setEvoTestStatus("error");
-        setEvoTestMsg(data?.error || "Falha na conexão");
+        setConnectionStatus("error");
+        setConnectionMsg(data?.error || "Falha na conexão");
       }
     } catch (e: any) {
-      setEvoTestStatus("error");
-      setEvoTestMsg(e.message || "Erro inesperado");
+      setConnectionStatus("error");
+      setConnectionMsg(e.message || "Erro inesperado");
     }
   };
-
-  const toggleSecret = (key: string) => setShowSecrets((p) => ({ ...p, [key]: !p[key] }));
 
   const fetchQrCode = useCallback(async () => {
     setQrLoading(true);
     setQrError("");
     setQrCode(null);
+    setPairingCode(null);
     try {
-      await saveIntegration();
-      const { data, error } = await supabase.functions.invoke("test-evolution-api", {
+      await saveServerUrl();
+      const { data, error } = await supabase.functions.invoke("whatsapp", {
         body: { action: "get_qrcode" },
       });
 
@@ -133,39 +114,45 @@ export const SettingsIntegrationsView = () => {
         return;
       }
 
-      if (data?.success) {
-        // Evolution API returns base64 QR or pairingCode
-        const qrBase64 = data.data?.base64 || data.data?.qrcode?.base64 || data.data?.qr || null;
-        const pairingCode = data.data?.pairingCode || data.data?.code || null;
+      if (data?.alreadyConnected) {
+        setQrError("");
+        setQrCode(null);
+        setPairingCode(null);
+        toast.success("WhatsApp já está conectado!");
+        setQrDialogOpen(false);
+        setConnectionStatus("connected");
+        setConnectionMsg("WhatsApp conectado!");
+        return;
+      }
 
-        if (qrBase64) {
-          // If it's already a data URI, use as-is; otherwise prepend
-          setQrCode(qrBase64.startsWith("data:") ? qrBase64 : `data:image/png;base64,${qrBase64}`);
-        } else if (pairingCode) {
-          setQrCode(pairingCode);
-        } else {
-          setQrError("QR Code não disponível. A instância pode já estar conectada.");
-        }
+      if (data?.success && data?.qr) {
+        setQrCode(data.qr);
+      } else if (data?.success && data?.pairingCode) {
+        setPairingCode(data.pairingCode);
       } else {
-        setQrError(data?.error || "Falha ao gerar QR Code");
+        setQrError(data?.error || "QR Code não disponível");
       }
     } catch (e: any) {
       setQrError(e.message || "Erro inesperado");
     } finally {
       setQrLoading(false);
     }
-  }, [config]);
+  }, [serverUrl, user]);
 
   const openQrDialog = () => {
     setQrDialogOpen(true);
     fetchQrCode();
   };
 
-  const TestResultBadge = ({ status, message }: { status: TestStatus; message: string }) => {
-    if (status === "idle") return null;
-    if (status === "testing") return <Badge variant="secondary" className="gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Testando...</Badge>;
-    if (status === "success") return <Badge variant="default" className="gap-1 bg-primary"><CheckCircle2 className="w-3 h-3" /> {message}</Badge>;
-    return <Badge variant="destructive" className="gap-1"><XCircle className="w-3 h-3" /> {message}</Badge>;
+  const StatusBadge = () => {
+    if (connectionStatus === "idle") return null;
+    if (connectionStatus === "checking")
+      return <Badge variant="secondary" className="gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Verificando...</Badge>;
+    if (connectionStatus === "connected")
+      return <Badge variant="default" className="gap-1 bg-primary"><CheckCircle2 className="w-3 h-3" /> {connectionMsg}</Badge>;
+    if (connectionStatus === "disconnected")
+      return <Badge variant="secondary" className="gap-1"><Wifi className="w-3 h-3" /> {connectionMsg}</Badge>;
+    return <Badge variant="destructive" className="gap-1"><XCircle className="w-3 h-3" /> {connectionMsg}</Badge>;
   };
 
   if (loading) {
@@ -180,10 +167,10 @@ export const SettingsIntegrationsView = () => {
     <div className="h-full overflow-y-auto p-4 md:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Integrações</h1>
-        <p className="text-muted-foreground">Configure suas credenciais para conectar serviços externos.</p>
+        <p className="text-muted-foreground">Configure suas conexões com serviços externos.</p>
       </div>
 
-      {/* Google Calendar - OAuth gerenciado */}
+      {/* Google Calendar */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -204,97 +191,54 @@ export const SettingsIntegrationsView = () => {
         </CardContent>
       </Card>
 
-      {/* Evolution API (WhatsApp) */}
+      {/* WhatsApp */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-accent">
-                <MessageCircle className="w-5 h-5 text-accent-foreground" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">WhatsApp (Evolution API)</CardTitle>
-                <CardDescription>Envie e receba mensagens pelo WhatsApp</CardDescription>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-accent">
+              <MessageCircle className="w-5 h-5 text-accent-foreground" />
             </div>
-            <Switch
-              checked={config.evolution_api.enabled}
-              onCheckedChange={(v) => setConfig((p) => ({ ...p, evolution_api: { ...p.evolution_api, enabled: v } }))}
-            />
+            <div>
+              <CardTitle className="text-lg">WhatsApp</CardTitle>
+              <CardDescription>Conecte seu WhatsApp via servidor whatsapp-web.js</CardDescription>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>URL do servidor</Label>
+            <div className="flex gap-2">
+              <Input
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+                placeholder="https://meu-servidor-whatsapp.com"
+                className="flex-1"
+              />
+              <Button variant="outline" size="sm" onClick={saveServerUrl} disabled={saving || !serverUrl}>
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Informe a URL do seu servidor com whatsapp-web.js (endpoints: /qr, /status, /send)
+            </p>
+          </div>
+
           <div className="flex items-center gap-3 flex-wrap">
-            <Button
-              onClick={openQrDialog}
-              disabled={!config.evolution_api.instance_name || !config.evolution_api.api_url || !config.evolution_api.api_key}
-            >
+            <Button onClick={openQrDialog} disabled={!serverUrl}>
               <QrCode className="w-4 h-4 mr-2" />
               Conectar WhatsApp
             </Button>
-            <Button variant="outline" onClick={testEvolutionApi} disabled={evoTestStatus === "testing"}>
-              {evoTestStatus === "testing" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wifi className="w-4 h-4 mr-2" />}
-              Testar Conexão
+            <Button variant="outline" onClick={checkStatus} disabled={!serverUrl || connectionStatus === "checking"}>
+              {connectionStatus === "checking" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wifi className="w-4 h-4 mr-2" />}
+              Verificar Status
             </Button>
           </div>
-          {evoTestStatus !== "idle" && (
-            <div className="pt-2">
-              <TestResultBadge status={evoTestStatus} message={evoTestMsg} />
+
+          {connectionStatus !== "idle" && (
+            <div className="pt-1">
+              <StatusBadge />
             </div>
           )}
-
-          {(!config.evolution_api.api_url || !config.evolution_api.api_key || !config.evolution_api.instance_name) && (
-            <div className="rounded-lg border border-border bg-muted/50 p-3">
-              <p className="text-sm text-muted-foreground">
-                Configure suas credenciais da Evolution API abaixo para habilitar a conexão.
-              </p>
-            </div>
-          )}
-
-          <Collapsible>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
-                <Settings className="w-4 h-4" />
-                Configuração avançada
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-4 pt-3">
-              <div className="space-y-2">
-                <Label>URL da API</Label>
-                <Input
-                  value={config.evolution_api.api_url}
-                  onChange={(e) => setConfig((p) => ({ ...p, evolution_api: { ...p.evolution_api, api_url: e.target.value } }))}
-                  placeholder="https://sua-instancia.evolution-api.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>API Key</Label>
-                <div className="relative">
-                  <Input
-                    type={showSecrets.evo_key ? "text" : "password"}
-                    value={config.evolution_api.api_key}
-                    onChange={(e) => setConfig((p) => ({ ...p, evolution_api: { ...p.evolution_api, api_key: e.target.value } }))}
-                    placeholder="••••••••••••"
-                  />
-                  <button type="button" onClick={() => toggleSecret("evo_key")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                    {showSecrets.evo_key ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Nome da Instância</Label>
-                <Input
-                  value={config.evolution_api.instance_name}
-                  onChange={(e) => setConfig((p) => ({ ...p, evolution_api: { ...p.evolution_api, instance_name: e.target.value } }))}
-                  placeholder="minha-instancia"
-                />
-              </div>
-              <Button onClick={saveIntegration} disabled={saving} size="sm">
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Salvar credenciais
-              </Button>
-            </CollapsibleContent>
-          </Collapsible>
         </CardContent>
       </Card>
 
@@ -307,7 +251,7 @@ export const SettingsIntegrationsView = () => {
               Conectar WhatsApp
             </DialogTitle>
             <DialogDescription>
-              Escaneie o QR Code abaixo com o WhatsApp no seu celular para conectar.
+              Escaneie o QR Code abaixo com o WhatsApp no seu celular.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center gap-4 py-4">
@@ -328,22 +272,30 @@ export const SettingsIntegrationsView = () => {
             )}
             {qrCode && !qrLoading && !qrError && (
               <>
-                {qrCode.startsWith("data:") ? (
-                  <div className="bg-white p-4 rounded-xl">
-                    <img src={qrCode} alt="WhatsApp QR Code" className="w-64 h-64 object-contain" />
-                  </div>
-                ) : (
-                  <div className="text-center space-y-2">
-                    <p className="text-sm text-muted-foreground">Código de pareamento:</p>
-                    <p className="text-2xl font-mono font-bold tracking-widest">{qrCode}</p>
-                  </div>
-                )}
+                <div className="bg-white p-4 rounded-xl">
+                  <img src={qrCode} alt="WhatsApp QR Code" className="w-64 h-64 object-contain" />
+                </div>
                 <p className="text-xs text-muted-foreground text-center max-w-xs">
                   Abra o WhatsApp → Menu (⋮) → Aparelhos conectados → Conectar um aparelho
                 </p>
                 <Button variant="outline" size="sm" onClick={fetchQrCode}>
                   <QrCode className="w-4 h-4 mr-2" />
                   Gerar novo QR Code
+                </Button>
+              </>
+            )}
+            {pairingCode && !qrLoading && !qrError && (
+              <>
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">Código de pareamento:</p>
+                  <p className="text-2xl font-mono font-bold tracking-widest">{pairingCode}</p>
+                </div>
+                <p className="text-xs text-muted-foreground text-center max-w-xs">
+                  Abra o WhatsApp → Menu (⋮) → Aparelhos conectados → Conectar com número de telefone
+                </p>
+                <Button variant="outline" size="sm" onClick={fetchQrCode}>
+                  <QrCode className="w-4 h-4 mr-2" />
+                  Gerar novo código
                 </Button>
               </>
             )}
