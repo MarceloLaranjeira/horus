@@ -1,7 +1,19 @@
-import { MessageSquare, CheckSquare, BarChart3, DollarSign, Bell, FolderKanban, Settings, Mic, Sparkles } from "lucide-react";
+import { MessageSquare, CheckSquare, BarChart3, DollarSign, Bell, FolderKanban, Settings } from "lucide-react";
 import aurataskLogo from "@/assets/auratask-logo.png";
-import { cn } from "@/lib/utils";
 import type { AppView } from "@/pages/AppDashboard";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarFooter,
+  SidebarHeader,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
 const navItems: { id: AppView; icon: React.ElementType; label: string }[] = [
   { id: "chat", icon: MessageSquare, label: "Chat IA" },
@@ -18,40 +30,49 @@ interface AppSidebarProps {
 }
 
 export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+
   return (
-    <aside className="w-16 md:w-64 bg-sidebar border-r border-sidebar-border flex flex-col shrink-0">
-      {/* Logo */}
-      <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
-        <img src={aurataskLogo} alt="AuraTask" className="w-9 h-9 rounded-xl object-cover shrink-0" />
-        <span className="font-bold text-lg hidden md:block">AuraTask</span>
-      </div>
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="border-b border-sidebar-border">
+        <div className="flex items-center gap-3 px-2 py-1">
+          <img src={aurataskLogo} alt="AuraTask" className="w-8 h-8 rounded-xl object-cover shrink-0" />
+          {!collapsed && <span className="font-bold text-lg">AuraTask</span>}
+        </div>
+      </SidebarHeader>
 
-      {/* Nav */}
-      <nav className="flex-1 p-2 space-y-1">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onViewChange(item.id)}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all",
-              activeView === item.id
-                ? "bg-sidebar-accent text-sidebar-primary-foreground font-medium"
-                : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-            )}
-          >
-            <item.icon className={cn("w-5 h-5 shrink-0", activeView === item.id && "text-primary")} />
-            <span className="hidden md:block">{item.label}</span>
-          </button>
-        ))}
-      </nav>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navItems.map((item) => (
+                <SidebarMenuItem key={item.id}>
+                  <SidebarMenuButton
+                    onClick={() => onViewChange(item.id)}
+                    isActive={activeView === item.id}
+                    tooltip={item.label}
+                  >
+                    <item.icon className={cn("shrink-0", activeView === item.id && "text-primary")} />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
 
-      {/* Bottom */}
-      <div className="p-2 border-t border-sidebar-border">
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all">
-          <Settings className="w-5 h-5 shrink-0" />
-          <span className="hidden md:block">Configurações</span>
-        </button>
-      </div>
-    </aside>
+      <SidebarFooter className="border-t border-sidebar-border">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Configurações">
+              <Settings className="shrink-0" />
+              <span>Configurações</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
   );
 };

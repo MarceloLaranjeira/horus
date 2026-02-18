@@ -6,6 +6,7 @@ import { HabitsView } from "@/components/app/HabitsView";
 import { FinancesView } from "@/components/app/FinancesView";
 import { RemindersView } from "@/components/app/RemindersView";
 import { ProjectsView } from "@/components/app/ProjectsView";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 export type AppView = "chat" | "tasks" | "habits" | "finances" | "reminders" | "projects";
 
@@ -25,12 +26,19 @@ const AppDashboard = () => {
   };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <AppSidebar activeView={activeView} onViewChange={setActiveView} />
-      <main className="flex-1 overflow-hidden">
-        {renderView()}
-      </main>
-    </div>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full">
+        <AppSidebar activeView={activeView} onViewChange={setActiveView} />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <header className="h-12 flex items-center border-b border-border px-2 shrink-0">
+            <SidebarTrigger />
+          </header>
+          <main className="flex-1 overflow-hidden">
+            {renderView()}
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 };
 
