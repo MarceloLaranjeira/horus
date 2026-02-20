@@ -23,11 +23,10 @@ async function getSupabaseAndUser(req: Request) {
     { global: { headers: { Authorization: authHeader } } }
   );
 
-  const token = authHeader.replace("Bearer ", "");
-  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-  if (claimsError || !claimsData?.claims) throw { status: 401, error: "Unauthorized" };
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) throw { status: 401, error: "Unauthorized" };
 
-  return { supabase, userId: claimsData.claims.sub as string };
+  return { supabase, userId: user.id };
 }
 
 async function getTokens(supabase: any, userId: string) {
@@ -110,6 +109,8 @@ Deno.serve(async (req) => {
       const scope = [
         "https://www.googleapis.com/auth/calendar.readonly",
         "https://www.googleapis.com/auth/calendar.events",
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.send",
       ].join(" ");
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${userId}`;
       return jsonResponse({ success: true, auth_url: authUrl });
