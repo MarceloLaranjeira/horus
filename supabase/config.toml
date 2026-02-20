@@ -9,3 +9,6 @@ verify_jwt = false
 [functions.test-google-calendar]
 verify_jwt = false
 
+[functions.gmail]
+verify_jwt = false
+

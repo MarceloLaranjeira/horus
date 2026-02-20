@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
     if (action === "get_auth_url") {
       // Generate OAuth2 authorization URL
       const redirectUri = body.redirect_uri || `${req.headers.get("origin")}/app`;
-      const scope = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
+      const scope = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send";
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${userId}`;
 
       return new Response(JSON.stringify({ success: true, auth_url: authUrl }), {
