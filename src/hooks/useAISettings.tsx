@@ -48,7 +48,7 @@ const defaultSettings: AISettings = {
   voiceLang: "pt-BR",
   ttsEnabled: false,
   ttsVoiceId: "EXAVITQu4vr4xnSDxMaL",
-  customPrompt: "",
+  customPrompt: "Altere o nome do assistente de AuraTask para Maxx em todas as saudações e referências do chat.",
 };
 
 const STORAGE_KEY = "auratask-ai-settings";
