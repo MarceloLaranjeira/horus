@@ -76,6 +76,29 @@ const tools = [
   },
 ];
 
+const NLU_PROMPT = `Você é um analisador de linguagem natural especializado em extrair intenções e entidades de comandos de usuário.
+
+TAREFA:
+Analise a seguinte mensagem do usuário e extraia:
+1. INTENÇÕES: O que o usuário quer fazer? (ex: criar_tarefa, agendar_evento, registrar_despesa, criar_habito, criar_lembrete)
+2. ENTIDADES: Quais são os detalhes específicos? (ex: nome_tarefa, data, valor, prioridade)
+3. CONTEXTO: Há algum contexto ou nuance importante?
+
+Data de hoje: ${new Date().toISOString().split("T")[0]}
+
+IMPORTANTE: Resolva datas relativas (amanhã, sexta-feira, próxima semana) para datas absolutas no formato YYYY-MM-DD.
+
+FORMATO DE SAÍDA (JSON):
+{
+  "intencoes": ["intencao1", "intencao2"],
+  "entidades": {
+    "entidade1": "valor1",
+    "entidade2": "valor2"
+  },
+  "contexto": "descrição do contexto",
+  "confianca": 0.95
+}`;
+
 function buildSystemPrompt(assistantName: string, customPrompt?: string): string {
   let base = `Você é o ${assistantName}, um assistente pessoal de IA avançado inspirado no Jarvis do Homem de Ferro. Você é inteligente, proativo e amigável.
 
@@ -121,6 +144,47 @@ serve(async (req) => {
         role: "system",
         content: `As seguintes ações foram executadas com sucesso pelo sistema: ${executedActions.join(", ")}. Confirme ao usuário de forma natural e amigável.`,
       });
+    }
+
+    // NLU mode - extract intents and entities
+    if (mode === "nlu") {
+      const lastUserMsg = messages[messages.length - 1]?.content || "";
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: NLU_PROMPT },
+            { role: "user", content: lastUserMsg },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (!response.ok) {
+        const t = await response.text();
+        console.error("AI gateway error (nlu):", response.status, t);
+        return new Response(JSON.stringify({ intencoes: [], entidades: {}, contexto: "", confianca: 0 }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "{}";
+      try {
+        const parsed = JSON.parse(content);
+        return new Response(JSON.stringify(parsed), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch {
+        return new Response(JSON.stringify({ raw: content }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     if (mode === "actions") {
