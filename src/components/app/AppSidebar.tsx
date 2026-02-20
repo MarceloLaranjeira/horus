@@ -64,6 +64,8 @@ const allItems: NavItem[] = [
   { id: "finances-income", icon: TrendingUp, label: "Receitas" },
   { id: "finances-expenses", icon: TrendingDown, label: "Despesas" },
   { id: "finances-budget", icon: Wallet, label: "Orçamento" },
+  { id: "finances-cashflow", icon: BarChart3, label: "Fluxo de Caixa" },
+  { id: "finances-analysis", icon: BarChart3, label: "Análise Financeira" },
   { id: "settings-ai", icon: Bot, label: "Assistente IA" },
   { id: "settings-integrations", icon: Plug, label: "Integrações" },
   { id: "settings-profile", icon: User, label: "Perfil" },

@@ -54,6 +54,16 @@ export const useFinances = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["finances"] }),
   });
 
+  const updateTransaction = useMutation({
+    mutationFn: async (t: { id: string; type?: "income" | "expense"; amount?: number; description?: string; category_id?: string }) => {
+      const { id, ...updates } = t;
+      const { data, error } = await supabase.from("finances").update(updates).eq("id", id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["finances"] }),
+  });
+
   const addCategory = useMutation({
     mutationFn: async (c: { name: string; color?: string }) => {
       const { data, error } = await supabase.from("budget_categories").insert({ ...c, user_id: user!.id }).select().single();
@@ -76,6 +86,7 @@ export const useFinances = () => {
     categories: categories.data ?? [],
     isLoading: query.isLoading,
     addTransaction,
+    updateTransaction,
     addCategory,
     deleteTransaction,
   };
