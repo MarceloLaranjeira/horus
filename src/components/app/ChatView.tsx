@@ -238,21 +238,11 @@ export const ChatView = () => {
         if (msgs && msgs.length > 0) {
           setMessages(msgs.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })));
         } else {
-          const greeting: Message = {
-            role: "assistant",
-            content: `Olá! 👋 Eu sou o **${settings.assistantName}**, seu assistente pessoal com IA.\n\nFale comigo por voz ou texto. Posso criar tarefas, gerenciar hábitos, controlar finanças e muito mais.`,
-          };
-          setMessages([greeting]);
-          await supabase.from("chat_messages").insert({
-            conversation_id: convId,
-            user_id: user.id,
-            role: "assistant",
-            content: greeting.content,
-          });
+          setMessages([]);
         }
       } catch (e) {
         console.error("Error loading conversation:", e);
-        setMessages([{ role: "assistant", content: `Olá! Sou o **${settings.assistantName}**. Como posso ajudar?` }]);
+        setMessages([]);
       } finally {
         setIsLoadingHistory(false);
       }
@@ -503,17 +493,7 @@ export const ChatView = () => {
   const clearChat = async () => {
     if (!user || !conversationId) return;
     await supabase.from("chat_messages").delete().eq("conversation_id", conversationId);
-    const greeting: Message = {
-      role: "assistant",
-      content: `Olá! 👋 Eu sou o **${settings.assistantName}**, seu assistente pessoal com IA.\n\nFale comigo por voz ou texto. Posso criar tarefas, gerenciar hábitos, controlar finanças e muito mais.\n\nComo posso ajudar?`,
-    };
-    setMessages([greeting]);
-    await supabase.from("chat_messages").insert({
-      conversation_id: conversationId,
-      user_id: user.id,
-      role: "assistant",
-      content: greeting.content,
-    });
+    setMessages([]);
     toast({ title: "Chat limpo com sucesso!" });
   };
 
@@ -523,9 +503,9 @@ export const ChatView = () => {
 
   const dismissMenu = (id: string) => setActiveMenus((prev) => prev.filter((m) => m.id !== id));
 
-  const assistantName = settings.assistantName || "AuraTask";
+  const assistantName = settings.assistantName || "Maxx";
   const lastMessage = messages[messages.length - 1];
-  const showGlobeCenter = messages.length <= 1 || (isLoading && lastMessage?.role === "user");
+  const showGlobeCenter = messages.length === 0 || (isLoading && lastMessage?.role === "user");
 
   if (isLoadingHistory) {
     return (
