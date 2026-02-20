@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Settings,
   LogOut,
+  Brain,
 } from "lucide-react";
 import aurataskLogo from "@/assets/auratask-logo.png";
 import type { AppView } from "@/pages/AppDashboard";
@@ -45,6 +46,7 @@ const modulesItems: NavItem[] = [
   { id: "reminders", icon: Bell, label: "Lembretes" },
   { id: "habits", icon: Flame, label: "Hábitos" },
   { id: "finances", icon: DollarSign, label: "Finanças" },
+  { id: "analysis", icon: Brain, label: "Análise Maxx" },
 ];
 
 const settingsItems: NavItem[] = [
