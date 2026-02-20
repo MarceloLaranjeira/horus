@@ -11,6 +11,7 @@ import { SettingsView } from "@/components/app/SettingsView";
 import { AnalysisView } from "@/components/app/AnalysisView";
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { GoogleCalendarOAuthHandler } from "@/components/app/GoogleCalendarOAuthHandler";
 
 export type AppView =
   | "dashboard"
@@ -41,6 +42,7 @@ const AppDashboard = () => {
 
   return (
     <SidebarProvider>
+      <GoogleCalendarOAuthHandler />
       <div className="flex min-h-screen w-full bg-gradient-dark">
         <AppSidebar activeView={activeView} onViewChange={setActiveView} />
         <div className="flex-1 flex flex-col overflow-hidden">

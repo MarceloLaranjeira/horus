@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTasks } from "@/hooks/useTasks";
 import { useFinances } from "@/hooks/useFinances";
 import { useHabits } from "@/hooks/useHabits";
 import { useReminders } from "@/hooks/useReminders";
 import { useProjects } from "@/hooks/useProjects";
+import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import {
   CheckSquare, DollarSign, Flame, Bell, Clock, AlertTriangle, Plus,
   Trash2, Check, X, TrendingUp, TrendingDown, FolderKanban, BarChart3,
+  Calendar, ExternalLink, Loader2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -86,6 +88,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const { habits, tracks, toggleTrack, addHabit, deleteHabit } = useHabits();
   const { reminders, toggleReminder, deleteReminder, addReminder } = useReminders();
   const { projects } = useProjects();
+  const { connected: calConnected, events: calEvents, fetchEvents, loadingEvents } = useGoogleCalendar();
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [showAddTask, setShowAddTask] = useState(false);
@@ -101,6 +104,11 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const today = startOfDay(new Date());
   const todayStr = format(today, "yyyy-MM-dd");
   const todayTracks = tracks.filter((t) => t.track_date === todayStr);
+
+  // Fetch calendar events when connected
+  useEffect(() => {
+    if (calConnected) fetchEvents();
+  }, [calConnected, fetchEvents]);
 
   // Task stats
   const pendingTasks = tasks.filter((t) => t.status !== "done");
@@ -382,6 +390,42 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
           </SectionCard>
 
         </div>
+
+        {/* ===== GOOGLE CALENDAR ===== */}
+        {calConnected && (
+          <SectionCard title="Google Calendar" icon={Calendar} iconColor="hsl(187 100% 50%)" delay={0.38}>
+            {loadingEvents ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Carregando eventos...
+              </div>
+            ) : calEvents.length > 0 ? (
+              <ul className="space-y-2">
+                {calEvents.slice(0, 5).map((event: any, i: number) => {
+                  const startDate = event.start?.dateTime || event.start?.date;
+                  const isAllDay = !event.start?.dateTime;
+                  return (
+                    <li key={event.id || i} className="flex items-center gap-3 text-sm p-2 rounded-lg bg-[hsl(187_100%_50%)]/5 border border-[hsl(187_100%_50%)]/10">
+                      <div className="w-8 h-8 rounded-lg bg-[hsl(187_100%_50%)]/10 flex items-center justify-center shrink-0">
+                        <Calendar className="w-4 h-4 text-[hsl(187_100%_50%)]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{event.summary}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {isAllDay
+                            ? format(new Date(startDate), "dd/MM (EEEE)", { locale: ptBR })
+                            : format(new Date(startDate), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum evento nos próximos 7 dias</p>
+            )}
+          </SectionCard>
+        )}
 
         {/* ===== LEMBRETES + ANÁLISE ROW ===== */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

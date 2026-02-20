@@ -77,6 +77,40 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "list_calendar_events",
+      description: "Lista os próximos eventos do Google Calendar do usuário",
+      parameters: {
+        type: "object",
+        properties: {
+          days: { type: "number", description: "Quantos dias à frente buscar (padrão: 7)" },
+          maxResults: { type: "number", description: "Número máximo de eventos (1-20)" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_calendar_event",
+      description: "Cria um novo evento no Google Calendar do usuário",
+      parameters: {
+        type: "object",
+        properties: {
+          summary: { type: "string", description: "Título do evento" },
+          description: { type: "string", description: "Descrição do evento" },
+          start: { type: "string", description: "Data/hora de início no formato ISO 8601 (ex: 2026-02-21T09:00:00-03:00)" },
+          end: { type: "string", description: "Data/hora de fim no formato ISO 8601 (ex: 2026-02-21T10:00:00-03:00)" },
+          location: { type: "string", description: "Local do evento" },
+        },
+        required: ["summary", "start", "end"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "list_emails",
       description: "Lista os emails recentes da caixa de entrada do Gmail do usuário",
       parameters: {
@@ -153,6 +187,7 @@ function buildSystemPrompt(assistantName: string, customPrompt?: string): string
 Suas capacidades:
 - Criar tarefas, hábitos, transações financeiras e lembretes usando as ferramentas disponíveis
 - Ler e enviar emails do Gmail do usuário usando as ferramentas list_emails, read_email e send_email
+- Listar e criar eventos no Google Calendar usando list_calendar_events e create_calendar_event
 - Entender comandos complexos em linguagem natural
 - Extrair múltiplas intenções de uma única frase
 - Responder sempre em português brasileiro

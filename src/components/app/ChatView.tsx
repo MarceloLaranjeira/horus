@@ -281,6 +281,9 @@ export const ChatView = () => {
   const executeActions = async (toolCalls: any[]): Promise<ActionResult[]> => {
     const results: ActionResult[] = [];
     const gmailUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail`;
+    const calendarUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/test-google-calendar`;
+    const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token;
+
     for (const call of toolCalls) {
       try {
         const args = JSON.parse(call.function.arguments);
@@ -297,10 +300,42 @@ export const ChatView = () => {
         } else if (name === "create_reminder" && user) {
           const { error } = await supabase.from("reminders").insert({ title: args.title, due_date: args.due_date, user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["reminders"] }); results.push({ type: "reminder", title: args.title, success: true }); }
+        } else if (name === "list_calendar_events") {
+          const token = await getToken();
+          const days = args.days || 7;
+          const timeMax = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+          const res = await fetch(calendarUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ action: "list_events", timeMax, maxResults: args.maxResults || 10 }),
+          });
+          const data = await res.json();
+          if (data.success && data.events) {
+            const summary = data.events.map((e: any) => {
+              const start = e.start?.dateTime || e.start?.date || "";
+              return `• ${e.summary} — ${start}`;
+            }).join("\n");
+            results.push({ type: "calendar", title: `${data.events.length} evento(s):\n${summary}`, success: true });
+          } else {
+            results.push({ type: "calendar", title: data.error || "Erro ao listar eventos", success: false });
+          }
+        } else if (name === "create_calendar_event") {
+          const token = await getToken();
+          const res = await fetch(calendarUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ action: "create_event", summary: args.summary, description: args.description, start: args.start, end: args.end, location: args.location }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            results.push({ type: "calendar", title: `Evento "${args.summary}" criado!`, success: true });
+          } else {
+            results.push({ type: "calendar", title: data.error || "Erro ao criar evento", success: false });
+          }
         } else if (name === "list_emails") {
           const res = await fetch(gmailUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${await getToken()}` },
             body: JSON.stringify({ action: "list_emails", query: args.query || "in:inbox", maxResults: args.maxResults || 5 }),
           });
           const data = await res.json();
@@ -313,7 +348,7 @@ export const ChatView = () => {
         } else if (name === "read_email") {
           const res = await fetch(gmailUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${await getToken()}` },
             body: JSON.stringify({ action: "read_email", messageId: args.messageId }),
           });
           const data = await res.json();
@@ -325,7 +360,7 @@ export const ChatView = () => {
         } else if (name === "send_email") {
           const res = await fetch(gmailUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${await getToken()}` },
             body: JSON.stringify({ action: "send_email", to: args.to, subject: args.subject, body: args.body }),
           });
           const data = await res.json();
@@ -659,6 +694,7 @@ export const ChatView = () => {
                               finance: { icon: DollarSign, color: "text-primary", bg: "bg-primary/5", border: "border-primary/20" },
                               reminder: { icon: Bell, color: "text-destructive", bg: "bg-destructive/5", border: "border-destructive/20" },
                               email: { icon: Send, color: "text-[hsl(0_80%_60%)]", bg: "bg-[hsl(0_80%_60%)]/5", border: "border-[hsl(0_80%_60%)]/20" },
+                              calendar: { icon: Calendar, color: "text-[hsl(187_100%_50%)]", bg: "bg-[hsl(187_100%_50%)]/5", border: "border-[hsl(187_100%_50%)]/20" },
                             };
                             const cfg = actionConfig[a.type] || { icon: CheckCircle2, color: "text-primary", bg: "bg-primary/5", border: "border-primary/20" };
                             const ActionIcon = cfg.icon;
