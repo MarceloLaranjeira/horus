@@ -8,12 +8,8 @@ import {
   FolderKanban,
   Flame,
   LayoutDashboard,
-  User,
-  Palette,
-  LogOut,
-  Bot,
-  Plug,
   Settings,
+  LogOut,
 } from "lucide-react";
 import aurataskLogo from "@/assets/auratask-logo.png";
 import type { AppView } from "@/pages/AppDashboard";
@@ -52,10 +48,7 @@ const modulesItems: NavItem[] = [
 ];
 
 const settingsItems: NavItem[] = [
-  { id: "settings-profile", icon: User, label: "Perfil" },
-  { id: "settings-appearance", icon: Palette, label: "Aparência" },
-  { id: "settings-ai", icon: Bot, label: "Assistente IA" },
-  { id: "settings-integrations", icon: Plug, label: "Integrações" },
+  { id: "settings", icon: Settings, label: "Configurações" },
 ];
 
 interface AppSidebarProps {
@@ -70,7 +63,7 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
   const collapsed = state === "collapsed";
 
   const isActiveGroup = (item: NavItem) =>
-    activeView === item.id || activeView.startsWith(item.id.split("-")[0] === "settings" ? item.id : item.id + "-");
+    activeView === item.id || activeView.startsWith(item.id + "-");
 
   const renderItems = (items: NavItem[]) =>
     items.map((item) => (
