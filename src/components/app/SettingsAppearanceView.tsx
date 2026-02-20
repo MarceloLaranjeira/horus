@@ -1,16 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Palette, Monitor, Moon, Sun } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
+type ThemeOption = "dark" | "light" | "system";
+
 const themes = [
-  { id: "dark", label: "Escuro", icon: Moon, description: "Tema escuro padrão" },
-  { id: "light", label: "Claro", icon: Sun, description: "Em breve" },
-  { id: "system", label: "Sistema", icon: Monitor, description: "Seguir preferência do sistema" },
+  { id: "dark" as ThemeOption, label: "Escuro", icon: Moon, description: "Tema escuro padrão" },
+  { id: "light" as ThemeOption, label: "Claro", icon: Sun, description: "Tema claro" },
+  { id: "system" as ThemeOption, label: "Sistema", icon: Monitor, description: "Seguir preferência do sistema" },
 ];
 
+function applyTheme(theme: ThemeOption) {
+  const root = document.documentElement;
+  if (theme === "light" || (theme === "system" && window.matchMedia("(prefers-color-scheme: light)").matches)) {
+    root.classList.add("light");
+  } else {
+    root.classList.remove("light");
+  }
+}
+
 export const SettingsAppearanceView = () => {
-  const [selectedTheme, setSelectedTheme] = useState("dark");
+  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>(() => {
+    return (localStorage.getItem("auratask-theme") as ThemeOption) || "dark";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("auratask-theme", selectedTheme);
+    applyTheme(selectedTheme);
+
+    if (selectedTheme === "system") {
+      const mq = window.matchMedia("(prefers-color-scheme: light)");
+      const handler = () => applyTheme("system");
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    }
+  }, [selectedTheme]);
 
   return (
     <div className="h-full overflow-auto p-6 jarvis-grid">
@@ -32,13 +57,12 @@ export const SettingsAppearanceView = () => {
             {themes.map((t) => (
               <button
                 key={t.id}
-                onClick={() => t.id !== "light" && setSelectedTheme(t.id)}
+                onClick={() => setSelectedTheme(t.id)}
                 className={cn(
                   "flex flex-col items-center gap-2 p-4 rounded-xl border transition-all",
                   selectedTheme === t.id
                     ? "border-primary bg-primary/10"
-                    : "border-border/50 bg-secondary/30 hover:border-border",
-                  t.id === "light" && "opacity-50 cursor-not-allowed"
+                    : "border-border/50 bg-secondary/30 hover:border-border"
                 )}
               >
                 <t.icon className={cn("w-6 h-6", selectedTheme === t.id ? "text-primary" : "text-muted-foreground")} />
