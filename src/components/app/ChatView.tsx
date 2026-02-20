@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Send, Mic, MicOff, Loader2, CheckCircle2, X, CheckSquare, DollarSign, Flame, Bell, FolderKanban, Calendar } from "lucide-react";
+import { Send, Mic, MicOff, Loader2, CheckCircle2, X, CheckSquare, DollarSign, Flame, Bell, FolderKanban, Calendar, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -195,6 +195,8 @@ export const ChatView = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [activeMenus, setActiveMenus] = useState<DetectedMenu[]>([]);
   const [liveTranscript, setLiveTranscript] = useState("");
+  const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -426,7 +428,6 @@ export const ChatView = () => {
   const handleSend = () => sendMessage(input.trim());
 
   const playTTS = async (text: string) => {
-    if (!settings.ttsEnabled) return;
     setIsSpeaking(true);
     try {
       const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000);
@@ -454,34 +455,67 @@ export const ChatView = () => {
       toast({ title: "Voz não suportada neste navegador.", variant: "destructive" });
       return;
     }
-    if (isListening) { setIsListening(false); return; }
+    if (isListening) {
+      // Stop recording and send accumulated transcript
+      setIsListening(false);
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+      const finalText = transcriptRef.current.trim();
+      if (finalText) {
+        setLiveTranscript("");
+        sendMessage(finalText);
+      } else {
+        setLiveTranscript("");
+      }
+      transcriptRef.current = "";
+      return;
+    }
+    // Start recording
     setIsListening(true);
     setLiveTranscript("");
+    transcriptRef.current = "";
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = settings.voiceLang || "pt-BR";
     recognition.interimResults = true;
+    recognition.continuous = true;
     recognition.onresult = (event: any) => {
-      let interim = "";
-      let final = "";
+      let full = "";
       for (let i = 0; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          final += event.results[i][0].transcript;
-        } else {
-          interim += event.results[i][0].transcript;
-        }
+        full += event.results[i][0].transcript;
       }
-      if (final) {
-        setIsListening(false);
-        setLiveTranscript("");
-        sendMessage(final);
-      } else {
-        setLiveTranscript(interim);
+      transcriptRef.current = full;
+      setLiveTranscript(full);
+    };
+    recognition.onerror = () => { setIsListening(false); setLiveTranscript(""); transcriptRef.current = ""; };
+    recognition.onend = () => {
+      // If still listening (browser auto-stopped), restart
+      if (isListening && recognitionRef.current) {
+        try { recognitionRef.current.start(); } catch { /* ignore */ }
       }
     };
-    recognition.onerror = () => { setIsListening(false); setLiveTranscript(""); };
-    recognition.onend = () => { setIsListening(false); };
+    recognitionRef.current = recognition;
     recognition.start();
+  };
+
+  const clearChat = async () => {
+    if (!user || !conversationId) return;
+    // Delete all messages from this conversation
+    await supabase.from("chat_messages").delete().eq("conversation_id", conversationId);
+    const greeting: Message = {
+      role: "assistant",
+      content: `Chat limpo! 🧹 Sou o **${settings.assistantName}**. Como posso ajudar?`,
+    };
+    setMessages([greeting]);
+    await supabase.from("chat_messages").insert({
+      conversation_id: conversationId,
+      user_id: user.id,
+      role: "assistant",
+      content: greeting.content,
+    });
+    toast({ title: "Chat excluído com sucesso!" });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -557,6 +591,15 @@ export const ChatView = () => {
               {liveTranscript && (
                 <p className="text-xs text-primary/70 italic truncate max-w-[200px]">"{liveTranscript}"</p>
               )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={clearChat}
+                className="shrink-0 text-muted-foreground hover:text-destructive h-8 w-8"
+                title="Excluir chat"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>
