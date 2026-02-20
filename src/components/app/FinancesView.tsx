@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Wallet, Edit2, X, Check, BarChart3, PieChart } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Wallet, Edit2, X, Check, BarChart3, PieChart, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -373,12 +373,12 @@ export const FinancesView = ({ subView }: { subView?: string }) => {
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-border flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-[hsl(var(--nectar-green))]/20 flex items-center justify-center">
-          <DollarSign className="w-4 h-4 text-[hsl(var(--nectar-green))]" />
+        <div className="w-10 h-10 rounded-xl bg-[hsl(var(--nectar-green))]/15 flex items-center justify-center">
+          <DollarSign className="w-5 h-5 text-[hsl(var(--nectar-green))]" />
         </div>
         <div>
-          <h2 className="font-semibold text-sm">{subLabels[subView || "finances"]}</h2>
-          <p className="text-xs text-muted-foreground">Controle financeiro</p>
+          <h2 className="font-semibold">{subLabels[subView || "finances"]}</h2>
+          <p className="text-xs text-muted-foreground">Acompanhe receitas, despesas e investimentos</p>
         </div>
       </div>
 
@@ -441,53 +441,73 @@ export const FinancesView = ({ subView }: { subView?: string }) => {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm"><DollarSign className="w-8 h-8 mb-2 opacity-50" /><p>Nenhuma transação</p></div>
         ) : (
-          <div className="max-w-2xl mx-auto space-y-3">
+          <div className="max-w-2xl mx-auto space-y-2">
             {filtered.map(t => (
-              <Card key={t.id} className="bg-card/50 border-border/50">
-                <CardContent className="p-4 flex items-center justify-between">
-                  {editingId === t.id ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="flex-1 h-8 bg-secondary" />
-                      <Input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="w-24 h-8 bg-secondary" />
-                      <Select value={editType} onValueChange={(v) => setEditType(v as any)}>
-                        <SelectTrigger className="w-24 h-8 bg-secondary"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="income">Receita</SelectItem>
-                          <SelectItem value="expense">Despesa</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-[hsl(var(--nectar-green))]" onClick={saveEdit}><Check className="w-3.5 h-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={() => setEditingId(null)}><X className="w-3.5 h-3.5" /></Button>
+              <div key={t.id} className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/50 card-glow group">
+                {editingId === t.id ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="flex-1 h-8 bg-secondary" />
+                    <Input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="w-24 h-8 bg-secondary" />
+                    <Select value={editType} onValueChange={(v) => setEditType(v as any)}>
+                      <SelectTrigger className="w-24 h-8 bg-secondary"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="income">Receita</SelectItem>
+                        <SelectItem value="expense">Despesa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-[hsl(var(--nectar-green))]" onClick={saveEdit}><Check className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={() => setEditingId(null)}><X className="w-3.5 h-3.5" /></Button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Icon */}
+                    <div className={cn(
+                      "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+                      t.type === "income" ? "bg-[hsl(var(--nectar-green))]/15" : "bg-destructive/15"
+                    )}>
+                      {t.type === "income"
+                        ? <TrendingUp className="w-4 h-4 text-[hsl(var(--nectar-green))]" />
+                        : <TrendingDown className="w-4 h-4 text-destructive" />
+                      }
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", t.type === "income" ? "bg-[hsl(var(--nectar-green))]/20" : "bg-destructive/20")}>
-                          {t.type === "income" ? <TrendingUp className="w-4 h-4 text-[hsl(var(--nectar-green))]" /> : <TrendingDown className="w-4 h-4 text-destructive" />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">{t.description}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {t.budget_categories?.name && `${t.budget_categories.name} • `}
-                            {format(parseISO(t.transaction_date), "dd/MM/yyyy")}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={cn("text-sm font-semibold", t.type === "income" ? "text-[hsl(var(--nectar-green))]" : "text-destructive")}>
-                          {t.type === "income" ? "+" : "-"}R$ {Number(t.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{t.description}</p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {t.budget_categories?.name && (
+                          <span className="text-[11px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground flex items-center gap-1">
+                            <DollarSign className="w-2.5 h-2.5" /> {t.budget_categories.name}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <Calendar className="w-3 h-3" /> {format(parseISO(t.transaction_date), "dd/MM")}
                         </span>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => startEdit(t)}>
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteTransaction.mutate(t.id)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
                       </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+                    </div>
+
+                    {/* Amount + Type */}
+                    <div className="text-right shrink-0">
+                      <p className={cn("text-sm font-bold", t.type === "income" ? "text-[hsl(var(--nectar-green))]" : "text-destructive")}>
+                        {t.type === "income" ? "+" : "-"}R$ {Number(t.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className={cn("text-[10px]", t.type === "income" ? "text-[hsl(var(--nectar-green))]/70" : "text-destructive/70")}>
+                        {t.type === "income" ? "Receita" : "Despesa"}
+                      </p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => startEdit(t)}>
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteTransaction.mutate(t.id)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
             ))}
           </div>
         )}
