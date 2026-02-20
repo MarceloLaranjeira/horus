@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Send, Mic, MicOff, Loader2, CheckCircle2 } from "lucide-react";
+import { Send, Mic, MicOff, Loader2, CheckCircle2, X, CheckSquare, DollarSign, Flame, Bell, FolderKanban, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,59 +26,187 @@ type ActionResult = {
   success: boolean;
 };
 
-/** Enhanced Jarvis Globe with particles and scan-line */
-const AuraGlobe = ({ isThinking, size = "sm" }: { isThinking: boolean; size?: "sm" | "lg" }) => {
-  const dim = size === "lg" ? "w-20 h-20" : "w-10 h-10";
+type DetectedMenu = {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+};
+
+const MENU_KEYWORDS: { keywords: string[]; menu: DetectedMenu }[] = [
+  { keywords: ["tarefa", "tarefas", "task"], menu: { id: "tasks", label: "Tarefas", icon: CheckSquare, color: "hsl(var(--cyan))" } },
+  { keywords: ["financ", "despesa", "receita", "gasto", "dinheiro", "orçamento"], menu: { id: "finances", label: "Finanças", icon: DollarSign, color: "hsl(var(--nectar-gold))" } },
+  { keywords: ["hábito", "habito", "habit"], menu: { id: "habits", label: "Hábitos", icon: Flame, color: "hsl(var(--nectar-orange))" } },
+  { keywords: ["lembrete", "reminder", "alarme"], menu: { id: "reminders", label: "Lembretes", icon: Bell, color: "hsl(var(--nectar-red))" } },
+  { keywords: ["projeto", "kanban", "project"], menu: { id: "projects", label: "Projetos", icon: FolderKanban, color: "hsl(var(--nectar-green))" } },
+  { keywords: ["calendário", "calendar", "agenda", "evento"], menu: { id: "calendar", label: "Calendário", icon: Calendar, color: "hsl(187 100% 50%)" } },
+];
+
+function detectMenus(text: string): DetectedMenu[] {
+  const lower = text.toLowerCase();
+  const found: DetectedMenu[] = [];
+  for (const { keywords, menu } of MENU_KEYWORDS) {
+    if (keywords.some((k) => lower.includes(k)) && !found.some((f) => f.id === menu.id)) {
+      found.push(menu);
+    }
+  }
+  return found;
+}
+
+/** Immersive Jarvis Globe */
+const JarvisGlobe = ({ isThinking, isSpeaking }: { isThinking: boolean; isSpeaking: boolean }) => {
   const particles = useMemo(() =>
-    Array.from({ length: 8 }, (_, i) => ({
+    Array.from({ length: 16 }, (_, i) => ({
       id: i,
-      angle: (i / 8) * 360,
-      delay: i * 0.3,
-      radius: size === "lg" ? 36 : 18,
-    })), [size]);
+      angle: (i / 16) * 360,
+      delay: i * 0.2,
+      layer: i % 3,
+    })), []);
+
+  const active = isThinking || isSpeaking;
 
   return (
-    <div className={cn("relative shrink-0", dim)}>
+    <div className="relative w-48 h-48 mx-auto">
+      {/* Outer glow */}
+      <div className={cn(
+        "absolute -inset-8 rounded-full transition-all duration-700",
+        active
+          ? "bg-primary/5 shadow-[0_0_80px_20px_hsl(var(--cyan)/0.15)]"
+          : "bg-primary/2"
+      )} />
+
+      {/* Particles */}
       {particles.map((p) => (
-        <div key={p.id} className="absolute inset-0" style={{ animation: `arc-spin ${6 + p.id * 0.5}s linear infinite`, animationDelay: `${p.delay}s` }}>
-          <div className={cn("absolute rounded-full bg-primary", size === "lg" ? "w-1.5 h-1.5" : "w-1 h-1", isThinking ? "opacity-90" : "opacity-40")}
-            style={{ top: "0%", left: "50%", transform: "translateX(-50%)", boxShadow: isThinking ? "0 0 6px 1px hsl(var(--cyan) / 0.6)" : "0 0 3px 0px hsl(var(--cyan) / 0.3)" }} />
+        <div key={p.id} className="absolute inset-0"
+          style={{
+            animation: `arc-spin ${5 + p.layer * 3}s linear infinite${p.layer === 1 ? " reverse" : ""}`,
+            animationDelay: `${p.delay}s`,
+          }}>
+          <div
+            className={cn(
+              "absolute rounded-full",
+              active ? "w-2 h-2 bg-primary" : "w-1.5 h-1.5 bg-primary/50"
+            )}
+            style={{
+              top: `${10 + p.layer * 12}%`,
+              left: "50%",
+              transform: "translateX(-50%)",
+              boxShadow: active
+                ? `0 0 10px 2px hsl(var(--cyan) / 0.7)`
+                : `0 0 4px 0px hsl(var(--cyan) / 0.3)`,
+              transition: "all 0.5s ease",
+            }}
+          />
         </div>
       ))}
-      <div className={cn("absolute inset-0 rounded-full border border-primary/40", isThinking ? "animate-arc-spin" : "animate-globe-rotate")} />
-      <div className={cn("absolute rounded-full border border-dashed border-primary/20", size === "lg" ? "inset-2" : "inset-1", isThinking ? "animate-arc-spin-reverse" : "")} />
-      <div className={cn("absolute inset-0 rounded-full overflow-hidden", isThinking && "animate-globe-pulse")}>
-        <div className="absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-primary/60 to-transparent" style={{ animation: "scanline 2s ease-in-out infinite", top: "50%" }} />
+
+      {/* Ring 1 - outer */}
+      <div className={cn(
+        "absolute inset-0 rounded-full border-2 transition-all duration-500",
+        active ? "border-primary/60 animate-arc-spin" : "border-primary/20 animate-globe-rotate"
+      )} />
+
+      {/* Ring 2 - middle */}
+      <div className={cn(
+        "absolute inset-6 rounded-full border border-dashed transition-all duration-500",
+        active ? "border-primary/40 animate-arc-spin-reverse" : "border-primary/15"
+      )} />
+
+      {/* Ring 3 - inner */}
+      <div className={cn(
+        "absolute inset-12 rounded-full border transition-all duration-500",
+        active ? "border-primary/50 animate-globe-rotate" : "border-primary/10"
+      )} />
+
+      {/* Scanline */}
+      <div className="absolute inset-0 rounded-full overflow-hidden">
+        <div
+          className={cn("absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-primary/80 to-transparent", active && "animate-globe-pulse")}
+          style={{ animation: "scanline 2.5s ease-in-out infinite", top: "50%" }}
+        />
       </div>
-      <div className={cn("absolute rounded-full bg-primary/15 flex items-center justify-center", size === "lg" ? "inset-4" : "inset-2")}>
-        <div className={cn("rounded-full bg-primary/50", size === "lg" ? "w-5 h-5" : "w-3 h-3")}
-          style={{ boxShadow: isThinking ? "0 0 15px 4px hsl(var(--cyan) / 0.6), 0 0 30px 8px hsl(var(--cyan) / 0.2)" : "0 0 10px 2px hsl(var(--cyan) / 0.4)" }} />
+
+      {/* Core */}
+      <div className="absolute inset-16 rounded-full bg-primary/10 flex items-center justify-center">
+        <motion.div
+          animate={{
+            scale: isSpeaking ? [1, 1.3, 1, 1.2, 1] : isThinking ? [1, 1.1, 1] : 1,
+            boxShadow: active
+              ? [
+                  "0 0 20px 6px hsl(187 100% 50% / 0.4)",
+                  "0 0 40px 12px hsl(187 100% 50% / 0.6)",
+                  "0 0 20px 6px hsl(187 100% 50% / 0.4)",
+                ]
+              : "0 0 10px 3px hsl(187 100% 50% / 0.3)",
+          }}
+          transition={{
+            duration: isSpeaking ? 0.6 : 1.5,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="w-10 h-10 rounded-full bg-primary/60"
+        />
       </div>
-      <div className={cn("absolute rounded-full bg-primary/5 blur-md", size === "lg" ? "-inset-3" : "-inset-1")} />
+
+      {/* Ambient blur */}
+      <div className={cn(
+        "absolute -inset-4 rounded-full blur-2xl transition-all duration-700",
+        active ? "bg-primary/8" : "bg-primary/3"
+      )} />
     </div>
   );
 };
+
+/** Interactive menu panel */
+const MenuPanel = ({ menu, onDismiss }: { menu: DetectedMenu; onDismiss: () => void }) => (
+  <motion.div
+    initial={{ opacity: 0, x: 30, scale: 0.9 }}
+    animate={{ opacity: 1, x: 0, scale: 1 }}
+    exit={{ opacity: 0, x: 30, scale: 0.9 }}
+    className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card/80 border border-border/50 backdrop-blur-sm cursor-pointer hover:border-primary/30 transition-all group"
+    onClick={onDismiss}
+    style={{ borderLeftWidth: 4, borderLeftColor: menu.color }}
+  >
+    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${menu.color}15` }}>
+      <menu.icon className="w-5 h-5" style={{ color: menu.color }} />
+    </div>
+    <span className="text-sm font-medium">{menu.label}</span>
+    <X className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
+  </motion.div>
+);
+
+/** Small globe for message bubbles */
+const SmallGlobe = ({ isThinking }: { isThinking: boolean }) => (
+  <div className="relative w-8 h-8 shrink-0">
+    <div className={cn("absolute inset-0 rounded-full border border-primary/40", isThinking ? "animate-arc-spin" : "animate-globe-rotate")} />
+    <div className="absolute inset-2 rounded-full bg-primary/15 flex items-center justify-center">
+      <div className="w-2.5 h-2.5 rounded-full bg-primary/50" style={{ boxShadow: "0 0 8px 2px hsl(var(--cyan) / 0.4)" }} />
+    </div>
+  </div>
+);
 
 export const ChatView = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [activeMenus, setActiveMenus] = useState<DetectedMenu[]>([]);
+  const [liveTranscript, setLiveTranscript] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { settings } = useAISettings();
 
-  // Load or create conversation on mount
+  // Load conversation
   useEffect(() => {
     if (!user) return;
     const loadConversation = async () => {
       setIsLoadingHistory(true);
       try {
-        // Get most recent conversation
         const { data: convos } = await supabase
           .from("chat_conversations")
           .select("id")
@@ -99,7 +227,6 @@ export const ChatView = () => {
         }
         setConversationId(convId);
 
-        // Load messages
         const { data: msgs } = await supabase
           .from("chat_messages")
           .select("role, content")
@@ -107,11 +234,11 @@ export const ChatView = () => {
           .order("created_at", { ascending: true });
 
         if (msgs && msgs.length > 0) {
-          setMessages(msgs.map(m => ({ role: m.role as "user" | "assistant", content: m.content })));
+          setMessages(msgs.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })));
         } else {
           const greeting: Message = {
             role: "assistant",
-            content: `Olá! 👋 Eu sou o **${settings.assistantName}**, seu assistente pessoal com IA. Posso te ajudar a organizar tarefas, hábitos, finanças, lembretes e muito mais.\n\nExperimente dizer algo como:\n- *\"Crie uma tarefa para terminar o relatório até sexta\"*\n- *\"Adicione R$ 50 como despesa de almoço\"*\n- *\"Crie um hábito de meditar 15 min por dia\"*`,
+            content: `Olá! 👋 Eu sou o **${settings.assistantName}**, seu assistente pessoal com IA.\n\nFale comigo por voz ou texto. Posso criar tarefas, gerenciar hábitos, controlar finanças e muito mais.`,
           };
           setMessages([greeting]);
           await supabase.from("chat_messages").insert({
@@ -138,6 +265,15 @@ export const ChatView = () => {
     }
   }, [messages]);
 
+  // Detect menus from latest assistant message
+  useEffect(() => {
+    const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+    if (lastAssistant) {
+      const detected = detectMenus(lastAssistant.content);
+      setActiveMenus(detected);
+    }
+  }, [messages]);
+
   const saveMessage = useCallback(async (role: string, content: string) => {
     if (!user || !conversationId) return;
     await supabase.from("chat_messages").insert({
@@ -146,7 +282,6 @@ export const ChatView = () => {
       role,
       content,
     });
-    // Update conversation timestamp
     await supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
   }, [user, conversationId]);
 
@@ -180,12 +315,11 @@ export const ChatView = () => {
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput("");
+    setLiveTranscript("");
     setIsLoading(true);
 
-    // Save user message to DB
     await saveMessage("user", text);
 
-    // Send last 50 messages for context
     const apiMessages = updatedMessages.slice(-50).map((m) => ({ role: m.role, content: m.content }));
 
     try {
@@ -261,7 +395,6 @@ export const ChatView = () => {
           }
         }
       }
-      // Flush remaining buffer
       if (textBuffer.trim()) {
         for (let raw of textBuffer.split("\n")) {
           if (!raw) continue;
@@ -278,7 +411,6 @@ export const ChatView = () => {
         }
       }
 
-      // Save assistant response to DB
       if (assistantSoFar) {
         await saveMessage("assistant", assistantSoFar);
         playTTS(assistantSoFar);
@@ -295,20 +427,26 @@ export const ChatView = () => {
 
   const playTTS = async (text: string) => {
     if (!settings.ttsEnabled) return;
+    setIsSpeaking(true);
     try {
       const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000);
-      if (!cleanText.trim()) return;
+      if (!cleanText.trim()) { setIsSpeaking(false); return; }
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
         body: JSON.stringify({ text: cleanText, voiceId: settings.ttsVoiceId }),
       });
-      if (!response.ok) return;
+      if (!response.ok) { setIsSpeaking(false); return; }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      audio.onended = () => setIsSpeaking(false);
+      audio.onerror = () => setIsSpeaking(false);
       audio.play();
-    } catch (e) { console.error("TTS error:", e); }
+    } catch (e) {
+      console.error("TTS error:", e);
+      setIsSpeaking(false);
+    }
   };
 
   const toggleVoice = () => {
@@ -318,17 +456,31 @@ export const ChatView = () => {
     }
     if (isListening) { setIsListening(false); return; }
     setIsListening(true);
+    setLiveTranscript("");
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = settings.voiceLang || "pt-BR";
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setIsListening(false);
-      sendMessage(transcript);
+      let interim = "";
+      let final = "";
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          final += event.results[i][0].transcript;
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      if (final) {
+        setIsListening(false);
+        setLiveTranscript("");
+        sendMessage(final);
+      } else {
+        setLiveTranscript(interim);
+      }
     };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => { setIsListening(false); setLiveTranscript(""); };
+    recognition.onend = () => { setIsListening(false); };
     recognition.start();
   };
 
@@ -336,97 +488,199 @@ export const ChatView = () => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
+  const dismissMenu = (id: string) => setActiveMenus((prev) => prev.filter((m) => m.id !== id));
+
   const assistantName = settings.assistantName || "AuraTask";
+  const lastMessage = messages[messages.length - 1];
+  const showGlobeCenter = messages.length <= 1 || (isLoading && lastMessage?.role === "user");
 
   if (isLoadingHistory) {
     return (
       <div className="flex flex-col h-full items-center justify-center jarvis-grid">
-        <AuraGlobe isThinking={true} size="lg" />
-        <p className="text-sm text-muted-foreground mt-4">Carregando conversa...</p>
+        <JarvisGlobe isThinking={true} isSpeaking={false} />
+        <p className="text-sm text-muted-foreground mt-6">Carregando conversa...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full jarvis-grid">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-border/50 flex items-center gap-4 bg-card/50 backdrop-blur-sm">
-        <AuraGlobe isThinking={isLoading} />
-        <div>
-          <h2 className="font-semibold text-sm text-gradient-cyan">{assistantName} IA</h2>
-          <p className="text-xs text-muted-foreground">Assistente pessoal · {settings.model.split("/")[1] || settings.model}</p>
-        </div>
-        {isLoading && (
-          <div className="ml-auto flex items-center gap-2 text-xs text-primary/70">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            Processando...
-          </div>
-        )}
+    <div className="flex flex-col h-full jarvis-grid relative">
+      {/* Ambient background effects */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/3 blur-[100px]" />
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 px-6 py-4" ref={scrollRef}>
-        <div className="max-w-3xl mx-auto space-y-4">
-          <AnimatePresence initial={false}>
-            {messages.map((msg, i) => (
-              <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
-                className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}>
-                {msg.role === "assistant" && <AuraGlobe isThinking={false} size="sm" />}
-                <div className="max-w-[75%] space-y-2">
-                  <div className={cn("rounded-2xl px-4 py-3 text-sm",
-                    msg.role === "user" ? "bg-primary/15 border border-primary/30 text-foreground rounded-br-md" : "bg-card border border-border/50 rounded-bl-md")}>
-                    {msg.role === "assistant" ? (
-                      <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-primary prose-headings:text-primary">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                      </div>
-                    ) : msg.content}
-                  </div>
-                  {msg.actions && msg.actions.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pl-1">
-                      {msg.actions.map((a, j) => (
-                        <motion.div key={j} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: j * 0.1 }}
-                          className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span className="capitalize">{a.type}:</span>
-                          <span className="text-foreground/80">{a.title}</span>
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-
-          {isLoading && messages[messages.length - 1]?.role === "user" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3 justify-start">
-              <AuraGlobe isThinking={true} />
-              <div className="bg-card border border-border/50 rounded-2xl rounded-bl-md px-4 py-3">
-                <div className="flex gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce" />
-                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0.15s]" />
-                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0.3s]" />
-                </div>
+      {/* Main content */}
+      <div className="flex-1 flex flex-col relative z-10 overflow-hidden">
+        {/* Globe + status area */}
+        <AnimatePresence mode="wait">
+          {showGlobeCenter ? (
+            <motion.div
+              key="globe-center"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="flex flex-col items-center justify-center py-8 shrink-0"
+            >
+              <JarvisGlobe isThinking={isLoading} isSpeaking={isSpeaking} />
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-sm text-muted-foreground mt-6"
+              >
+                {isLoading ? "Processando..." : isListening ? "Ouvindo..." : isSpeaking ? "Falando..." : `${assistantName} · Pronto`}
+              </motion.p>
+              {liveTranscript && (
+                <motion.p
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-sm text-primary/80 mt-2 italic max-w-md text-center"
+                >
+                  "{liveTranscript}"
+                </motion.p>
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="globe-mini"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center gap-4 px-6 py-3 border-b border-border/30 bg-card/30 backdrop-blur-sm shrink-0"
+            >
+              <SmallGlobe isThinking={isLoading || isSpeaking} />
+              <div className="flex-1">
+                <h2 className="font-semibold text-sm text-gradient-cyan">{assistantName}</h2>
+                <p className="text-xs text-muted-foreground">
+                  {isLoading ? "Processando..." : isListening ? "Ouvindo..." : isSpeaking ? "Falando..." : settings.model.split("/")[1] || settings.model}
+                </p>
               </div>
+              {liveTranscript && (
+                <p className="text-xs text-primary/70 italic truncate max-w-[200px]">"{liveTranscript}"</p>
+              )}
             </motion.div>
           )}
-        </div>
-      </ScrollArea>
+        </AnimatePresence>
 
-      {/* Input */}
-      <div className="px-6 py-4 border-t border-border/50 bg-card/30 backdrop-blur-sm">
+        {/* Messages + Menus area */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Chat messages */}
+          <ScrollArea className="flex-1 px-6 py-4" ref={scrollRef}>
+            <div className="max-w-3xl mx-auto space-y-4">
+              <AnimatePresence initial={false}>
+                {messages.map((msg, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}
+                  >
+                    {msg.role === "assistant" && <SmallGlobe isThinking={false} />}
+                    <div className="max-w-[80%] space-y-2">
+                      <div className={cn(
+                        "rounded-2xl px-4 py-3 text-sm",
+                        msg.role === "user"
+                          ? "bg-primary/15 border border-primary/30 text-foreground rounded-br-md"
+                          : "bg-card/80 border border-border/50 rounded-bl-md backdrop-blur-sm"
+                      )}>
+                        {msg.role === "assistant" ? (
+                          <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-primary prose-headings:text-primary">
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                        ) : msg.content}
+                      </div>
+                      {msg.actions && msg.actions.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pl-1">
+                          {msg.actions.map((a, j) => (
+                            <motion.div
+                              key={j}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: j * 0.1 }}
+                              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary"
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span className="capitalize">{a.type}:</span>
+                              <span className="text-foreground/80">{a.title}</span>
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              {isLoading && lastMessage?.role === "user" && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3 justify-start">
+                  <SmallGlobe isThinking={true} />
+                  <div className="bg-card/80 border border-border/50 rounded-2xl rounded-bl-md px-4 py-3 backdrop-blur-sm">
+                    <div className="flex gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-primary animate-bounce" />
+                      <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0.15s]" />
+                      <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0.3s]" />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Interactive Menu Panels - sidebar */}
+          <AnimatePresence>
+            {activeMenus.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 220 }}
+                exit={{ opacity: 0, width: 0 }}
+                className="border-l border-border/30 bg-card/20 backdrop-blur-sm overflow-hidden shrink-0"
+              >
+                <div className="p-3 space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium px-1 mb-3">Módulos relacionados</p>
+                  <AnimatePresence>
+                    {activeMenus.map((menu) => (
+                      <MenuPanel key={menu.id} menu={menu} onDismiss={() => dismissMenu(menu.id)} />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Input bar */}
+      <div className="px-6 py-4 border-t border-border/30 bg-card/20 backdrop-blur-sm relative z-10">
         <div className="max-w-3xl mx-auto flex items-end gap-2">
           <div className="flex-1 relative">
-            <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder={`Fale com o ${assistantName}...`}
-              className="min-h-[44px] max-h-[120px] resize-none bg-secondary/50 border-border/50 focus:border-primary/50 focus:shadow-[0_0_15px_-5px_hsl(var(--cyan)/0.3)] transition-shadow pr-2" rows={1} />
+              className="min-h-[44px] max-h-[120px] resize-none bg-secondary/50 border-border/50 focus:border-primary/50 focus:shadow-[0_0_15px_-5px_hsl(var(--cyan)/0.3)] transition-shadow pr-2"
+              rows={1}
+            />
           </div>
-          <Button variant="ghost" size="icon" onClick={toggleVoice}
-            className={cn("shrink-0 transition-all", isListening ? "text-destructive animate-pulse shadow-[0_0_15px_-3px_hsl(0_84%_60%/0.5)]" : "text-muted-foreground hover:text-primary")}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleVoice}
+            className={cn(
+              "shrink-0 transition-all h-11 w-11 rounded-xl",
+              isListening
+                ? "text-destructive bg-destructive/10 animate-pulse shadow-[0_0_20px_-3px_hsl(0_84%_60%/0.5)]"
+                : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+            )}
+          >
             {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </Button>
-          <Button size="icon" onClick={handleSend} disabled={!input.trim() || isLoading}
-            className="shrink-0 glow-cyan bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button
+            size="icon"
+            onClick={handleSend}
+            disabled={!input.trim() || isLoading}
+            className="shrink-0 glow-cyan bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-11 rounded-xl"
+          >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </Button>
         </div>

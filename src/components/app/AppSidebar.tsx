@@ -7,7 +7,6 @@ import {
   DollarSign,
   Bell,
   FolderKanban,
-  Settings,
   CalendarDays,
   AlertTriangle,
   CheckCircle2,
@@ -25,7 +24,6 @@ import {
   LogOut,
   Bot,
   Plug,
-  Smartphone,
 } from "lucide-react";
 import aurataskLogo from "@/assets/auratask-logo.png";
 import type { AppView } from "@/pages/AppDashboard";
@@ -60,8 +58,7 @@ const navCategories: NavCategory[] = [
     label: "Principal",
     items: [
       { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { id: "chat", icon: MessageSquare, label: "Chat IA" },
-      { id: "whatsapp", icon: Smartphone, label: "WhatsApp" },
+      { id: "chat", icon: MessageSquare, label: "AuraTask IA" },
     ],
   },
   {
