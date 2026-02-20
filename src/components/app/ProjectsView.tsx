@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { FolderKanban, Calendar, Plus, Trash2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { FolderKanban, Plus, Trash2, Clock, Check } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useProjects, Project } from "@/hooks/useProjects";
+import { useProjects } from "@/hooks/useProjects";
 import { useTasks } from "@/hooks/useTasks";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
+import { Card, CardContent } from "@/components/ui/card";
 
 const statusLabels: Record<string, string> = {
   backlog: "Backlog",
@@ -17,6 +17,14 @@ const statusLabels: Record<string, string> = {
   in_progress: "Em Andamento",
   review: "Revisão",
   done: "Concluído",
+};
+
+const statusDotColors: Record<string, string> = {
+  backlog: "bg-muted-foreground",
+  todo: "bg-[hsl(var(--nectar-blue))]",
+  in_progress: "bg-[hsl(var(--nectar-blue))]",
+  review: "bg-[hsl(var(--nectar-orange))]",
+  done: "bg-[hsl(var(--nectar-green))]",
 };
 
 const statusColors: Record<string, string> = {
@@ -50,7 +58,7 @@ export const ProjectsView = ({ subView }: { subView?: string }) => {
   const getProjectTaskCount = (projectId: string) => {
     const projectTasks = tasks.filter(t => t.project_id === projectId);
     const done = projectTasks.filter(t => t.status === "done").length;
-    return `${done}/${projectTasks.length} tarefas`;
+    return { done, total: projectTasks.length };
   };
 
   // Kanban view
@@ -59,8 +67,10 @@ export const ProjectsView = ({ subView }: { subView?: string }) => {
     return (
       <div className="flex flex-col h-full">
         <div className="px-6 py-4 border-b border-border flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center"><FolderKanban className="w-4 h-4 text-primary" /></div>
-          <div><h2 className="font-semibold text-sm">Kanban</h2></div>
+          <div className="w-10 h-10 rounded-xl bg-[hsl(var(--nectar-purple))]/15 flex items-center justify-center">
+            <FolderKanban className="w-5 h-5 text-[hsl(var(--nectar-purple))]" />
+          </div>
+          <div><h2 className="font-semibold">Kanban</h2></div>
         </div>
         <ScrollArea className="flex-1">
           <div className="flex gap-4 p-6 min-w-max">
@@ -75,7 +85,7 @@ export const ProjectsView = ({ subView }: { subView?: string }) => {
                     <Card key={p.id} className="bg-card/50 border-border/50">
                       <CardContent className="p-3">
                         <p className="text-sm font-medium mb-1">{p.title}</p>
-                        <p className="text-xs text-muted-foreground">{getProjectTaskCount(p.id)}</p>
+                        <p className="text-xs text-muted-foreground">{getProjectTaskCount(p.id).done}/{getProjectTaskCount(p.id).total} tarefas</p>
                         <Select value={p.status} onValueChange={(v) => updateProject.mutate({ id: p.id, status: v as any })}>
                           <SelectTrigger className="mt-2 h-7 text-xs bg-secondary"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -97,10 +107,12 @@ export const ProjectsView = ({ subView }: { subView?: string }) => {
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-border flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center"><FolderKanban className="w-4 h-4 text-primary" /></div>
+        <div className="w-10 h-10 rounded-xl bg-[hsl(var(--nectar-purple))]/15 flex items-center justify-center">
+          <FolderKanban className="w-5 h-5 text-[hsl(var(--nectar-purple))]" />
+        </div>
         <div>
-          <h2 className="font-semibold text-sm">{subView === "projects-calendar" ? "Calendário de Projetos" : "Visão Geral"}</h2>
-          <p className="text-xs text-muted-foreground">{projects.length} projetos</p>
+          <h2 className="font-semibold">Projetos Organizados</h2>
+          <p className="text-xs text-muted-foreground">Gerencie projetos com tarefas, deadlines e progresso</p>
         </div>
       </div>
 
@@ -113,27 +125,84 @@ export const ProjectsView = ({ subView }: { subView?: string }) => {
         {isLoading ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">Carregando...</div>
         ) : projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm"><FolderKanban className="w-8 h-8 mb-2 opacity-50" /><p>Nenhum projeto criado</p></div>
+          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
+            <FolderKanban className="w-8 h-8 mb-2 opacity-50" />
+            <p>Nenhum projeto criado</p>
+          </div>
         ) : (
-          <div className="max-w-2xl mx-auto space-y-3">
-            {projects.map(p => {
+          <div className="max-w-2xl mx-auto space-y-2">
+            {projects.map((p, i) => {
               const progress = getProjectProgress(p.id);
+              const taskCount = getProjectTaskCount(p.id);
+              const isDone = p.status === "done";
+
               return (
-                <Card key={p.id} className="bg-card/50 border-border/50 hover:border-primary/20 transition-all cursor-pointer">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-medium">{p.title}</h3>
-                      <div className="flex items-center gap-2">
-                        <span className={cn("text-xs px-2 py-0.5 rounded-full", statusColors[p.status])}>{statusLabels[p.status]}</span>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteProject.mutate(p.id)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  className="p-4 rounded-xl bg-card border border-border/50 card-glow group"
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Icon */}
+                    <div className={cn(
+                      "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+                      isDone ? "bg-[hsl(var(--nectar-green))]/15" : "bg-[hsl(var(--nectar-purple))]/15"
+                    )}>
+                      {isDone
+                        ? <Check className="w-4 h-4 text-[hsl(var(--nectar-green))]" />
+                        : <FolderKanban className="w-4 h-4 text-[hsl(var(--nectar-purple))]" />
+                      }
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">{p.title}</p>
+                        <span className="text-xs font-semibold text-[hsl(var(--nectar-green))]">{progress}%</span>
+                      </div>
+                      {/* Progress bar */}
+                      <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${progress}%`,
+                            background: isDone
+                              ? `hsl(var(--nectar-green))`
+                              : progress === 0
+                                ? `hsl(var(--muted-foreground))`
+                                : `linear-gradient(90deg, hsl(var(--nectar-purple)), hsl(var(--primary)))`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                        <span className={cn("w-2 h-2 rounded-full", statusDotColors[p.status])} />
+                        <span>{statusLabels[p.status]}</span>
+                        <span>{taskCount.done}/{taskCount.total} etapas</span>
+                        <span className="flex items-center gap-0.5">
+                          <Clock className="w-3 h-3" />
+                          {new Date(p.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                        </span>
                       </div>
                     </div>
-                    <Progress value={progress} className="h-2 mb-2" />
-                    <p className="text-xs text-muted-foreground text-right">{getProjectTaskCount(p.id)}</p>
-                  </CardContent>
-                </Card>
+
+                    {/* Status select */}
+                    <Select value={p.status} onValueChange={(v) => updateProject.mutate({ id: p.id, status: v as any })}>
+                      <SelectTrigger className="w-28 h-7 text-xs bg-secondary shrink-0"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {(["backlog", "todo", "in_progress", "review", "done"] as const).map(s => (
+                          <SelectItem key={s} value={s}>{statusLabels[s]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Delete */}
+                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0" onClick={() => deleteProject.mutate(p.id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </motion.div>
               );
             })}
           </div>
