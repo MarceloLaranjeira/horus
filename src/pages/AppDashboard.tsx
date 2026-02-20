@@ -21,7 +21,7 @@ export type AppView =
   | "tasks" | "tasks-today" | "tasks-overdue" | "tasks-completed"
   | "habits" | "habits-stats"
   | "reminders" | "reminders-upcoming" | "reminders-overdue"
-  | "finances" | "finances-income" | "finances-expenses" | "finances-budget"
+  | "finances" | "finances-income" | "finances-expenses" | "finances-budget" | "finances-cashflow" | "finances-analysis"
   | "projects" | "projects-kanban" | "projects-calendar"
   | "settings" | "settings-profile" | "settings-notifications" | "settings-appearance" | "settings-ai" | "settings-integrations";
 
@@ -31,7 +31,6 @@ const AppDashboard = () => {
   const renderView = () => {
     if (activeView === "dashboard") return <DashboardView onNavigate={setActiveView} />;
     if (activeView === "chat") return <ChatView />;
-    if (activeView.startsWith("tasks")) return <TasksView subView={activeView} />;
     if (activeView.startsWith("tasks")) return <TasksView subView={activeView} />;
     if (activeView.startsWith("habits")) return <HabitsView subView={activeView} />;
     if (activeView.startsWith("finances")) return <FinancesView subView={activeView} />;
