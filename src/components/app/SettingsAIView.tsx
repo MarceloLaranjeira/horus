@@ -10,12 +10,18 @@ import { useAISettings, type AIModel, elevenLabsVoices } from "@/hooks/useAISett
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 
-const models: { value: AIModel; label: string; description: string }[] = [
-  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash", description: "Rápido e equilibrado (recomendado)" },
-  { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Boa relação custo/desempenho" },
-  { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", description: "Máxima qualidade, mais lento" },
-  { value: "openai/gpt-5", label: "GPT-5", description: "Alta precisão e raciocínio avançado" },
-  { value: "openai/gpt-5-mini", label: "GPT-5 Mini", description: "Equilíbrio entre custo e qualidade" },
+const models: { value: AIModel; label: string; description: string; provider: string }[] = [
+  // Google Gemini
+  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash", description: "Rápido e equilibrado (recomendado)", provider: "Google" },
+  { value: "google/gemini-3-pro-preview", label: "Gemini 3 Pro", description: "Próxima geração, raciocínio avançado", provider: "Google" },
+  { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Boa relação custo/desempenho", provider: "Google" },
+  { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite", description: "Mais rápido e econômico", provider: "Google" },
+  { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", description: "Máxima qualidade multimodal", provider: "Google" },
+  // OpenAI
+  { value: "openai/gpt-5", label: "GPT-5", description: "Alta precisão e raciocínio avançado", provider: "OpenAI" },
+  { value: "openai/gpt-5-mini", label: "GPT-5 Mini", description: "Equilíbrio entre custo e qualidade", provider: "OpenAI" },
+  { value: "openai/gpt-5-nano", label: "GPT-5 Nano", description: "Ultra rápido, alto volume", provider: "OpenAI" },
+  { value: "openai/gpt-5.2", label: "GPT-5.2", description: "Último lançamento, raciocínio aprimorado", provider: "OpenAI" },
 ];
 
 const speechLangs = [
@@ -95,12 +101,20 @@ export const SettingsAIView = () => {
           <Select value={settings.model} onValueChange={(v) => updateSettings({ model: v as AIModel })}>
             <SelectTrigger className="bg-secondary/50 border-border/50"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {models.map((m) => (
-                <SelectItem key={m.value} value={m.value}>
-                  <span className="font-medium">{m.label}</span>
-                  <span className="text-muted-foreground ml-2 text-xs">— {m.description}</span>
-                </SelectItem>
-              ))}
+              {models.map((m, i) => {
+                const prevProvider = i > 0 ? models[i - 1].provider : null;
+                const showDivider = prevProvider && prevProvider !== m.provider;
+                return (
+                  <div key={m.value}>
+                    {showDivider && <div className="px-2 py-1 text-xs font-bold text-muted-foreground border-t border-border/50 mt-1 pt-2">{m.provider}</div>}
+                    {i === 0 && <div className="px-2 py-1 text-xs font-bold text-muted-foreground">{m.provider}</div>}
+                    <SelectItem value={m.value}>
+                      <span className="font-medium">{m.label}</span>
+                      <span className="text-muted-foreground ml-2 text-xs">— {m.description}</span>
+                    </SelectItem>
+                  </div>
+                );
+              })}
             </SelectContent>
           </Select>
         </motion.div>
@@ -182,11 +196,11 @@ export const SettingsAIView = () => {
             </div>
             <h3 className="font-semibold text-sm">Instruções Personalizadas</h3>
           </div>
-          <p className="text-xs text-muted-foreground">Adicione instruções específicas para o agente. Ex: "Me chame de João", "Sempre responda de forma direta", "Sou desenvolvedor e prefiro respostas técnicas".</p>
+          <p className="text-xs text-muted-foreground">Adicione instruções específicas para o agente. Ex: "Me chame de João", "Sempre responda de forma direta".</p>
           <Textarea
             value={customPrompt}
             onChange={(e) => setCustomPrompt(e.target.value)}
-            placeholder="Ex: Me chame de João. Prefiro respostas curtas e objetivas. Sou estudante de engenharia..."
+            placeholder="Ex: Me chame de João. Prefiro respostas curtas e objetivas..."
             className="bg-secondary/50 border-border/50 min-h-[100px]"
           />
         </motion.div>
