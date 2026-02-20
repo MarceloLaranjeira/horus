@@ -40,6 +40,7 @@ const MENU_KEYWORDS: { keywords: string[]; menu: DetectedMenu }[] = [
   { keywords: ["lembrete", "reminder", "alarme"], menu: { id: "reminders", label: "Lembretes", icon: Bell, color: "hsl(var(--nectar-red))" } },
   { keywords: ["projeto", "kanban", "project"], menu: { id: "projects", label: "Projetos", icon: FolderKanban, color: "hsl(var(--nectar-green))" } },
   { keywords: ["calendário", "calendar", "agenda", "evento"], menu: { id: "calendar", label: "Calendário", icon: Calendar, color: "hsl(187 100% 50%)" } },
+  { keywords: ["email", "gmail", "e-mail", "inbox", "caixa de entrada"], menu: { id: "gmail", label: "Gmail", icon: Send, color: "hsl(0 80% 60%)" } },
 ];
 
 function detectMenus(text: string): DetectedMenu[] {
@@ -279,6 +280,7 @@ export const ChatView = () => {
 
   const executeActions = async (toolCalls: any[]): Promise<ActionResult[]> => {
     const results: ActionResult[] = [];
+    const gmailUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail`;
     for (const call of toolCalls) {
       try {
         const args = JSON.parse(call.function.arguments);
@@ -295,6 +297,43 @@ export const ChatView = () => {
         } else if (name === "create_reminder" && user) {
           const { error } = await supabase.from("reminders").insert({ title: args.title, due_date: args.due_date, user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["reminders"] }); results.push({ type: "reminder", title: args.title, success: true }); }
+        } else if (name === "list_emails") {
+          const res = await fetch(gmailUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
+            body: JSON.stringify({ action: "list_emails", query: args.query || "in:inbox", maxResults: args.maxResults || 5 }),
+          });
+          const data = await res.json();
+          if (data.success && data.emails) {
+            const summary = data.emails.map((e: any) => `• ${e.subject} — de: ${e.from}${e.isUnread ? " 🔵" : ""}`).join("\n");
+            results.push({ type: "email", title: `${data.emails.length} emails encontrados:\n${summary}`, success: true });
+          } else {
+            results.push({ type: "email", title: data.error || "Erro ao listar emails", success: false });
+          }
+        } else if (name === "read_email") {
+          const res = await fetch(gmailUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
+            body: JSON.stringify({ action: "read_email", messageId: args.messageId }),
+          });
+          const data = await res.json();
+          if (data.success && data.email) {
+            results.push({ type: "email", title: `Lido: "${data.email.subject}" de ${data.email.from}`, success: true });
+          } else {
+            results.push({ type: "email", title: data.error || "Erro ao ler email", success: false });
+          }
+        } else if (name === "send_email") {
+          const res = await fetch(gmailUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
+            body: JSON.stringify({ action: "send_email", to: args.to, subject: args.subject, body: args.body }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            results.push({ type: "email", title: `Email enviado para ${args.to}`, success: true });
+          } else {
+            results.push({ type: "email", title: data.error || "Erro ao enviar email", success: false });
+          }
         }
       } catch (e) { console.error("Action error:", e); }
     }

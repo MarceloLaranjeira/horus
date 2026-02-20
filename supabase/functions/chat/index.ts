@@ -74,6 +74,53 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "list_emails",
+      description: "Lista os emails recentes da caixa de entrada do Gmail do usuário",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Filtro de busca do Gmail (ex: 'is:unread', 'from:example@gmail.com', 'subject:reunião')" },
+          maxResults: { type: "number", description: "Número máximo de emails (1-10)" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_email",
+      description: "Lê o conteúdo completo de um email específico pelo ID",
+      parameters: {
+        type: "object",
+        properties: {
+          messageId: { type: "string", description: "ID da mensagem do Gmail" },
+        },
+        required: ["messageId"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "send_email",
+      description: "Envia um email pelo Gmail do usuário",
+      parameters: {
+        type: "object",
+        properties: {
+          to: { type: "string", description: "Email do destinatário" },
+          subject: { type: "string", description: "Assunto do email" },
+          body: { type: "string", description: "Corpo do email em texto" },
+        },
+        required: ["to", "subject", "body"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 const NLU_PROMPT = `Você é um analisador de linguagem natural especializado em extrair intenções e entidades de comandos de usuário.
@@ -105,6 +152,7 @@ function buildSystemPrompt(assistantName: string, customPrompt?: string): string
 
 Suas capacidades:
 - Criar tarefas, hábitos, transações financeiras e lembretes usando as ferramentas disponíveis
+- Ler e enviar emails do Gmail do usuário usando as ferramentas list_emails, read_email e send_email
 - Entender comandos complexos em linguagem natural
 - Extrair múltiplas intenções de uma única frase
 - Responder sempre em português brasileiro
