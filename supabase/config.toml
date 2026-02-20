@@ -9,8 +9,5 @@ verify_jwt = false
 [functions.test-google-calendar]
 verify_jwt = false
 
-[functions.test-evolution-api]
-verify_jwt = false
-
 [functions.whatsapp]
 verify_jwt = false

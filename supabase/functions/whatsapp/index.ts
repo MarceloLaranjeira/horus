@@ -37,12 +37,12 @@ Deno.serve(async (req) => {
 
     const userId = claimsData.claims.sub;
 
-    // Fetch user's WhatsApp server config
+    // Fetch user's Evolution API config
     const { data: integration, error: dbError } = await supabase
       .from("user_integrations")
       .select("credentials, enabled")
       .eq("user_id", userId)
-      .eq("integration_type", "whatsapp_server")
+      .eq("integration_type", "evolution_api")
       .maybeSingle();
 
     if (dbError) {
@@ -50,77 +50,87 @@ Deno.serve(async (req) => {
     }
 
     if (!integration) {
-      return json({ error: "Servidor WhatsApp não configurado" }, 404);
+      return json({ error: "Evolution API não configurada. Vá em Configurações > Integrações." }, 404);
     }
 
-    const { server_url } = integration.credentials as { server_url: string };
+    const { api_url, api_key, instance_name } = integration.credentials as {
+      api_url: string;
+      api_key: string;
+      instance_name: string;
+    };
 
-    if (!server_url) {
-      return json({ error: "URL do servidor não configurada" }, 400);
+    if (!api_url || !api_key) {
+      return json({ error: "URL ou API Key da Evolution API não configurada" }, 400);
     }
 
-    const baseUrl = server_url.replace(/\/+$/, "");
+    const baseUrl = api_url.replace(/\/+$/, "");
     const body = await req.json().catch(() => ({}));
     const action = body.action || "status";
 
-    // === STATUS: check if server is reachable and WhatsApp is connected ===
+    // === STATUS ===
     if (action === "status") {
       try {
-        const res = await fetch(`${baseUrl}/status`, {
+        const url = instance_name
+          ? `${baseUrl}/instance/connectionState/${encodeURIComponent(instance_name)}`
+          : `${baseUrl}/instance/fetchInstances`;
+
+        const res = await fetch(url, {
+          headers: { apikey: api_key },
           signal: AbortSignal.timeout(10000),
         });
         const data = await res.json();
+
+        if (!res.ok) {
+          return json({ success: false, error: `Erro ${res.status}`, data }, res.status);
+        }
+
+        // connectionState returns { instance: { state: "open" | "close" } }
+        const state = data?.instance?.state ?? data?.state;
+        const connected = state === "open";
+
         return json({
           success: true,
-          connected: data.connected ?? data.authenticated ?? false,
-          message: data.connected || data.authenticated
-            ? "WhatsApp conectado!"
-            : "WhatsApp desconectado",
+          connected,
+          message: connected ? "WhatsApp conectado!" : "WhatsApp desconectado",
           data,
         });
       } catch (e) {
-        return json({
-          success: false,
-          error: `Não foi possível conectar ao servidor: ${String(e)}`,
-        }, 502);
+        return json({ success: false, error: `Não foi possível conectar: ${String(e)}` }, 502);
       }
     }
 
-    // === QR CODE: get QR code for pairing ===
+    // === GET QR CODE ===
     if (action === "get_qrcode") {
+      if (!instance_name) {
+        return json({ error: "Nome da instância não configurado" }, 400);
+      }
+
       try {
-        const res = await fetch(`${baseUrl}/qr`, {
+        const res = await fetch(`${baseUrl}/instance/connect/${encodeURIComponent(instance_name)}`, {
+          headers: { apikey: api_key },
           signal: AbortSignal.timeout(15000),
         });
-        const contentType = res.headers.get("content-type") || "";
+        const data = await res.json();
 
-        // If server returns image directly
-        if (contentType.startsWith("image/")) {
-          const buffer = await res.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-          return json({
-            success: true,
-            qr: `data:${contentType};base64,${base64}`,
-          });
+        if (!res.ok) {
+          return json({ success: false, error: "Erro ao obter QR Code", details: data }, res.status);
         }
 
-        // If server returns JSON with QR data
-        const data = await res.json();
-        const qrValue = data.qr || data.qrcode || data.base64 || data.data?.qr || null;
+        // Evolution API returns { base64: "data:image/..." } or { pairingCode: "..." }
+        const qr = data.base64 || data.qrcode?.base64 || null;
         const pairingCode = data.pairingCode || data.code || null;
 
-        if (qrValue) {
-          const qr = qrValue.startsWith("data:") ? qrValue : `data:image/png;base64,${qrValue}`;
-          return json({ success: true, qr });
+        // If already connected
+        if (data.instance?.state === "open") {
+          return json({ success: true, alreadyConnected: true, message: "WhatsApp já está conectado!" });
+        }
+
+        if (qr) {
+          return json({ success: true, qr: qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}` });
         }
 
         if (pairingCode) {
           return json({ success: true, pairingCode });
-        }
-
-        // If already connected
-        if (data.connected || data.authenticated) {
-          return json({ success: true, alreadyConnected: true, message: "WhatsApp já está conectado!" });
         }
 
         return json({ success: false, error: "QR Code não disponível", data }, 400);
@@ -135,14 +145,20 @@ Deno.serve(async (req) => {
       if (!phone || !message) {
         return json({ error: "Telefone e mensagem são obrigatórios" }, 400);
       }
+      if (!instance_name) {
+        return json({ error: "Nome da instância não configurado" }, 400);
+      }
 
       const cleanPhone = phone.replace(/\D/g, "");
 
       try {
-        const res = await fetch(`${baseUrl}/send`, {
+        const res = await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(instance_name)}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: cleanPhone, message }),
+          headers: {
+            apikey: api_key,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ number: cleanPhone, text: message }),
           signal: AbortSignal.timeout(15000),
         });
         const data = await res.json();
