@@ -30,9 +30,6 @@ import type { AppView } from "@/pages/AppDashboard";
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -48,63 +45,25 @@ interface NavItem {
   label: string;
 }
 
-interface NavCategory {
-  label: string;
-  items: NavItem[];
-}
-
-const navCategories: NavCategory[] = [
-  {
-    label: "Principal",
-    items: [
-      { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { id: "chat", icon: MessageSquare, label: "AuraTask IA" },
-    ],
-  },
-  {
-    label: "Tarefas",
-    items: [
-      { id: "tasks", icon: CheckSquare, label: "Todas as Tarefas" },
-      { id: "tasks-today", icon: CalendarDays, label: "Tarefas de Hoje" },
-      { id: "tasks-overdue", icon: AlertTriangle, label: "Tarefas Atrasadas" },
-      { id: "tasks-completed", icon: CheckCircle2, label: "Concluídas" },
-    ],
-  },
-  {
-    label: "Projetos",
-    items: [
-      { id: "projects", icon: FolderKanban, label: "Visão Geral" },
-      { id: "projects-kanban", icon: KanbanSquare, label: "Kanban" },
-      { id: "projects-calendar", icon: Calendar, label: "Calendário" },
-    ],
-  },
-  {
-    label: "Lembretes",
-    items: [
-      { id: "reminders", icon: Bell, label: "Todos os Lembretes" },
-      { id: "reminders-upcoming", icon: Clock, label: "Próximos" },
-      { id: "reminders-overdue", icon: AlertTriangle, label: "Atrasados" },
-    ],
-  },
-  {
-    label: "Hábitos",
-    items: [
-      { id: "habits", icon: Flame, label: "Ativos" },
-      { id: "habits-stats", icon: BarChart3, label: "Estatísticas" },
-    ],
-  },
-  {
-    label: "Finanças",
-    items: [
-      { id: "finances", icon: DollarSign, label: "Visão Geral" },
-      { id: "finances-income", icon: TrendingUp, label: "Receitas" },
-      { id: "finances-expenses", icon: TrendingDown, label: "Despesas" },
-      { id: "finances-budget", icon: Wallet, label: "Orçamento" },
-    ],
-  },
-];
-
-const settingsItems: NavItem[] = [
+const allItems: NavItem[] = [
+  { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { id: "chat", icon: MessageSquare, label: "AuraTask IA" },
+  { id: "tasks", icon: CheckSquare, label: "Todas as Tarefas" },
+  { id: "tasks-today", icon: CalendarDays, label: "Tarefas de Hoje" },
+  { id: "tasks-overdue", icon: AlertTriangle, label: "Tarefas Atrasadas" },
+  { id: "tasks-completed", icon: CheckCircle2, label: "Concluídas" },
+  { id: "projects", icon: FolderKanban, label: "Projetos" },
+  { id: "projects-kanban", icon: KanbanSquare, label: "Kanban" },
+  { id: "projects-calendar", icon: Calendar, label: "Calendário" },
+  { id: "reminders", icon: Bell, label: "Lembretes" },
+  { id: "reminders-upcoming", icon: Clock, label: "Próximos" },
+  { id: "reminders-overdue", icon: AlertTriangle, label: "Atrasados" },
+  { id: "habits", icon: Flame, label: "Hábitos" },
+  { id: "habits-stats", icon: BarChart3, label: "Estatísticas" },
+  { id: "finances", icon: DollarSign, label: "Finanças" },
+  { id: "finances-income", icon: TrendingUp, label: "Receitas" },
+  { id: "finances-expenses", icon: TrendingDown, label: "Despesas" },
+  { id: "finances-budget", icon: Wallet, label: "Orçamento" },
   { id: "settings-ai", icon: Bot, label: "Assistente IA" },
   { id: "settings-integrations", icon: Plug, label: "Integrações" },
   { id: "settings-profile", icon: User, label: "Perfil" },
@@ -133,50 +92,24 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
       </SidebarHeader>
 
       <SidebarContent>
-        {navCategories.map((category) => (
-          <SidebarGroup key={category.label}>
-            <SidebarGroupLabel>{category.label}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {category.items.map((item) => (
-                  <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton
-                      onClick={() => onViewChange(item.id)}
-                      isActive={activeView === item.id}
-                      tooltip={item.label}
-                    >
-                      <item.icon className={cn("shrink-0", activeView === item.id && "text-primary")} />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        <SidebarMenu>
+          {allItems.map((item) => (
+            <SidebarMenuItem key={item.id}>
+              <SidebarMenuButton
+                onClick={() => onViewChange(item.id)}
+                isActive={activeView === item.id}
+                tooltip={item.label}
+              >
+                <item.icon className={cn("shrink-0", activeView === item.id && "text-primary")} />
+                <span>{item.label}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>
-          <SidebarGroup>
-            <SidebarGroupLabel>Configurações</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {settingsItems.map((item) => (
-                  <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton
-                      onClick={() => onViewChange(item.id)}
-                      isActive={activeView === item.id}
-                      tooltip={item.label}
-                    >
-                      <item.icon className={cn("shrink-0", activeView === item.id && "text-primary")} />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={async () => { await signOut(); navigate("/"); }}

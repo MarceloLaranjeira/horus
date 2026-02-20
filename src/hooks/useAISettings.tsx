@@ -2,10 +2,14 @@ import { useState, useEffect, createContext, useContext, ReactNode } from "react
 
 export type AIModel =
   | "google/gemini-3-flash-preview"
+  | "google/gemini-3-pro-preview"
   | "google/gemini-2.5-flash"
+  | "google/gemini-2.5-flash-lite"
   | "google/gemini-2.5-pro"
   | "openai/gpt-5"
-  | "openai/gpt-5-mini";
+  | "openai/gpt-5-mini"
+  | "openai/gpt-5-nano"
+  | "openai/gpt-5.2";
 
 export interface ElevenLabsVoice {
   id: string;
