@@ -5,10 +5,11 @@ import { useHabits } from "@/hooks/useHabits";
 import { useReminders } from "@/hooks/useReminders";
 import { useProjects } from "@/hooks/useProjects";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
+import { useGmail } from "@/hooks/useGmail";
 import {
   CheckSquare, DollarSign, Flame, Bell, Clock, AlertTriangle, Plus,
   Trash2, Check, X, TrendingUp, TrendingDown, FolderKanban, BarChart3,
-  Calendar, ExternalLink, Loader2,
+  Calendar, ExternalLink, Loader2, Mail, MailOpen,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -89,6 +90,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const { reminders, toggleReminder, deleteReminder, addReminder } = useReminders();
   const { projects } = useProjects();
   const { connected: calConnected, events: calEvents, fetchEvents, loadingEvents } = useGoogleCalendar();
+  const { emails: gmailEmails, loading: gmailLoading, fetchUnread: fetchGmailUnread } = useGmail();
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [showAddTask, setShowAddTask] = useState(false);
@@ -107,8 +109,11 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
 
   // Fetch calendar events when connected
   useEffect(() => {
-    if (calConnected) fetchEvents();
-  }, [calConnected, fetchEvents]);
+    if (calConnected) {
+      fetchEvents();
+      fetchGmailUnread();
+    }
+  }, [calConnected, fetchEvents, fetchGmailUnread]);
 
   // Task stats
   const pendingTasks = tasks.filter((t) => t.status !== "done");
@@ -423,6 +428,36 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
               </ul>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">Nenhum evento nos próximos 7 dias</p>
+            )}
+          </SectionCard>
+        )}
+        {/* ===== GMAIL ===== */}
+        {calConnected && (
+          <SectionCard title="Gmail - Não Lidos" icon={Mail} iconColor="hsl(var(--destructive))" delay={0.39}>
+            {gmailLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Carregando emails...
+              </div>
+            ) : gmailEmails.length > 0 ? (
+              <ul className="space-y-2">
+                {gmailEmails.slice(0, 5).map((email: any, i: number) => {
+                  const fromName = email.from?.replace(/<.*>/, "").trim() || "Desconhecido";
+                  return (
+                    <li key={email.id || i} className="flex items-center gap-3 text-sm p-2 rounded-lg bg-destructive/5 border border-destructive/10">
+                      <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                        <MailOpen className="w-4 h-4 text-destructive" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{email.subject || "(Sem assunto)"}</p>
+                        <p className="text-xs text-muted-foreground truncate">{fromName}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum email não lido 🎉</p>
             )}
           </SectionCard>
         )}
