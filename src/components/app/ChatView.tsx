@@ -502,11 +502,10 @@ export const ChatView = () => {
 
   const clearChat = async () => {
     if (!user || !conversationId) return;
-    // Delete all messages from this conversation
     await supabase.from("chat_messages").delete().eq("conversation_id", conversationId);
     const greeting: Message = {
       role: "assistant",
-      content: `Chat limpo! 🧹 Sou o **${settings.assistantName}**. Como posso ajudar?`,
+      content: `Olá! 👋 Eu sou o **${settings.assistantName}**, seu assistente pessoal com IA.\n\nFale comigo por voz ou texto. Posso criar tarefas, gerenciar hábitos, controlar finanças e muito mais.\n\nComo posso ajudar?`,
     };
     setMessages([greeting]);
     await supabase.from("chat_messages").insert({
@@ -515,7 +514,7 @@ export const ChatView = () => {
       role: "assistant",
       content: greeting.content,
     });
-    toast({ title: "Chat excluído com sucesso!" });
+    toast({ title: "Chat limpo com sucesso!" });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
