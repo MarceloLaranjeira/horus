@@ -42,7 +42,7 @@ export interface AISettings {
 }
 
 const defaultSettings: AISettings = {
-  assistantName: "AuraTask",
+  assistantName: "Maxx",
   model: "google/gemini-3-flash-preview",
   voiceEnabled: true,
   voiceLang: "pt-BR",
