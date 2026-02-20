@@ -56,6 +56,7 @@
     --nectar-green: 142 70% 45%;
     --nectar-red: 0 84% 60%;
     --nectar-orange: 25 95% 53%;
+    --nectar-purple: 270 70% 60%;
   }
 
   .light {
@@ -103,6 +104,7 @@
     --nectar-green: 142 70% 40%;
     --nectar-red: 0 84% 55%;
     --nectar-orange: 25 95% 48%;
+    --nectar-purple: 270 70% 55%;
   }
 }
 

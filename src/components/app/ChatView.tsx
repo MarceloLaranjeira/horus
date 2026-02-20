@@ -651,20 +651,36 @@ export const ChatView = () => {
                         ) : msg.content}
                       </div>
                       {msg.actions && msg.actions.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pl-1">
-                          {msg.actions.map((a, j) => (
-                            <motion.div
-                              key={j}
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: j * 0.1 }}
-                              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary"
-                            >
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span className="capitalize">{a.type}:</span>
-                              <span className="text-foreground/80">{a.title}</span>
-                            </motion.div>
-                          ))}
+                        <div className="space-y-1.5 mt-1">
+                          {msg.actions.map((a, j) => {
+                            const actionConfig: Record<string, { icon: React.ElementType; color: string; bg: string; border: string }> = {
+                              task: { icon: CheckSquare, color: "text-[hsl(var(--nectar-green))]", bg: "bg-[hsl(var(--nectar-green))]/5", border: "border-[hsl(var(--nectar-green))]/20" },
+                              habit: { icon: Flame, color: "text-[hsl(var(--nectar-orange,25_95%_53%))]", bg: "bg-[hsl(var(--nectar-orange))]/5", border: "border-[hsl(var(--nectar-orange))]/20" },
+                              finance: { icon: DollarSign, color: "text-primary", bg: "bg-primary/5", border: "border-primary/20" },
+                              reminder: { icon: Bell, color: "text-destructive", bg: "bg-destructive/5", border: "border-destructive/20" },
+                              email: { icon: Send, color: "text-[hsl(0_80%_60%)]", bg: "bg-[hsl(0_80%_60%)]/5", border: "border-[hsl(0_80%_60%)]/20" },
+                            };
+                            const cfg = actionConfig[a.type] || { icon: CheckCircle2, color: "text-primary", bg: "bg-primary/5", border: "border-primary/20" };
+                            const ActionIcon = cfg.icon;
+                            return (
+                              <motion.div
+                                key={j}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: j * 0.1 }}
+                                className={cn("flex items-center gap-3 p-3 rounded-xl border", cfg.bg, cfg.border)}
+                              >
+                                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", cfg.bg)}>
+                                  <ActionIcon className={cn("w-4 h-4", cfg.color)} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{a.title}</p>
+                                  <p className={cn("text-[10px] capitalize", cfg.color)}>{a.success ? "✓ Criado" : "✗ Erro"}</p>
+                                </div>
+                                {a.success && <CheckCircle2 className={cn("w-4 h-4 shrink-0", cfg.color)} />}
+                              </motion.div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
