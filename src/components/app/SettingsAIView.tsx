@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAISettings, type AIModel, type AgentMood, type TTSProvider, elevenLabsVoices, openaiVoices, geminiVoices, agentMoods } from "@/hooks/useAISettings";
+import { useAISettings, type AIModel, type AgentMood, type TTSProvider, elevenLabsVoices, openaiVoices, agentMoods } from "@/hooks/useAISettings";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 
@@ -230,15 +230,14 @@ export const SettingsAIView = () => {
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Provedor de Voz</Label>
                 <div className="grid grid-cols-3 gap-2">
-                  {([
+              {([
                     { value: "elevenlabs" as TTSProvider, label: "ElevenLabs", emoji: "🎙️" },
                     { value: "openai" as TTSProvider, label: "OpenAI", emoji: "🤖" },
-                    { value: "gemini" as TTSProvider, label: "Gemini", emoji: "✨" },
                   ]).map((provider) => (
                     <button
                       key={provider.value}
                       onClick={() => {
-                        const defaultVoices = { elevenlabs: "EXAVITQu4vr4xnSDxMaL", openai: "alloy", gemini: "Kore" };
+                        const defaultVoices: Record<string, string> = { elevenlabs: "EXAVITQu4vr4xnSDxMaL", openai: "alloy" };
                         updateSettings({ ttsProvider: provider.value, ttsVoiceId: defaultVoices[provider.value] });
                       }}
                       className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
@@ -258,8 +257,7 @@ export const SettingsAIView = () => {
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Escolha a voz</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {(settings.ttsProvider === "elevenlabs" ? elevenLabsVoices :
-                    settings.ttsProvider === "openai" ? openaiVoices : geminiVoices
+                  {(settings.ttsProvider === "elevenlabs" ? elevenLabsVoices : openaiVoices
                   ).map((voice) => (
                     <button
                       key={voice.id}
@@ -280,8 +278,7 @@ export const SettingsAIView = () => {
               <Button variant="outline" size="sm" onClick={() => {
                 if (settings.ttsProvider === "elevenlabs") {
                   previewVoice(settings.ttsVoiceId);
-                } else {
-                  // Test OpenAI/Gemini via chat function
+                } else if (settings.ttsProvider === "openai") {
                   const testTTS = async () => {
                     try {
                       const response = await fetch(
@@ -294,7 +291,7 @@ export const SettingsAIView = () => {
                           },
                           body: JSON.stringify({
                             mode: "tts",
-                            ttsProvider: settings.ttsProvider,
+                            ttsProvider: "openai",
                             ttsVoiceId: settings.ttsVoiceId,
                             ttsText: "Olá! Eu sou seu assistente pessoal.",
                           }),
@@ -304,22 +301,11 @@ export const SettingsAIView = () => {
                         toast({ title: "Erro ao testar voz", variant: "destructive" });
                         return;
                       }
-                      const contentType = response.headers.get("content-type") || "";
-                      if (contentType.includes("audio")) {
-                        const blob = await response.blob();
-                        const url = URL.createObjectURL(blob);
-                        const audio = new Audio(url);
-                        audio.onended = () => URL.revokeObjectURL(url);
-                        audio.play();
-                      } else {
-                        // Gemini fallback - use browser speech
-                        if ("speechSynthesis" in window) {
-                          const utterance = new SpeechSynthesisUtterance("Olá! Eu sou seu assistente pessoal.");
-                          utterance.lang = "pt-BR";
-                          window.speechSynthesis.speak(utterance);
-                        }
-                        toast({ title: "Voz Gemini usa síntese do navegador", description: "A voz pode variar conforme o dispositivo." });
-                      }
+                      const blob = await response.blob();
+                      const url = URL.createObjectURL(blob);
+                      const audio = new Audio(url);
+                      audio.onended = () => URL.revokeObjectURL(url);
+                      audio.play();
                     } catch {
                       toast({ title: "Erro ao testar voz", variant: "destructive" });
                     }
