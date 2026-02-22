@@ -230,7 +230,7 @@ export const ChatView = () => {
       const actionResp = await fetch(CHAT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        body: JSON.stringify({ messages: apiMessages, mode: "actions", model: settings.model, assistantName: settings.assistantName, customPrompt: settings.customPrompt }),
+        body: JSON.stringify({ messages: apiMessages, mode: "actions", model: settings.model, assistantName: settings.assistantName, customPrompt: settings.customPrompt, temperature: settings.temperature, mood: settings.mood }),
       });
       let actionResults: ActionResult[] = [];
       if (actionResp.ok) {
@@ -249,6 +249,8 @@ export const ChatView = () => {
           model: settings.model,
           assistantName: settings.assistantName,
           customPrompt: settings.customPrompt,
+          temperature: settings.temperature,
+          mood: settings.mood,
           executedActions: actionResults.length > 0 ? actionResults.map((a) => `${a.type}: "${a.title}" criado com sucesso`) : undefined,
         }),
       });

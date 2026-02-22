@@ -181,7 +181,16 @@ FORMATO DE SAÍDA (JSON):
   "confianca": 0.95
 }`;
 
-function buildSystemPrompt(assistantName: string, customPrompt?: string): string {
+const MOOD_INSTRUCTIONS: Record<string, string> = {
+  professional: "Adote um tom profissional e objetivo. Evite emojis excessivos. Seja direto e eficiente.",
+  friendly: "Seja amigável e acolhedor. Use emojis com moderação. Mantenha um tom próximo e caloroso.",
+  casual: "Seja super relaxado e informal. Use gírias, emojis e linguagem coloquial. Como um amigo próximo.",
+  formal: "Use linguagem culta e formal. Evite gírias e emojis. Mantenha protocolo e elegância nas respostas.",
+  creative: "Seja criativo e imaginativo. Use metáforas, analogias e linguagem colorida. Surpreenda com respostas originais.",
+  concise: "Seja extremamente direto e conciso. Respostas curtas, sem rodeios. Máximo 2-3 frases por resposta quando possível.",
+};
+
+function buildSystemPrompt(assistantName: string, customPrompt?: string, mood?: string): string {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Manaus" });
   const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Manaus" });
   let base = `Você é o ${assistantName}, um assistente pessoal de IA avançado inspirado no Jarvis do Homem de Ferro. Você opera em modo conversacional — seu objetivo é manter uma conversa natural, útil e contextualizada com o usuário.
@@ -197,12 +206,8 @@ Suas capacidades:
 - Fornecer resumos do dia, finanças, hábitos e lembretes quando solicitado
 
 Diretrizes conversacionais:
-- Responda de forma concisa mas completa
 - Mantenha o contexto da conversa anterior
 - Faça perguntas de acompanhamento se necessário para esclarecer
-- Use linguagem natural e amigável, evite jargão técnico a menos que o usuário o use
-- Seja conciso mas informativo
-- Use emojis com moderação para dar personalidade
 - Quando o usuário pedir para criar algo, USE AS FERRAMENTAS disponíveis para executar a ação
 - Se o usuário mencionar datas relativas como "amanhã", "sexta-feira", calcule a data real (hoje é ${today}, horário atual: ${now}, fuso: Manaus UTC-4)
 - Sempre considere o fuso horário de Manaus (America/Manaus, UTC-4) para horários e datas
@@ -210,6 +215,12 @@ Diretrizes conversacionais:
 - NUNCA repita a mesma introdução ou saudação. Varie suas respostas e seja natural
 - Use o contexto da conversa para personalizar suas respostas
 - Quando o usuário perguntar "como está meu dia", forneça um resumo das tarefas, lembretes e compromissos pendentes`;
+
+  // Apply mood instructions
+  const moodKey = mood || "friendly";
+  if (MOOD_INSTRUCTIONS[moodKey]) {
+    base += `\n\nTom e personalidade: ${MOOD_INSTRUCTIONS[moodKey]}`;
+  }
 
   if (customPrompt?.trim()) {
     base += `\n\nInstruções personalizadas do usuário:\n${customPrompt.trim()}`;
@@ -223,11 +234,11 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, mode = "chat", model = "google/gemini-3-flash-preview", assistantName = "Horus", executedActions, customPrompt } = await req.json();
+    const { messages, mode = "chat", model = "google/gemini-3-flash-preview", assistantName = "Horus", executedActions, customPrompt, temperature = 0.7, mood = "friendly" } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const systemPrompt = buildSystemPrompt(assistantName, customPrompt);
+    const systemPrompt = buildSystemPrompt(assistantName, customPrompt, mood);
 
     // If actions were executed, add context
     const systemMessages = [{ role: "system", content: systemPrompt }];
@@ -320,6 +331,7 @@ serve(async (req) => {
         model,
         messages: [...systemMessages, ...messages],
         stream: true,
+        temperature: Math.min(Math.max(temperature, 0), 1.2),
       }),
     });
 

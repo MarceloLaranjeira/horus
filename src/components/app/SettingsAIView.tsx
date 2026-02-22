@@ -1,23 +1,22 @@
 import { useState } from "react";
-import { Bot, Volume2, Sparkles, Save, Mic, AudioLines, MessageSquare } from "lucide-react";
+import { Bot, Volume2, Sparkles, Save, Mic, AudioLines, MessageSquare, Thermometer, Drama } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAISettings, type AIModel, elevenLabsVoices } from "@/hooks/useAISettings";
+import { useAISettings, type AIModel, type AgentMood, elevenLabsVoices, agentMoods } from "@/hooks/useAISettings";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 
 const models: { value: AIModel; label: string; description: string; provider: string }[] = [
-  // Google Gemini
   { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash", description: "Rápido e equilibrado (recomendado)", provider: "Google" },
   { value: "google/gemini-3-pro-preview", label: "Gemini 3 Pro", description: "Próxima geração, raciocínio avançado", provider: "Google" },
   { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Boa relação custo/desempenho", provider: "Google" },
   { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite", description: "Mais rápido e econômico", provider: "Google" },
   { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", description: "Máxima qualidade multimodal", provider: "Google" },
-  // OpenAI
   { value: "openai/gpt-5", label: "GPT-5", description: "Alta precisão e raciocínio avançado", provider: "OpenAI" },
   { value: "openai/gpt-5-mini", label: "GPT-5 Mini", description: "Equilíbrio entre custo e qualidade", provider: "OpenAI" },
   { value: "openai/gpt-5-nano", label: "GPT-5 Nano", description: "Ultra rápido, alto volume", provider: "OpenAI" },
@@ -69,6 +68,8 @@ export const SettingsAIView = () => {
     }
   };
 
+  const temperatureLabel = settings.temperature <= 0.3 ? "Preciso" : settings.temperature <= 0.6 ? "Equilibrado" : settings.temperature <= 0.9 ? "Criativo" : "Experimental";
+
   return (
     <div className="h-full overflow-auto p-6 jarvis-grid">
       <div className="max-w-2xl mx-auto space-y-8">
@@ -119,8 +120,70 @@ export const SettingsAIView = () => {
           </Select>
         </motion.div>
 
+        {/* Temperature */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
+          className="bg-card border border-border/50 rounded-xl p-6 card-glow space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Thermometer className="w-4 h-4 text-primary" />
+            </div>
+            <h3 className="font-semibold text-sm">Temperatura</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Controla a criatividade das respostas. Valores baixos = mais preciso, valores altos = mais criativo.
+          </p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">0.0</span>
+              <span className="text-sm font-medium text-primary">{settings.temperature.toFixed(1)} — {temperatureLabel}</span>
+              <span className="text-xs text-muted-foreground">1.2</span>
+            </div>
+            <Slider
+              value={[settings.temperature]}
+              onValueChange={([v]) => updateSettings({ temperature: v })}
+              min={0}
+              max={1.2}
+              step={0.1}
+              className="w-full"
+            />
+          </div>
+        </motion.div>
+
+        {/* Agent Mood */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
+          className="bg-card border border-border/50 rounded-xl p-6 card-glow space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Drama className="w-4 h-4 text-primary" />
+            </div>
+            <h3 className="font-semibold text-sm">Humor do Agente</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">Define o tom e personalidade das respostas do assistente.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {agentMoods.map((mood) => (
+              <button
+                key={mood.value}
+                onClick={() => updateSettings({ mood: mood.value })}
+                className={`flex flex-col items-start gap-1 px-3 py-3 rounded-lg border text-left transition-all ${
+                  settings.mood === mood.value
+                    ? "border-primary bg-primary/10"
+                    : "border-border/50 bg-secondary/30 hover:border-border"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{mood.emoji}</span>
+                  <span className={`text-sm font-medium ${settings.mood === mood.value ? "text-primary" : "text-foreground"}`}>
+                    {mood.label}
+                  </span>
+                </div>
+                <span className="text-xs text-muted-foreground">{mood.description}</span>
+              </button>
+            ))}
+          </div>
+        </motion.div>
+
         {/* Speech Recognition */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }}
           className="bg-card border border-border/50 rounded-xl p-6 card-glow space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
