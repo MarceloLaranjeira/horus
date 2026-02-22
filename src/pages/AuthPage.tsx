@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { lovable } from "@/integrations/lovable/index";
-import aurataskLogo from "@/assets/auratask-logo.png";
+import horusLogo from "@/assets/horus-logo.png";
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -86,7 +86,7 @@ const AuthPage = () => {
     <div className="min-h-screen bg-gradient-dark flex items-center justify-center px-4">
       <Card className="w-full max-w-md bg-card border-border">
         <CardHeader className="text-center">
-          <img src={aurataskLogo} alt="Horus" className="w-16 h-16 mx-auto mb-4 rounded-xl" />
+          <img src={horusLogo} alt="Horus" className="w-16 h-16 mx-auto mb-4 rounded-xl" />
           <CardTitle className="text-2xl">
             {isForgotPassword ? "Recuperar Senha" : isLogin ? "Entrar" : "Criar Conta"}
           </CardTitle>

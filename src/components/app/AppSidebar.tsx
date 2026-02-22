@@ -12,7 +12,7 @@ import {
   LogOut,
   Brain,
 } from "lucide-react";
-import aurataskLogo from "@/assets/auratask-logo.png";
+import horusLogo from "@/assets/horus-logo.png";
 import type { AppView } from "@/pages/AppDashboard";
 import {
   Sidebar,
@@ -85,7 +85,7 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-1">
-          <img src={aurataskLogo} alt="Horus" className="w-8 h-8 rounded-xl object-cover shrink-0" />
+          <img src={horusLogo} alt="Horus" className="w-8 h-8 rounded-xl object-cover shrink-0" />
           {!collapsed && <span className="font-bold text-lg">Horus</span>}
         </div>
       </SidebarHeader>
