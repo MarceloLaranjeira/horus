@@ -75,7 +75,7 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
           isActive={isActiveGroup(item)}
           tooltip={item.label}
         >
-          <item.icon className={cn("shrink-0", isActiveGroup(item) && "text-primary")} />
+          <item.icon className={cn("shrink-0", isActiveGroup(item) && "text-[hsl(var(--nectar-gold))]")} />
           <span>{item.label}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
