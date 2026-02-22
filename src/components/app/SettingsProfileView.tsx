@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { User, Save, Mail, FileText, Camera, Briefcase, Building, Factory } from "lucide-react";
+import { User, Save, Mail, FileText, Camera, Briefcase, Building, Factory, ShoppingBag } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +17,7 @@ export const SettingsProfileView = () => {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [industry, setIndustry] = useState("");
+  const [services, setServices] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -26,7 +27,7 @@ export const SettingsProfileView = () => {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("name, bio, avatar_url, company, role, industry")
+      .select("name, bio, avatar_url, company, role, industry, services")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
@@ -36,6 +37,7 @@ export const SettingsProfileView = () => {
           setCompany((data as any).company || "");
           setRole((data as any).role || "");
           setIndustry((data as any).industry || "");
+          setServices((data as any).services || "");
           setAvatarUrl(data.avatar_url || null);
         }
       });
@@ -68,7 +70,7 @@ export const SettingsProfileView = () => {
     setLoading(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ name: name.trim(), bio: bio.trim(), company: company.trim(), role: role.trim(), industry: industry.trim() } as any)
+      .update({ name: name.trim(), bio: bio.trim(), company: company.trim(), role: role.trim(), industry: industry.trim(), services: services.trim() } as any)
       .eq("user_id", user.id);
     setLoading(false);
     if (error) {
@@ -149,6 +151,10 @@ export const SettingsProfileView = () => {
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground flex items-center gap-1"><Factory className="w-3 h-3" /> Área / Indústria</label>
               <Input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Ex: Tecnologia, Saúde, Educação..." className="bg-secondary/50 border-border/50" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground flex items-center gap-1"><ShoppingBag className="w-3 h-3" /> Serviços / Produtos</label>
+              <Textarea value={services} onChange={(e) => setServices(e.target.value)} placeholder="Descreva os serviços que presta ou produtos que vende..." className="bg-secondary/50 border-border/50" rows={3} />
             </div>
           </div>
         </motion.div>
