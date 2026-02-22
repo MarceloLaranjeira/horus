@@ -14,9 +14,11 @@ const themes = [
 function applyTheme(theme: ThemeOption) {
   const root = document.documentElement;
   if (theme === "light" || (theme === "system" && window.matchMedia("(prefers-color-scheme: light)").matches)) {
+    root.classList.remove("dark");
     root.classList.add("light");
   } else {
     root.classList.remove("light");
+    root.classList.add("dark");
   }
 }
 
