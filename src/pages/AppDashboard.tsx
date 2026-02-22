@@ -32,7 +32,7 @@ const AppDashboard = () => {
     if (activeView === "chat") return <ChatView onNavigate={setActiveView} />;
     if (activeView.startsWith("tasks")) return <TasksView subView={activeView} />;
     if (activeView.startsWith("habits")) return <HabitsView subView={activeView} />;
-    if (activeView.startsWith("finances")) return <FinancesView subView={activeView} />;
+    if (activeView.startsWith("finances")) return <FinancesView subView={activeView} onNavigate={setActiveView} />;
     if (activeView.startsWith("reminders")) return <RemindersView subView={activeView} />;
     if (activeView.startsWith("projects")) return <ProjectsView subView={activeView} />;
     if (activeView === "analysis") return <AnalysisView />;
