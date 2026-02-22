@@ -16,7 +16,7 @@ export interface TTSVoice {
   name: string;
 }
 
-export type TTSProvider = "elevenlabs" | "openai";
+export type TTSProvider = "elevenlabs" | "openai" | "gemini";
 
 export const elevenLabsVoices: TTSVoice[] = [
   { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah" },
@@ -125,13 +125,7 @@ export const AISettingsProvider = ({ children }: { children: ReactNode }) => {
   const [settings, setSettings] = useState<AISettings>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      const parsed = saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
-      // Migrate: gemini TTS provider no longer supported
-      if (parsed.ttsProvider === "gemini") {
-        parsed.ttsProvider = "elevenlabs";
-        parsed.ttsVoiceId = "EXAVITQu4vr4xnSDxMaL";
-      }
-      return parsed;
+      return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
     } catch {
       return defaultSettings;
     }
