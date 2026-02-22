@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Mic, MicOff, Loader2, CheckCircle2, CheckSquare, DollarSign, Flame, Bell, Calendar, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAISettings } from "@/hooks/useAISettings";
+import { HorusConstellation, SmallConstellation } from "@/components/app/HorusConstellation";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
@@ -27,120 +28,8 @@ type ActionResult = {
 };
 
 
-/** Immersive Jarvis Globe */
-const JarvisGlobe = ({ isThinking, isSpeaking }: { isThinking: boolean; isSpeaking: boolean }) => {
-  const particles = useMemo(() =>
-    Array.from({ length: 16 }, (_, i) => ({
-      id: i,
-      angle: (i / 16) * 360,
-      delay: i * 0.2,
-      layer: i % 3,
-    })), []);
-
-  const active = isThinking || isSpeaking;
-
-  return (
-    <div className="relative w-48 h-48 mx-auto">
-      {/* Outer glow */}
-      <div className={cn(
-        "absolute -inset-8 rounded-full transition-all duration-700",
-        active
-          ? "bg-primary/5 shadow-[0_0_80px_20px_hsl(var(--cyan)/0.15)]"
-          : "bg-primary/2"
-      )} />
-
-      {/* Particles */}
-      {particles.map((p) => (
-        <div key={p.id} className="absolute inset-0"
-          style={{
-            animation: `arc-spin ${5 + p.layer * 3}s linear infinite${p.layer === 1 ? " reverse" : ""}`,
-            animationDelay: `${p.delay}s`,
-          }}>
-          <div
-            className={cn(
-              "absolute rounded-full",
-              active ? "w-2 h-2 bg-primary" : "w-1.5 h-1.5 bg-primary/50"
-            )}
-            style={{
-              top: `${10 + p.layer * 12}%`,
-              left: "50%",
-              transform: "translateX(-50%)",
-              boxShadow: active
-                ? `0 0 10px 2px hsl(var(--cyan) / 0.7)`
-                : `0 0 4px 0px hsl(var(--cyan) / 0.3)`,
-              transition: "all 0.5s ease",
-            }}
-          />
-        </div>
-      ))}
-
-      {/* Ring 1 - outer */}
-      <div className={cn(
-        "absolute inset-0 rounded-full border-2 transition-all duration-500",
-        active ? "border-primary/60 animate-arc-spin" : "border-primary/20 animate-globe-rotate"
-      )} />
-
-      {/* Ring 2 - middle */}
-      <div className={cn(
-        "absolute inset-6 rounded-full border border-dashed transition-all duration-500",
-        active ? "border-primary/40 animate-arc-spin-reverse" : "border-primary/15"
-      )} />
-
-      {/* Ring 3 - inner */}
-      <div className={cn(
-        "absolute inset-12 rounded-full border transition-all duration-500",
-        active ? "border-primary/50 animate-globe-rotate" : "border-primary/10"
-      )} />
-
-      {/* Scanline */}
-      <div className="absolute inset-0 rounded-full overflow-hidden">
-        <div
-          className={cn("absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-primary/80 to-transparent", active && "animate-globe-pulse")}
-          style={{ animation: "scanline 2.5s ease-in-out infinite", top: "50%" }}
-        />
-      </div>
-
-      {/* Core */}
-      <div className="absolute inset-16 rounded-full bg-primary/10 flex items-center justify-center">
-        <motion.div
-          animate={{
-            scale: isSpeaking ? [1, 1.3, 1, 1.2, 1] : isThinking ? [1, 1.1, 1] : 1,
-            boxShadow: active
-              ? [
-                  "0 0 20px 6px hsl(187 100% 50% / 0.4)",
-                  "0 0 40px 12px hsl(187 100% 50% / 0.6)",
-                  "0 0 20px 6px hsl(187 100% 50% / 0.4)",
-                ]
-              : "0 0 10px 3px hsl(187 100% 50% / 0.3)",
-          }}
-          transition={{
-            duration: isSpeaking ? 0.6 : 1.5,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          className="w-10 h-10 rounded-full bg-primary/60"
-        />
-      </div>
-
-      {/* Ambient blur */}
-      <div className={cn(
-        "absolute -inset-4 rounded-full blur-2xl transition-all duration-700",
-        active ? "bg-primary/8" : "bg-primary/3"
-      )} />
-    </div>
-  );
-};
 
 
-/** Small globe for message bubbles */
-const SmallGlobe = ({ isThinking }: { isThinking: boolean }) => (
-  <div className="relative w-8 h-8 shrink-0">
-    <div className={cn("absolute inset-0 rounded-full border border-primary/40", isThinking ? "animate-arc-spin" : "animate-globe-rotate")} />
-    <div className="absolute inset-2 rounded-full bg-primary/15 flex items-center justify-center">
-      <div className="w-2.5 h-2.5 rounded-full bg-primary/50" style={{ boxShadow: "0 0 8px 2px hsl(var(--cyan) / 0.4)" }} />
-    </div>
-  </div>
-);
 
 export const ChatView = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -532,7 +421,7 @@ export const ChatView = () => {
   if (isLoadingHistory) {
     return (
       <div className="flex flex-col h-full items-center justify-center jarvis-grid">
-        <JarvisGlobe isThinking={true} isSpeaking={false} />
+        <HorusConstellation isThinking={true} isSpeaking={false} />
         <p className="text-sm text-muted-foreground mt-6">Carregando conversa...</p>
       </div>
     );
@@ -557,7 +446,7 @@ export const ChatView = () => {
               exit={{ opacity: 0, scale: 0.8 }}
               className="flex flex-col items-center justify-center py-8 shrink-0"
             >
-              <JarvisGlobe isThinking={isLoading} isSpeaking={isSpeaking} />
+              <HorusConstellation isThinking={isLoading} isSpeaking={isSpeaking} />
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -582,7 +471,7 @@ export const ChatView = () => {
               animate={{ opacity: 1 }}
               className="flex items-center gap-4 px-6 py-3 border-b border-border/30 bg-card/30 backdrop-blur-sm shrink-0"
             >
-              <SmallGlobe isThinking={isLoading || isSpeaking} />
+              <SmallConstellation isThinking={isLoading || isSpeaking} />
               <div className="flex-1">
                 <h2 className="font-semibold text-sm text-gradient-cyan">{assistantName}</h2>
                 <p className="text-xs text-muted-foreground">
@@ -619,7 +508,7 @@ export const ChatView = () => {
                     transition={{ duration: 0.2 }}
                     className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}
                   >
-                    {msg.role === "assistant" && <SmallGlobe isThinking={false} />}
+                    {msg.role === "assistant" && <SmallConstellation isThinking={false} />}
                     <div className="max-w-[80%] space-y-2">
                       <div className={cn(
                         "rounded-2xl px-4 py-3 text-sm",
@@ -674,7 +563,7 @@ export const ChatView = () => {
 
               {isLoading && lastMessage?.role === "user" && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3 justify-start">
-                  <SmallGlobe isThinking={true} />
+                  <SmallConstellation isThinking={true} />
                   <div className="bg-card/80 border border-border/50 rounded-2xl rounded-bl-md px-4 py-3 backdrop-blur-sm">
                     <div className="flex gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-primary animate-bounce" />
