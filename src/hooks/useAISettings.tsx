@@ -44,6 +44,13 @@ export const openaiVoices: TTSVoice[] = [
   { id: "onyx", name: "Onyx" },
   { id: "sage", name: "Sage" },
   { id: "shimmer", name: "Shimmer" },
+  { id: "verse", name: "Verse" },
+  { id: "breeze", name: "Breeze" },
+  { id: "cove", name: "Cove" },
+  { id: "ember", name: "Ember" },
+  { id: "juniper", name: "Juniper" },
+  { id: "maple", name: "Maple" },
+  { id: "vale", name: "Vale" },
 ];
 
 export const geminiVoices: TTSVoice[] = [
@@ -52,6 +59,19 @@ export const geminiVoices: TTSVoice[] = [
   { id: "Fenrir", name: "Fenrir" },
   { id: "Kore", name: "Kore" },
   { id: "Puck", name: "Puck" },
+  { id: "Leda", name: "Leda" },
+  { id: "Orus", name: "Orus" },
+  { id: "Zephyr", name: "Zephyr" },
+  { id: "Achernar", name: "Achernar" },
+  { id: "Gacrux", name: "Gacrux" },
+  { id: "Iapetus", name: "Iapetus" },
+  { id: "Umbriel", name: "Umbriel" },
+  { id: "Algenib", name: "Algenib" },
+  { id: "Despina", name: "Despina" },
+  { id: "Erinome", name: "Erinome" },
+  { id: "Laomedeia", name: "Laomedeia" },
+  { id: "Sulafat", name: "Sulafat" },
+  { id: "Vindemiatrix", name: "Vindemiatrix" },
 ];
 
 export type AgentMood = "professional" | "friendly" | "casual" | "formal" | "creative" | "concise";
