@@ -31,6 +31,17 @@ export const elevenLabsVoices: ElevenLabsVoice[] = [
   { id: "nPczCjzI2devNBz1zQrb", name: "Brian" },
 ];
 
+export type AgentMood = "professional" | "friendly" | "casual" | "formal" | "creative" | "concise";
+
+export const agentMoods: { value: AgentMood; label: string; emoji: string; description: string }[] = [
+  { value: "professional", label: "Profissional", emoji: "💼", description: "Respostas objetivas e formais" },
+  { value: "friendly", label: "Amigável", emoji: "😊", description: "Tom acolhedor e próximo" },
+  { value: "casual", label: "Casual", emoji: "😎", description: "Relaxado, usa gírias e emojis" },
+  { value: "formal", label: "Formal", emoji: "🎩", description: "Linguagem culta e protocolar" },
+  { value: "creative", label: "Criativo", emoji: "🎨", description: "Respostas imaginativas e originais" },
+  { value: "concise", label: "Conciso", emoji: "⚡", description: "Respostas curtas e diretas" },
+];
+
 export interface AISettings {
   assistantName: string;
   model: AIModel;
@@ -39,6 +50,8 @@ export interface AISettings {
   ttsEnabled: boolean;
   ttsVoiceId: string;
   customPrompt: string;
+  temperature: number;
+  mood: AgentMood;
 }
 
 const defaultSettings: AISettings = {
@@ -49,6 +62,8 @@ const defaultSettings: AISettings = {
   ttsEnabled: false,
   ttsVoiceId: "EXAVITQu4vr4xnSDxMaL",
   customPrompt: "",
+  temperature: 0.7,
+  mood: "friendly",
 };
 
 const STORAGE_KEY = "horus-ai-settings";
