@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { User, Save, Mail, FileText, Camera } from "lucide-react";
+import { User, Save, Mail, FileText, Camera, Briefcase, Building, Factory } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,9 @@ export const SettingsProfileView = () => {
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
+  const [company, setCompany] = useState("");
+  const [role, setRole] = useState("");
+  const [industry, setIndustry] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -23,13 +26,16 @@ export const SettingsProfileView = () => {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("name, bio, avatar_url")
+      .select("name, bio, avatar_url, company, role, industry")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setName(data.name || "");
           setBio(data.bio || "");
+          setCompany((data as any).company || "");
+          setRole((data as any).role || "");
+          setIndustry((data as any).industry || "");
           setAvatarUrl(data.avatar_url || null);
         }
       });
@@ -62,7 +68,7 @@ export const SettingsProfileView = () => {
     setLoading(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ name: name.trim(), bio: bio.trim() })
+      .update({ name: name.trim(), bio: bio.trim(), company: company.trim(), role: role.trim(), industry: industry.trim() } as any)
       .eq("user_id", user.id);
     setLoading(false);
     if (error) {
@@ -122,8 +128,33 @@ export const SettingsProfileView = () => {
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" className="bg-secondary/50 border-border/50" />
         </motion.div>
 
+        {/* Work Info */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+          className="bg-card border border-border/50 rounded-xl p-6 card-glow space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Briefcase className="w-4 h-4 text-primary" />
+            </div>
+            <h3 className="font-semibold text-sm">Informações Profissionais</h3>
+          </div>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground flex items-center gap-1"><Building className="w-3 h-3" /> Empresa</label>
+              <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Onde você trabalha" className="bg-secondary/50 border-border/50" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground flex items-center gap-1"><Briefcase className="w-3 h-3" /> Cargo / Função</label>
+              <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Ex: Desenvolvedor, Designer..." className="bg-secondary/50 border-border/50" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground flex items-center gap-1"><Factory className="w-3 h-3" /> Área / Indústria</label>
+              <Input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Ex: Tecnologia, Saúde, Educação..." className="bg-secondary/50 border-border/50" />
+            </div>
+          </div>
+        </motion.div>
+
         {/* Bio */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
           className="bg-card border border-border/50 rounded-xl p-6 card-glow space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">

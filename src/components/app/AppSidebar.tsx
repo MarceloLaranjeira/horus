@@ -11,6 +11,7 @@ import {
   Settings,
   LogOut,
   Brain,
+  StickyNote,
 } from "lucide-react";
 import horusLogo from "@/assets/horus-logo.png";
 import type { AppView } from "@/pages/AppDashboard";
@@ -46,6 +47,7 @@ const modulesItems: NavItem[] = [
   { id: "reminders", icon: Bell, label: "Lembretes" },
   { id: "habits", icon: Flame, label: "Hábitos" },
   { id: "finances", icon: DollarSign, label: "Finanças" },
+  { id: "notes", icon: StickyNote, label: "Notas" },
   { id: "analysis", icon: Brain, label: "Análise Horus" },
 ];
 

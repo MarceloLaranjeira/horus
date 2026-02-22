@@ -196,7 +196,7 @@ function buildSystemPrompt(assistantName: string, customPrompt?: string, mood?: 
   let base = `Você é o ${assistantName}, um assistente pessoal de IA avançado inspirado no Jarvis do Homem de Ferro. Você opera em modo conversacional — seu objetivo é manter uma conversa natural, útil e contextualizada com o usuário.
 
 Suas capacidades:
-- Criar tarefas, hábitos, transações financeiras e lembretes usando as ferramentas disponíveis
+- Criar tarefas, hábitos, transações financeiras, lembretes e notas usando as ferramentas disponíveis
 - Ler e enviar emails do Gmail do usuário usando as ferramentas list_emails, read_email e send_email
 - Listar e criar eventos no Google Calendar usando list_calendar_events e create_calendar_event
 - Entender comandos complexos em linguagem natural
@@ -234,9 +234,102 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, mode = "chat", model = "google/gemini-3-flash-preview", assistantName = "Horus", executedActions, customPrompt, temperature = 0.7, mood = "friendly" } = await req.json();
+    const { messages, mode = "chat", model = "google/gemini-3-flash-preview", assistantName = "Horus", executedActions, customPrompt, temperature = 0.7, mood = "friendly", ttsProvider, ttsVoiceId, ttsText } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    // TTS mode - generate audio from text using native OpenAI or Gemini voices
+    if (mode === "tts") {
+      if (!ttsText || !ttsProvider || !ttsVoiceId) {
+        return new Response(JSON.stringify({ error: "Missing ttsText, ttsProvider, or ttsVoiceId" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (ttsProvider === "openai") {
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "openai/tts-1",
+            input: ttsText,
+            voice: ttsVoiceId,
+            response_format: "mp3",
+          }),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error("OpenAI TTS error:", response.status, errText);
+          return new Response(JSON.stringify({ error: "Erro ao gerar áudio OpenAI" }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(response.body, {
+          headers: { ...corsHeaders, "Content-Type": "audio/mpeg" },
+        });
+      }
+
+      if (ttsProvider === "gemini") {
+        // Use Gemini's multimodal generation with audio output
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: `Você é um assistente de voz. Repita exatamente o texto fornecido de forma natural e expressiva. Use a voz ${ttsVoiceId}.` },
+              { role: "user", content: ttsText },
+            ],
+          }),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error("Gemini TTS error:", response.status, errText);
+          return new Response(JSON.stringify({ error: "Erro ao gerar áudio Gemini" }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Gemini doesn't have native TTS via API yet, return text for browser speech synthesis
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content || ttsText;
+        return new Response(JSON.stringify({ text: content, useBrowserTTS: true, voice: ttsVoiceId }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // ElevenLabs TTS - redirect to elevenlabs-tts function
+      return new Response(JSON.stringify({ error: "Use elevenlabs-tts function for ElevenLabs" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Add create_note tool
+    const allTools = [...tools, {
+      type: "function",
+      function: {
+        name: "create_note",
+        description: "Cria uma nova nota/anotação no bloco de notas do usuário",
+        parameters: {
+          type: "object",
+          properties: {
+            title: { type: "string", description: "Título da nota" },
+            content: { type: "string", description: "Conteúdo da nota" },
+          },
+          required: ["title"],
+          additionalProperties: false,
+        },
+      },
+    }];
 
     const systemPrompt = buildSystemPrompt(assistantName, customPrompt, mood);
 
@@ -301,7 +394,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model,
           messages: [...systemMessages, ...messages],
-          tools,
+          tools: allTools,
           tool_choice: "auto",
         }),
       });

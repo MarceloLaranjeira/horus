@@ -139,6 +139,9 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         } else if (name === "create_reminder" && user) {
           const { error } = await supabase.from("reminders").insert({ title: args.title, due_date: args.due_date, user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["reminders"] }); results.push({ type: "reminder", title: args.title, success: true }); }
+        } else if (name === "create_note" && user) {
+          const { error } = await supabase.from("notes" as any).insert({ title: args.title, content: args.content || "", user_id: user.id } as any);
+          if (!error) { queryClient.invalidateQueries({ queryKey: ["notes"] }); results.push({ type: "note", title: args.title, success: true }); }
         } else if (name === "list_calendar_events") {
           const token = await getToken();
           const days = args.days || 7;
@@ -333,22 +336,52 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   const handleSend = () => sendMessage(input.trim());
 
   const playTTS = async (text: string) => {
+    if (!settings.ttsEnabled) return;
     setIsSpeaking(true);
     try {
       const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000);
       if (!cleanText.trim()) { setIsSpeaking(false); return; }
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        body: JSON.stringify({ text: cleanText, voiceId: settings.ttsVoiceId }),
-      });
-      if (!response.ok) { setIsSpeaking(false); return; }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.onended = () => setIsSpeaking(false);
-      audio.onerror = () => setIsSpeaking(false);
-      audio.play();
+
+      const provider = (settings as any).ttsProvider || "elevenlabs";
+
+      if (provider === "elevenlabs") {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+          body: JSON.stringify({ text: cleanText, voiceId: settings.ttsVoiceId }),
+        });
+        if (!response.ok) { setIsSpeaking(false); return; }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => setIsSpeaking(false);
+        audio.onerror = () => setIsSpeaking(false);
+        audio.play();
+      } else if (provider === "openai") {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+          body: JSON.stringify({ mode: "tts", ttsProvider: "openai", ttsVoiceId: settings.ttsVoiceId, ttsText: cleanText }),
+        });
+        if (!response.ok) { setIsSpeaking(false); return; }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => setIsSpeaking(false);
+        audio.onerror = () => setIsSpeaking(false);
+        audio.play();
+      } else if (provider === "gemini") {
+        // Gemini uses browser SpeechSynthesis
+        if ("speechSynthesis" in window) {
+          const utterance = new SpeechSynthesisUtterance(cleanText);
+          utterance.lang = settings.voiceLang || "pt-BR";
+          utterance.onend = () => setIsSpeaking(false);
+          utterance.onerror = () => setIsSpeaking(false);
+          window.speechSynthesis.speak(utterance);
+        } else {
+          setIsSpeaking(false);
+        }
+      }
     } catch (e) {
       console.error("TTS error:", e);
       setIsSpeaking(false);
