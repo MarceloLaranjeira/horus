@@ -70,6 +70,14 @@ export const useHabits = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["habit_tracks"] }),
   });
 
+  const updateHabit = useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; name?: string; description?: string; icon?: string; target_days_per_week?: number }) => {
+      const { error } = await supabase.from("habits").update(updates).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["habits"] }),
+  });
+
   const deleteHabit = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("habits").delete().eq("id", id);
@@ -78,5 +86,5 @@ export const useHabits = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["habits"] }),
   });
 
-  return { habits: query.data ?? [], tracks: tracks.data ?? [], isLoading: query.isLoading, addHabit, toggleTrack, deleteHabit };
+  return { habits: query.data ?? [], tracks: tracks.data ?? [], isLoading: query.isLoading, addHabit, updateHabit, toggleTrack, deleteHabit };
 };

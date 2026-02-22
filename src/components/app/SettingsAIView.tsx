@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAISettings, type AIModel, type AgentMood, elevenLabsVoices, agentMoods } from "@/hooks/useAISettings";
+import { useAISettings, type AIModel, type AgentMood, type TTSProvider, elevenLabsVoices, openaiVoices, geminiVoices, agentMoods } from "@/hooks/useAISettings";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 
@@ -208,44 +208,80 @@ export const SettingsAIView = () => {
           </Select>
         </motion.div>
 
-        {/* TTS Voice (ElevenLabs) */}
+        {/* TTS Voice */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
           className="bg-card border border-border/50 rounded-xl p-6 card-glow space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
               <AudioLines className="w-4 h-4 text-primary" />
             </div>
-            <h3 className="font-semibold text-sm">Voz do Assistente (ElevenLabs)</h3>
+            <h3 className="font-semibold text-sm">Voz do Assistente</h3>
           </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm">Resposta por áudio</p>
-              <p className="text-xs text-muted-foreground">O assistente responde com voz usando ElevenLabs TTS</p>
+              <p className="text-xs text-muted-foreground">O assistente responde com voz sintetizada</p>
             </div>
             <Switch checked={settings.ttsEnabled} onCheckedChange={(v) => updateSettings({ ttsEnabled: v })} />
           </div>
           {settings.ttsEnabled && (
-            <div className="space-y-3">
-              <Label className="text-xs text-muted-foreground">Escolha a voz do assistente</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {elevenLabsVoices.map((voice) => (
-                  <button
-                    key={voice.id}
-                    onClick={() => updateSettings({ ttsVoiceId: voice.id })}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
-                      settings.ttsVoiceId === voice.id
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border/50 bg-secondary/30 hover:border-border text-muted-foreground"
-                    }`}
-                  >
-                    <Volume2 className="w-3.5 h-3.5 shrink-0" />
-                    {voice.name}
-                  </button>
-                ))}
+            <div className="space-y-4">
+              {/* Provider selector */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Provedor de Voz</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: "elevenlabs" as TTSProvider, label: "ElevenLabs", emoji: "🎙️" },
+                    { value: "openai" as TTSProvider, label: "OpenAI", emoji: "🤖" },
+                    { value: "gemini" as TTSProvider, label: "Gemini", emoji: "✨" },
+                  ]).map((provider) => (
+                    <button
+                      key={provider.value}
+                      onClick={() => {
+                        const defaultVoices = { elevenlabs: "EXAVITQu4vr4xnSDxMaL", openai: "alloy", gemini: "Kore" };
+                        updateSettings({ ttsProvider: provider.value, ttsVoiceId: defaultVoices[provider.value] });
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
+                        settings.ttsProvider === provider.value
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/50 bg-secondary/30 hover:border-border text-muted-foreground"
+                      }`}
+                    >
+                      <span>{provider.emoji}</span>
+                      {provider.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => previewVoice(settings.ttsVoiceId)} className="w-full mt-2">
-                <Volume2 className="w-4 h-4 mr-2" /> Testar Voz Selecionada
-              </Button>
+
+              {/* Voice list */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Escolha a voz</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {(settings.ttsProvider === "elevenlabs" ? elevenLabsVoices :
+                    settings.ttsProvider === "openai" ? openaiVoices : geminiVoices
+                  ).map((voice) => (
+                    <button
+                      key={voice.id}
+                      onClick={() => updateSettings({ ttsVoiceId: voice.id })}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
+                        settings.ttsVoiceId === voice.id
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/50 bg-secondary/30 hover:border-border text-muted-foreground"
+                      }`}
+                    >
+                      <Volume2 className="w-3.5 h-3.5 shrink-0" />
+                      {voice.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {settings.ttsProvider === "elevenlabs" && (
+                <Button variant="outline" size="sm" onClick={() => previewVoice(settings.ttsVoiceId)} className="w-full mt-2">
+                  <Volume2 className="w-4 h-4 mr-2" /> Testar Voz Selecionada
+                </Button>
+              )}
             </div>
           )}
         </motion.div>

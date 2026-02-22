@@ -42,6 +42,14 @@ export const useReminders = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["reminders"] }),
   });
 
+  const updateReminder = useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; title?: string; description?: string; due_date?: string }) => {
+      const { error } = await supabase.from("reminders").update(updates).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["reminders"] }),
+  });
+
   const deleteReminder = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("reminders").delete().eq("id", id);
@@ -50,5 +58,5 @@ export const useReminders = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["reminders"] }),
   });
 
-  return { reminders: query.data ?? [], isLoading: query.isLoading, addReminder, toggleReminder, deleteReminder };
+  return { reminders: query.data ?? [], isLoading: query.isLoading, addReminder, updateReminder, toggleReminder, deleteReminder };
 };
