@@ -367,6 +367,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
 
       const provider = settings.ttsProvider || "elevenlabs";
       const voiceId = settings.ttsVoiceId;
+      console.log("[TTS] Provider:", provider, "| VoiceId:", voiceId, "| Text length:", cleanText.length);
 
       const playAudioBlob = (blob: Blob) => {
         const url = URL.createObjectURL(blob);
