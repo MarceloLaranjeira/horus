@@ -165,9 +165,10 @@ Analise a seguinte mensagem do usuário e extraia:
 2. ENTIDADES: Quais são os detalhes específicos? (ex: nome_tarefa, data, valor, prioridade)
 3. CONTEXTO: Há algum contexto ou nuance importante?
 
-Data de hoje: ${new Date().toISOString().split("T")[0]}
+Data e hora atual (fuso de Manaus, UTC-4): ${new Date().toLocaleString("pt-BR", { timeZone: "America/Manaus" })}
+Data de hoje: ${new Date().toLocaleDateString("en-CA", { timeZone: "America/Manaus" })}
 
-IMPORTANTE: Resolva datas relativas (amanhã, sexta-feira, próxima semana) para datas absolutas no formato YYYY-MM-DD.
+IMPORTANTE: Resolva datas relativas (amanhã, sexta-feira, próxima semana) para datas absolutas no formato YYYY-MM-DD considerando o fuso horário de Manaus (UTC-4).
 
 FORMATO DE SAÍDA (JSON):
 {
@@ -181,7 +182,8 @@ FORMATO DE SAÍDA (JSON):
 }`;
 
 function buildSystemPrompt(assistantName: string, customPrompt?: string): string {
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Manaus" });
+  const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Manaus" });
   let base = `Você é o ${assistantName}, um assistente pessoal de IA avançado inspirado no Jarvis do Homem de Ferro. Você opera em modo conversacional — seu objetivo é manter uma conversa natural, útil e contextualizada com o usuário.
 
 Suas capacidades:
@@ -202,8 +204,8 @@ Diretrizes conversacionais:
 - Seja conciso mas informativo
 - Use emojis com moderação para dar personalidade
 - Quando o usuário pedir para criar algo, USE AS FERRAMENTAS disponíveis para executar a ação
-- Se o usuário mencionar datas relativas como "amanhã", "sexta-feira", calcule a data real (hoje é ${today})
-- Mantenha um tom profissional mas acolhedor
+- Se o usuário mencionar datas relativas como "amanhã", "sexta-feira", calcule a data real (hoje é ${today}, horário atual: ${now}, fuso: Manaus UTC-4)
+- Sempre considere o fuso horário de Manaus (America/Manaus, UTC-4) para horários e datas
 - Após executar ações, confirme o que foi feito de forma natural
 - NUNCA repita a mesma introdução ou saudação. Varie suas respostas e seja natural
 - Use o contexto da conversa para personalizar suas respostas
