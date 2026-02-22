@@ -83,7 +83,7 @@ const defaultSettings: AISettings = {
   model: "google/gemini-3-flash-preview",
   voiceEnabled: true,
   voiceLang: "pt-BR",
-  ttsEnabled: false,
+  ttsEnabled: true,
   ttsProvider: "elevenlabs",
   ttsVoiceId: "EXAVITQu4vr4xnSDxMaL",
   customPrompt: "",
