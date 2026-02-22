@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAISettings, type AIModel, type AgentMood, type TTSProvider, elevenLabsVoices, openaiVoices, agentMoods } from "@/hooks/useAISettings";
+import { useAISettings, type AIModel, type AgentMood, type TTSProvider, elevenLabsVoices, openaiVoices, geminiVoices, agentMoods } from "@/hooks/useAISettings";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 
@@ -233,11 +233,12 @@ export const SettingsAIView = () => {
               {([
                     { value: "elevenlabs" as TTSProvider, label: "ElevenLabs", emoji: "🎙️" },
                     { value: "openai" as TTSProvider, label: "OpenAI", emoji: "🤖" },
+                    { value: "gemini" as TTSProvider, label: "Gemini", emoji: "✨" },
                   ]).map((provider) => (
                     <button
                       key={provider.value}
                       onClick={() => {
-                        const defaultVoices: Record<string, string> = { elevenlabs: "EXAVITQu4vr4xnSDxMaL", openai: "alloy" };
+                        const defaultVoices: Record<string, string> = { elevenlabs: "EXAVITQu4vr4xnSDxMaL", openai: "alloy", gemini: "Kore" };
                         updateSettings({ ttsProvider: provider.value, ttsVoiceId: defaultVoices[provider.value] });
                       }}
                       className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
@@ -257,7 +258,8 @@ export const SettingsAIView = () => {
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Escolha a voz</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {(settings.ttsProvider === "elevenlabs" ? elevenLabsVoices : openaiVoices
+                  {(settings.ttsProvider === "elevenlabs" ? elevenLabsVoices :
+                    settings.ttsProvider === "openai" ? openaiVoices : geminiVoices
                   ).map((voice) => (
                     <button
                       key={voice.id}
@@ -311,6 +313,29 @@ export const SettingsAIView = () => {
                     }
                   };
                   testTTS();
+                } else if (settings.ttsProvider === "gemini") {
+                  // Gemini uses browser speechSynthesis
+                  if ("speechSynthesis" in window) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance("Olá! Eu sou seu assistente pessoal.");
+                    utterance.lang = settings.voiceLang || "pt-BR";
+                    const voices = window.speechSynthesis.getVoices();
+                    const voiceId = settings.ttsVoiceId;
+                    if (voices.length > 0 && voiceId) {
+                      const match = voices.find(v => v.name.toLowerCase().includes(voiceId.toLowerCase()));
+                      if (match) {
+                        utterance.voice = match;
+                      } else {
+                        const langVoices = voices.filter(v => v.lang.startsWith("pt"));
+                        const pool = langVoices.length > 0 ? langVoices : voices;
+                        const hash = voiceId.split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
+                        utterance.voice = pool[hash % pool.length];
+                      }
+                    }
+                    window.speechSynthesis.speak(utterance);
+                  } else {
+                    toast({ title: "Síntese de voz não suportada neste navegador", variant: "destructive" });
+                  }
                 }
               }} className="w-full mt-2">
                 <Volume2 className="w-4 h-4 mr-2" /> Testar Voz Selecionada

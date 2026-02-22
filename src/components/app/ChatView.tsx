@@ -394,11 +394,35 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         });
         if (!response.ok) { setIsSpeaking(false); return; }
         playAudioBlob(await response.blob());
-      } else {
-        // Unsupported provider, fallback to browser speech
+      } else if (provider === "gemini") {
+        // Gemini uses browser speechSynthesis
         if ("speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+          // Ensure voices are loaded
+          const getVoices = (): Promise<SpeechSynthesisVoice[]> => {
+            return new Promise((resolve) => {
+              const voices = window.speechSynthesis.getVoices();
+              if (voices.length > 0) return resolve(voices);
+              window.speechSynthesis.onvoiceschanged = () => resolve(window.speechSynthesis.getVoices());
+              setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
+            });
+          };
+          const voices = await getVoices();
           const utterance = new SpeechSynthesisUtterance(cleanText);
           utterance.lang = settings.voiceLang || "pt-BR";
+          // Match voice by Gemini voice name in browser voices
+          if (voiceId && voices.length > 0) {
+            const match = voices.find(v => v.name.toLowerCase().includes(voiceId.toLowerCase()));
+            if (match) {
+              utterance.voice = match;
+            } else {
+              // Use voiceId as index hint - pick different voices for different selections
+              const langVoices = voices.filter(v => v.lang.startsWith(utterance.lang.split("-")[0]));
+              const pool = langVoices.length > 0 ? langVoices : voices;
+              const hash = voiceId.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+              utterance.voice = pool[hash % pool.length];
+            }
+          }
           utterance.onend = () => setIsSpeaking(false);
           utterance.onerror = () => setIsSpeaking(false);
           window.speechSynthesis.speak(utterance);
