@@ -52,7 +52,7 @@ export const SettingsIntegrationsView = () => {
             <div className="flex-1">
               <CardTitle className="text-lg">Google Calendar</CardTitle>
               <CardDescription>
-                Sincronize sua agenda. O Maxx poderá ler e criar eventos.
+                Sincronize sua agenda. O Horus poderá ler e criar eventos.
               </CardDescription>
             </div>
             {!loading && (
@@ -77,7 +77,7 @@ export const SettingsIntegrationsView = () => {
               <div className="flex items-center gap-2 text-sm">
                 <CheckCircle2 className="w-4 h-4 text-[hsl(var(--nectar-green))]" />
                 <span className="text-muted-foreground">
-                  Sua agenda está sincronizada. O Maxx pode ver e criar eventos.
+                  Sua agenda está sincronizada. O Horus pode ver e criar eventos.
                 </span>
               </div>
               <Button
@@ -94,7 +94,7 @@ export const SettingsIntegrationsView = () => {
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Conecte sua conta Google para que o Maxx possa acessar sua agenda.
+                Conecte sua conta Google para que o Horus possa acessar sua agenda.
               </p>
               <Button onClick={handleConnect} size="sm" className="gap-1.5">
                 <ExternalLink className="w-3.5 h-3.5" />

@@ -38,7 +38,7 @@ export const SettingsAIView = () => {
   const [customPrompt, setCustomPrompt] = useState(settings.customPrompt);
 
   const handleSave = () => {
-    updateSettings({ assistantName: name.trim() || "AuraTask", customPrompt });
+    updateSettings({ assistantName: name.trim() || "Horus", customPrompt });
     toast({ title: "Configurações salvas!", description: "As alterações foram aplicadas." });
   };
 
@@ -86,7 +86,7 @@ export const SettingsAIView = () => {
             </div>
             <h3 className="font-semibold text-sm">Nome do Assistente</h3>
           </div>
-          <Input id="ai-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="AuraTask" className="bg-secondary/50 border-border/50" />
+          <Input id="ai-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Horus" className="bg-secondary/50 border-border/50" />
         </motion.div>
 
         {/* Model Selection */}

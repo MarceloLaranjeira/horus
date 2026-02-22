@@ -42,16 +42,16 @@ export interface AISettings {
 }
 
 const defaultSettings: AISettings = {
-  assistantName: "Maxx",
+  assistantName: "Horus",
   model: "google/gemini-3-flash-preview",
   voiceEnabled: true,
   voiceLang: "pt-BR",
   ttsEnabled: false,
   ttsVoiceId: "EXAVITQu4vr4xnSDxMaL",
-  customPrompt: "Altere o nome do assistente de AuraTask para Maxx em todas as saudações e referências do chat.",
+  customPrompt: "",
 };
 
-const STORAGE_KEY = "auratask-ai-settings";
+const STORAGE_KEY = "horus-ai-settings";
 
 const AISettingsContext = createContext<{
   settings: AISettings;
