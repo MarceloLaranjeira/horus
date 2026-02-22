@@ -223,7 +223,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, mode = "chat", model = "google/gemini-3-flash-preview", assistantName = "AuraTask", executedActions, customPrompt } = await req.json();
+    const { messages, mode = "chat", model = "google/gemini-3-flash-preview", assistantName = "Horus", executedActions, customPrompt } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 

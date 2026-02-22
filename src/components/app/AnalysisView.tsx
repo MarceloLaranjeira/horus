@@ -49,7 +49,7 @@ Dados do usuário para análise mensal:
           messages: [
             {
               role: "system",
-              content: `Você é o Maxx, um consultor pessoal de produtividade e finanças. Analise os dados do usuário e gere uma análise mensal completa com tom bem-humorado e insights acionáveis. Use markdown. Estruture assim:
+              content: `Você é o Horus, um consultor pessoal de produtividade e finanças. Analise os dados do usuário e gere uma análise mensal completa com tom bem-humorado e insights acionáveis. Use markdown. Estruture assim:
 
 ## 📊 Resumo Executivo
 (Parágrafo geral sobre o mês, com personalidade e humor sutil)
@@ -135,7 +135,7 @@ ${activeHabits === 0 ? "Comece criando ao menos 1 hábito diário!" : completedT
             <Brain className="w-5 h-5 text-[hsl(var(--nectar-purple))]" />
           </div>
           <div>
-            <h2 className="font-semibold">Análise Maxx</h2>
+            <h2 className="font-semibold">Análise Horus</h2>
             <p className="text-xs text-muted-foreground">Sua consultoria pessoal completa</p>
           </div>
         </div>
@@ -175,9 +175,9 @@ ${activeHabits === 0 ? "Comece criando ao menos 1 hábito diário!" : completedT
               className="p-8 rounded-xl bg-card border border-border/50 text-center"
             >
               <Brain className="w-12 h-12 mx-auto text-[hsl(var(--nectar-purple))] mb-4 opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">Maxx Análise</h3>
+              <h3 className="text-lg font-semibold mb-2">Horus Análise</h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Clique em "Gerar Análise" para que o Maxx analise seus dados e gere insights personalizados sobre produtividade, finanças e hábitos.
+                Clique em "Gerar Análise" para que o Horus analise seus dados e gere insights personalizados sobre produtividade, finanças e hábitos.
               </p>
             </motion.div>
           )}
@@ -185,7 +185,7 @@ ${activeHabits === 0 ? "Comece criando ao menos 1 hábito diário!" : completedT
           {loading && (
             <div className="p-12 rounded-xl bg-card border border-border/50 flex flex-col items-center justify-center">
               <Loader2 className="w-10 h-10 text-[hsl(var(--nectar-purple))] animate-spin mb-4" />
-              <p className="text-sm text-muted-foreground">Maxx está analisando seus dados...</p>
+              <p className="text-sm text-muted-foreground">Horus está analisando seus dados...</p>
             </div>
           )}
 

@@ -518,7 +518,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
           </SectionCard>
 
           {/* ANÁLISE IA */}
-          <SectionCard title="Análise Maxx" icon={BarChart3} iconColor="hsl(var(--primary))" action="Gerar análise" onAction={() => onNavigate("chat")} delay={0.45}>
+          <SectionCard title="Análise Horus" icon={BarChart3} iconColor="hsl(var(--primary))" action="Gerar análise" onAction={() => onNavigate("chat")} delay={0.45}>
             <div className="space-y-3">
               <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
                 <p className="text-xs text-muted-foreground mb-2">Visão geral da semana</p>
@@ -540,7 +540,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground text-center">
-                Peça ao Maxx uma análise completa dos seus dados para insights personalizados e plano de ação.
+                Peça ao Horus uma análise completa dos seus dados para insights personalizados e plano de ação.
               </p>
               <Button variant="outline" size="sm" className="w-full border-primary/20 text-primary hover:bg-primary/10" onClick={() => onNavigate("chat")}>
                 <BarChart3 className="w-3.5 h-3.5 mr-1.5" /> Solicitar Análise Completa

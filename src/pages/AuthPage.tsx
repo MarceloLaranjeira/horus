@@ -86,7 +86,7 @@ const AuthPage = () => {
     <div className="min-h-screen bg-gradient-dark flex items-center justify-center px-4">
       <Card className="w-full max-w-md bg-card border-border">
         <CardHeader className="text-center">
-          <img src={aurataskLogo} alt="Maxx" className="w-16 h-16 mx-auto mb-4 rounded-xl" />
+          <img src={aurataskLogo} alt="Horus" className="w-16 h-16 mx-auto mb-4 rounded-xl" />
           <CardTitle className="text-2xl">
             {isForgotPassword ? "Recuperar Senha" : isLogin ? "Entrar" : "Criar Conta"}
           </CardTitle>
@@ -94,7 +94,7 @@ const AuthPage = () => {
             {isForgotPassword
               ? "Digite seu email para receber o link de recuperação"
               : isLogin
-              ? "Acesse seu painel Maxx"
+              ? "Acesse seu painel Horus"
               : "Crie sua conta e ative seu assistente pessoal"}
           </CardDescription>
         </CardHeader>

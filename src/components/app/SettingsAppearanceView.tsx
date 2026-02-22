@@ -22,11 +22,11 @@ function applyTheme(theme: ThemeOption) {
 
 export const SettingsAppearanceView = () => {
   const [selectedTheme, setSelectedTheme] = useState<ThemeOption>(() => {
-    return (localStorage.getItem("auratask-theme") as ThemeOption) || "dark";
+    return (localStorage.getItem("horus-theme") as ThemeOption) || "dark";
   });
 
   useEffect(() => {
-    localStorage.setItem("auratask-theme", selectedTheme);
+    localStorage.setItem("horus-theme", selectedTheme);
     applyTheme(selectedTheme);
 
     if (selectedTheme === "system") {

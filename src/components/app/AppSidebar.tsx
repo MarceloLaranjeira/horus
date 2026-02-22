@@ -37,7 +37,7 @@ interface NavItem {
 
 const mainItems: NavItem[] = [
   { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { id: "chat", icon: MessageSquare, label: "Maxx IA" },
+  { id: "chat", icon: MessageSquare, label: "Horus IA" },
 ];
 
 const modulesItems: NavItem[] = [
@@ -46,7 +46,7 @@ const modulesItems: NavItem[] = [
   { id: "reminders", icon: Bell, label: "Lembretes" },
   { id: "habits", icon: Flame, label: "Hábitos" },
   { id: "finances", icon: DollarSign, label: "Finanças" },
-  { id: "analysis", icon: Brain, label: "Análise Maxx" },
+  { id: "analysis", icon: Brain, label: "Análise Horus" },
 ];
 
 const settingsItems: NavItem[] = [
@@ -85,8 +85,8 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-1">
-          <img src={aurataskLogo} alt="Maxx" className="w-8 h-8 rounded-xl object-cover shrink-0" />
-          {!collapsed && <span className="font-bold text-lg">Maxx</span>}
+          <img src={aurataskLogo} alt="Horus" className="w-8 h-8 rounded-xl object-cover shrink-0" />
+          {!collapsed && <span className="font-bold text-lg">Horus</span>}
         </div>
       </SidebarHeader>
 

@@ -22,7 +22,7 @@ interface DailyBriefingModalProps {
   data: BriefingData;
 }
 
-const BRIEFING_KEY = "auratask_last_briefing_date";
+const BRIEFING_KEY = "horus_last_briefing_date";
 
 export function useDailyBriefing() {
   const [showBriefing, setShowBriefing] = useState(false);
