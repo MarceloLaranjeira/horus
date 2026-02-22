@@ -280,41 +280,8 @@ export const SettingsAIView = () => {
               <Button variant="outline" size="sm" onClick={() => {
                 if (settings.ttsProvider === "elevenlabs") {
                   previewVoice(settings.ttsVoiceId);
-                } else if (settings.ttsProvider === "openai") {
-                  const testTTS = async () => {
-                    try {
-                      const response = await fetch(
-                        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
-                        {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-                          },
-                          body: JSON.stringify({
-                            mode: "tts",
-                            ttsProvider: "openai",
-                            ttsVoiceId: settings.ttsVoiceId,
-                            ttsText: "Olá! Eu sou seu assistente pessoal.",
-                          }),
-                        }
-                      );
-                      if (!response.ok) {
-                        toast({ title: "Erro ao testar voz", variant: "destructive" });
-                        return;
-                      }
-                      const blob = await response.blob();
-                      const url = URL.createObjectURL(blob);
-                      const audio = new Audio(url);
-                      audio.onended = () => URL.revokeObjectURL(url);
-                      audio.play();
-                    } catch {
-                      toast({ title: "Erro ao testar voz", variant: "destructive" });
-                    }
-                  };
-                  testTTS();
-                } else if (settings.ttsProvider === "gemini") {
-                  // Gemini uses browser speechSynthesis
+                } else {
+                  // OpenAI & Gemini use browser speechSynthesis
                   if ("speechSynthesis" in window) {
                     window.speechSynthesis.cancel();
                     const utterance = new SpeechSynthesisUtterance("Olá! Eu sou seu assistente pessoal.");

@@ -386,15 +386,8 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         });
         if (!response.ok) { setIsSpeaking(false); return; }
         playAudioBlob(await response.blob());
-      } else if (provider === "openai") {
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-          body: JSON.stringify({ mode: "tts", ttsProvider: "openai", ttsVoiceId: voiceId, ttsText: cleanText }),
-        });
-        if (!response.ok) { setIsSpeaking(false); return; }
-        playAudioBlob(await response.blob());
-      } else if (provider === "gemini") {
+      } else if (provider === "openai" || provider === "gemini") {
+        // Both use browser speechSynthesis (gateway doesn't support audio TTS)
         // Gemini uses browser speechSynthesis
         if ("speechSynthesis" in window) {
           window.speechSynthesis.cancel();
