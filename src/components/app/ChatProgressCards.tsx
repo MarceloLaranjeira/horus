@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { CheckSquare, Flame, DollarSign, Bell, TrendingUp, TrendingDown } from "lucide-react";
+import { CheckSquare, Flame, DollarSign, Bell, TrendingUp, TrendingDown, FolderKanban } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/hooks/useTasks";
 import { useHabits } from "@/hooks/useHabits";
 import { useFinances } from "@/hooks/useFinances";
 import { useReminders } from "@/hooks/useReminders";
+import { useProjects } from "@/hooks/useProjects";
 import type { AppView } from "@/pages/AppDashboard";
 
 interface ChatProgressCardsProps {
@@ -17,6 +18,7 @@ export const ChatProgressCards = ({ onNavigate }: ChatProgressCardsProps) => {
   const { habits, tracks } = useHabits();
   const financeQuery = useFinances();
   const { reminders } = useReminders();
+  const { projects } = useProjects();
 
   const tasks = taskQuery.data;
   const transactions = financeQuery.transactions;
@@ -54,6 +56,15 @@ export const ChatProgressCards = ({ onNavigate }: ChatProgressCardsProps) => {
     const overdue = all.filter((r) => !r.completed && new Date(r.due_date) < new Date()).length;
     return { pending, overdue };
   }, [reminders]);
+
+  const projectStats = useMemo(() => {
+    const all = projects || [];
+    const inProgress = all.filter((p) => p.status === "in_progress").length;
+    const done = all.filter((p) => p.status === "done").length;
+    const total = all.length;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { inProgress, done, total, pct };
+  }, [projects]);
 
   const cards = [
     {
@@ -107,6 +118,19 @@ export const ChatProgressCards = ({ onNavigate }: ChatProgressCardsProps) => {
       border: reminderStats.overdue > 0 ? "border-destructive/20" : "border-primary/20",
       barColor: null,
       view: "reminders" as AppView,
+    },
+    {
+      key: "projects",
+      label: "Projetos",
+      icon: FolderKanban,
+      value: `${projectStats.total}`,
+      sub: `${projectStats.inProgress} em andamento`,
+      pct: projectStats.pct,
+      color: "text-[hsl(var(--nectar-purple))]",
+      bg: "bg-[hsl(var(--nectar-purple))]/8",
+      border: "border-[hsl(var(--nectar-purple))]/20",
+      barColor: "bg-[hsl(var(--nectar-purple))]",
+      view: "projects" as AppView,
     },
   ];
 
