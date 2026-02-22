@@ -11,12 +11,14 @@ export type AIModel =
   | "openai/gpt-5-nano"
   | "openai/gpt-5.2";
 
-export interface ElevenLabsVoice {
+export interface TTSVoice {
   id: string;
   name: string;
 }
 
-export const elevenLabsVoices: ElevenLabsVoice[] = [
+export type TTSProvider = "elevenlabs" | "openai" | "gemini";
+
+export const elevenLabsVoices: TTSVoice[] = [
   { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah" },
   { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger" },
   { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura" },
@@ -29,6 +31,27 @@ export const elevenLabsVoices: ElevenLabsVoice[] = [
   { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily" },
   { id: "cjVigY5qzO86Huf0OWal", name: "Eric" },
   { id: "nPczCjzI2devNBz1zQrb", name: "Brian" },
+];
+
+export const openaiVoices: TTSVoice[] = [
+  { id: "alloy", name: "Alloy" },
+  { id: "ash", name: "Ash" },
+  { id: "ballad", name: "Ballad" },
+  { id: "coral", name: "Coral" },
+  { id: "echo", name: "Echo" },
+  { id: "fable", name: "Fable" },
+  { id: "nova", name: "Nova" },
+  { id: "onyx", name: "Onyx" },
+  { id: "sage", name: "Sage" },
+  { id: "shimmer", name: "Shimmer" },
+];
+
+export const geminiVoices: TTSVoice[] = [
+  { id: "Aoede", name: "Aoede" },
+  { id: "Charon", name: "Charon" },
+  { id: "Fenrir", name: "Fenrir" },
+  { id: "Kore", name: "Kore" },
+  { id: "Puck", name: "Puck" },
 ];
 
 export type AgentMood = "professional" | "friendly" | "casual" | "formal" | "creative" | "concise";
@@ -48,6 +71,7 @@ export interface AISettings {
   voiceEnabled: boolean;
   voiceLang: string;
   ttsEnabled: boolean;
+  ttsProvider: TTSProvider;
   ttsVoiceId: string;
   customPrompt: string;
   temperature: number;
@@ -60,6 +84,7 @@ const defaultSettings: AISettings = {
   voiceEnabled: true,
   voiceLang: "pt-BR",
   ttsEnabled: false,
+  ttsProvider: "elevenlabs",
   ttsVoiceId: "EXAVITQu4vr4xnSDxMaL",
   customPrompt: "",
   temperature: 0.7,

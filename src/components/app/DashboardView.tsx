@@ -8,6 +8,7 @@ import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { useGmail } from "@/hooks/useGmail";
 import { DailyBriefingModal, useDailyBriefing } from "@/components/app/DailyBriefingModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EditItemModal } from "./EditItemModal";
 import {
   CheckSquare, DollarSign, Flame, Bell, Clock, AlertTriangle, Plus,
   Trash2, Check, X, TrendingUp, TrendingDown, FolderKanban, BarChart3,
@@ -88,9 +89,9 @@ const SectionCard = ({
 export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const { data: tasks = [], updateTask, deleteTask, addTask } = useTasks();
   const { transactions, addTransaction, deleteTransaction } = useFinances();
-  const { habits, tracks, toggleTrack, addHabit, deleteHabit } = useHabits();
-  const { reminders, toggleReminder, deleteReminder, addReminder } = useReminders();
-  const { projects } = useProjects();
+  const { habits, tracks, toggleTrack, addHabit, updateHabit, deleteHabit } = useHabits();
+  const { reminders, toggleReminder, deleteReminder, addReminder, updateReminder } = useReminders();
+  const { projects, updateProject, deleteProject } = useProjects();
   const { connected: calConnected, events: calEvents, fetchEvents, loadingEvents } = useGoogleCalendar();
   const { emails: gmailEmails, loading: gmailLoading, fetchUnread: fetchGmailUnread, readEmail, readingEmail, selectedEmail, clearSelectedEmail } = useGmail();
   const { showBriefing, setShowBriefing, dismiss: dismissBriefing } = useDailyBriefing();
@@ -106,6 +107,11 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const [newRemTitle, setNewRemTitle] = useState("");
   const [showAddRem, setShowAddRem] = useState(false);
 
+  // Edit modal states
+  const [editTask, setEditTask] = useState<any>(null);
+  const [editReminder, setEditReminder] = useState<any>(null);
+  const [editProject, setEditProject] = useState<any>(null);
+  const [editHabit, setEditHabit] = useState<any>(null);
   const today = startOfDay(new Date());
   const todayStr = format(today, "yyyy-MM-dd");
   const todayTracks = tracks.filter((t) => t.track_date === todayStr);
@@ -236,8 +242,8 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
             </div>
             {/* Recent tasks list */}
             {pendingTasks.slice(0, 3).map((task) => (
-              <div key={task.id} className="flex items-center gap-2 text-sm py-1.5 group">
-                <button onClick={() => handleCompleteTask(task.id)} className="w-4 h-4 rounded-full border border-border hover:border-primary shrink-0 transition-colors flex items-center justify-center">
+              <div key={task.id} className="flex items-center gap-2 text-sm py-1.5 group cursor-pointer hover:bg-secondary/30 rounded-lg px-1 transition-colors" onClick={() => setEditTask(task)}>
+                <button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} className="w-4 h-4 rounded-full border border-border hover:border-primary shrink-0 transition-colors flex items-center justify-center">
                   <Check className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-primary" />
                 </button>
                 <div className={cn(
@@ -280,7 +286,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
               <Progress value={projectCompletionRate} className="h-2" />
             </div>
             {projects.slice(0, 4).map((p) => (
-              <div key={p.id} className="flex items-center gap-2 text-sm py-1.5">
+              <div key={p.id} className="flex items-center gap-2 text-sm py-1.5 cursor-pointer hover:bg-secondary/30 rounded-lg px-1 transition-colors" onClick={() => setEditProject(p)}>
                 <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || "hsl(var(--primary))" }} />
                 <span className="truncate flex-1">{p.title}</span>
                 <span className={cn(
@@ -311,10 +317,10 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
                   const target = h.target_days_per_week || 7;
                   const progress = Math.min(Math.round((weekTracks / target) * 100), 100);
                   return (
-                    <li key={h.id} className="space-y-1 group">
+                    <li key={h.id} className="space-y-1 group cursor-pointer hover:bg-secondary/30 rounded-lg p-1 transition-colors" onClick={() => setEditHabit(h)}>
                       <div className="flex items-center gap-2 text-sm">
                         <button
-                          onClick={() => toggleTrack.mutate({ habit_id: h.id, date: todayStr })}
+                          onClick={(e) => { e.stopPropagation(); toggleTrack.mutate({ habit_id: h.id, date: todayStr }); }}
                           className={cn(
                             "w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all",
                             done ? "bg-[hsl(var(--nectar-orange))]/20 border-[hsl(var(--nectar-orange))] text-[hsl(var(--nectar-orange))]" : "border-border hover:border-[hsl(var(--nectar-orange))]"
@@ -482,9 +488,9 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
             {upcomingReminders.length > 0 ? (
               <ul className="space-y-2">
                 {upcomingReminders.map((r) => (
-                  <li key={r.id} className="flex items-center gap-2 text-sm p-2 rounded-lg bg-secondary/30 border border-border/20 group">
+                  <li key={r.id} className="flex items-center gap-2 text-sm p-2 rounded-lg bg-secondary/30 border border-border/20 group cursor-pointer hover:bg-secondary/50 transition-colors" onClick={() => setEditReminder(r)}>
                     <button
-                      onClick={() => toggleReminder.mutate({ id: r.id, completed: true })}
+                      onClick={(e) => { e.stopPropagation(); toggleReminder.mutate({ id: r.id, completed: true }); }}
                       className="w-5 h-5 rounded-full border border-border hover:border-primary hover:bg-primary/10 flex items-center justify-center shrink-0 transition-colors"
                     >
                       <Check className="w-3 h-3 opacity-0 group-hover:opacity-100 text-primary transition-opacity" />
@@ -495,7 +501,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
                         {format(new Date(r.due_date), "dd/MM 'às' HH:mm", { locale: ptBR })}
                       </p>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive" onClick={() => deleteReminder.mutate(r.id)}>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); deleteReminder.mutate(r.id); }}>
                       <Trash2 className="w-3 h-3" />
                     </Button>
                   </li>
@@ -569,7 +575,94 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
         }}
       />
 
-      {/* Email Detail Modal */}
+      {/* Edit Task Modal */}
+      {editTask && (
+        <EditItemModal
+          open={!!editTask}
+          onOpenChange={(open) => !open && setEditTask(null)}
+          title="Editar Tarefa"
+          fields={[
+            { key: "title", label: "Título", type: "text", placeholder: "Título da tarefa" },
+            { key: "description", label: "Descrição", type: "textarea", placeholder: "Descrição..." },
+            { key: "priority", label: "Prioridade", type: "select", options: [
+              { value: "low", label: "Baixa" }, { value: "medium", label: "Média" },
+              { value: "high", label: "Alta" }, { value: "urgent", label: "Urgente" },
+            ]},
+            { key: "status", label: "Status", type: "select", options: [
+              { value: "todo", label: "A fazer" }, { value: "in_progress", label: "Em andamento" }, { value: "done", label: "Concluída" },
+            ]},
+            { key: "due_date", label: "Data", type: "date" },
+          ]}
+          values={{ title: editTask.title, description: editTask.description || "", priority: editTask.priority, status: editTask.status, due_date: editTask.due_date || "" }}
+          onSave={(vals) => {
+            updateTask.mutate({ id: editTask.id, ...vals }, { onSuccess: () => toast.success("Tarefa atualizada!") });
+          }}
+          onDelete={() => { deleteTask.mutate(editTask.id, { onSuccess: () => toast.success("Tarefa excluída!") }); }}
+        />
+      )}
+
+      {/* Edit Reminder Modal */}
+      {editReminder && (
+        <EditItemModal
+          open={!!editReminder}
+          onOpenChange={(open) => !open && setEditReminder(null)}
+          title="Editar Lembrete"
+          fields={[
+            { key: "title", label: "Título", type: "text", placeholder: "Título do lembrete" },
+            { key: "description", label: "Descrição", type: "textarea", placeholder: "Descrição..." },
+            { key: "due_date", label: "Data e Hora", type: "datetime-local" },
+          ]}
+          values={{ title: editReminder.title, description: editReminder.description || "", due_date: editReminder.due_date ? format(new Date(editReminder.due_date), "yyyy-MM-dd'T'HH:mm") : "" }}
+          onSave={(vals) => {
+            updateReminder.mutate({ id: editReminder.id, ...vals, due_date: vals.due_date ? new Date(vals.due_date).toISOString() : undefined }, { onSuccess: () => toast.success("Lembrete atualizado!") });
+          }}
+          onDelete={() => { deleteReminder.mutate(editReminder.id, { onSuccess: () => toast.success("Lembrete excluído!") }); }}
+        />
+      )}
+
+      {/* Edit Project Modal */}
+      {editProject && (
+        <EditItemModal
+          open={!!editProject}
+          onOpenChange={(open) => !open && setEditProject(null)}
+          title="Editar Projeto"
+          fields={[
+            { key: "title", label: "Título", type: "text", placeholder: "Nome do projeto" },
+            { key: "description", label: "Descrição", type: "textarea", placeholder: "Descrição..." },
+            { key: "status", label: "Status", type: "select", options: [
+              { value: "backlog", label: "Backlog" }, { value: "todo", label: "A fazer" },
+              { value: "in_progress", label: "Em andamento" }, { value: "review", label: "Revisão" }, { value: "done", label: "Concluído" },
+            ]},
+            { key: "color", label: "Cor", type: "color" },
+          ]}
+          values={{ title: editProject.title, description: editProject.description || "", status: editProject.status, color: editProject.color || "#6366f1" }}
+          onSave={(vals) => {
+            updateProject.mutate({ id: editProject.id, ...vals }, { onSuccess: () => toast.success("Projeto atualizado!") });
+          }}
+          onDelete={() => { deleteProject.mutate(editProject.id, { onSuccess: () => toast.success("Projeto excluído!") }); }}
+        />
+      )}
+
+      {/* Edit Habit Modal */}
+      {editHabit && (
+        <EditItemModal
+          open={!!editHabit}
+          onOpenChange={(open) => !open && setEditHabit(null)}
+          title="Editar Hábito"
+          fields={[
+            { key: "name", label: "Nome", type: "text", placeholder: "Nome do hábito" },
+            { key: "icon", label: "Emoji/Ícone", type: "text", placeholder: "🔥" },
+            { key: "description", label: "Descrição", type: "textarea", placeholder: "Descrição..." },
+            { key: "target_days_per_week", label: "Meta (dias/semana)", type: "number" },
+          ]}
+          values={{ name: editHabit.name, icon: editHabit.icon || "🔥", description: editHabit.description || "", target_days_per_week: editHabit.target_days_per_week || 7 }}
+          onSave={(vals) => {
+            updateHabit.mutate({ id: editHabit.id, ...vals }, { onSuccess: () => toast.success("Hábito atualizado!") });
+          }}
+          onDelete={() => { deleteHabit.mutate(editHabit.id, { onSuccess: () => toast.success("Hábito excluído!") }); }}
+        />
+      )}
+
       <Dialog open={!!selectedEmail} onOpenChange={(open) => { if (!open) clearSelectedEmail(); }}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
