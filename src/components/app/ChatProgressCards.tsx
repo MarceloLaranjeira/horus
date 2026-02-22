@@ -117,19 +117,33 @@ export const ChatProgressCards = ({ onNavigate }: ChatProgressCardsProps) => {
         return (
           <motion.button
             key={card.key}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
+            initial={{ opacity: 0, y: 20, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ 
+              delay: 0.1 + i * 0.1, 
+              duration: 0.5, 
+              type: "spring", 
+              stiffness: 260, 
+              damping: 20 
+            }}
+            whileHover={{ 
+              scale: 1.05, 
+              y: -4,
+              transition: { duration: 0.2, type: "spring", stiffness: 400 }
+            }}
+            whileTap={{ scale: 0.96 }}
             onClick={() => onNavigate(card.view)}
             className={cn(
-              "flex flex-col gap-2 p-3 rounded-xl border text-left transition-all hover:scale-[1.03] active:scale-[0.98]",
+              "flex flex-col gap-2 p-3 rounded-xl border text-left",
+              "transition-[box-shadow,border-color] duration-300",
               card.bg, card.border,
-              "hover:shadow-lg cursor-pointer"
+              "hover:shadow-[0_8px_30px_-8px_hsl(var(--cyan)/0.25)] hover:border-[hsl(var(--cyan)/0.3)]",
+              "cursor-pointer group"
             )}
           >
             <div className="flex items-center gap-2">
-              <Icon className={cn("w-4 h-4", card.color)} />
-              <span className="text-[11px] font-medium text-muted-foreground truncate">{card.label}</span>
+              <Icon className={cn("w-4 h-4 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6", card.color)} />
+              <span className="text-[11px] font-medium text-muted-foreground truncate transition-colors duration-300 group-hover:text-foreground">{card.label}</span>
             </div>
             <span className={cn("text-lg font-bold leading-none", card.color)}>{card.value}</span>
             <span className="text-[10px] text-muted-foreground">{card.sub}</span>
