@@ -294,6 +294,7 @@ export type Database = {
           name: string | null
           preferences: Json | null
           role: string | null
+          services: string | null
           updated_at: string
           user_id: string
         }
@@ -307,6 +308,7 @@ export type Database = {
           name?: string | null
           preferences?: Json | null
           role?: string | null
+          services?: string | null
           updated_at?: string
           user_id: string
         }
@@ -320,6 +322,7 @@ export type Database = {
           name?: string | null
           preferences?: Json | null
           role?: string | null
+          services?: string | null
           updated_at?: string
           user_id?: string
         }
