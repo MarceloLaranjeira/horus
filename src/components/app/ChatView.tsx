@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Loader2, CheckCircle2, CheckSquare, DollarSign, Flame, Bell, Calendar, Trash2 } from "lucide-react";
+import { Send, Mic, MicOff, Loader2, CheckCircle2, CheckSquare, DollarSign, Flame, Bell, Calendar, Trash2, VolumeX, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +46,8 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   const [showProgressCards, setShowProgressCards] = useState(false);
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef("");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastAssistantTextRef = useRef<string>("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -342,9 +344,23 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
 
   const handleSend = () => sendMessage(input.trim());
 
+  const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+  }, []);
+
   const playTTS = async (text: string) => {
     if (!settings.ttsEnabled) return;
+    stopSpeaking(); // Stop any current speech first
     setIsSpeaking(true);
+    lastAssistantTextRef.current = text;
     try {
       const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000);
       if (!cleanText.trim()) { setIsSpeaking(false); return; }
@@ -361,8 +377,9 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
-        audio.onended = () => setIsSpeaking(false);
-        audio.onerror = () => setIsSpeaking(false);
+        audioRef.current = audio;
+        audio.onended = () => { setIsSpeaking(false); audioRef.current = null; };
+        audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; };
         audio.play();
       } else if (provider === "openai") {
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
@@ -374,11 +391,11 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
-        audio.onended = () => setIsSpeaking(false);
-        audio.onerror = () => setIsSpeaking(false);
+        audioRef.current = audio;
+        audio.onended = () => { setIsSpeaking(false); audioRef.current = null; };
+        audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; };
         audio.play();
       } else if (provider === "gemini") {
-        // Gemini uses browser SpeechSynthesis
         if ("speechSynthesis" in window) {
           const utterance = new SpeechSynthesisUtterance(cleanText);
           utterance.lang = settings.voiceLang || "pt-BR";
@@ -392,6 +409,12 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     } catch (e) {
       console.error("TTS error:", e);
       setIsSpeaking(false);
+    }
+  };
+
+  const replayLastResponse = () => {
+    if (lastAssistantTextRef.current) {
+      playTTS(lastAssistantTextRef.current);
     }
   };
 
@@ -417,6 +440,8 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       transcriptRef.current = "";
       return;
     }
+    // Stop any ongoing speech when starting to record
+    stopSpeaking();
     // Start recording
     setIsListening(true);
     setLiveTranscript("");
@@ -569,17 +594,41 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
                     {msg.role === "assistant" && <SmallConstellation isThinking={false} />}
                     <div className="max-w-[80%] space-y-2">
                       <div className={cn(
-                        "rounded-2xl px-4 py-3 text-sm",
+                        "rounded-2xl px-4 py-3 text-sm font-sans",
                         msg.role === "user"
                           ? "bg-primary/15 border border-primary/30 text-foreground rounded-br-md"
                           : "bg-card/80 border border-border/50 rounded-bl-md backdrop-blur-sm"
                       )}>
                         {msg.role === "assistant" ? (
-                          <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-primary prose-headings:text-primary">
+                          <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-primary prose-headings:text-primary [&_*]:font-[inherit]">
                             <ReactMarkdown>{msg.content}</ReactMarkdown>
                           </div>
                         ) : msg.content}
                       </div>
+                      {/* Replay / Stop buttons for assistant messages */}
+                      {msg.role === "assistant" && settings.ttsEnabled && (
+                        <div className="flex gap-1">
+                          {isSpeaking && lastAssistantTextRef.current === msg.content ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={stopSpeaking}
+                              className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <VolumeX className="w-3.5 h-3.5 mr-1" /> Parar
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => playTTS(msg.content)}
+                              className="h-7 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            >
+                              <Volume2 className="w-3.5 h-3.5 mr-1" /> Ouvir
+                            </Button>
+                          )}
+                        </div>
+                      )}
                       {msg.actions && msg.actions.length > 0 && (
                         <div className="space-y-1.5 mt-1">
                           {msg.actions.map((a, j) => {
