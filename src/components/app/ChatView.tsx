@@ -418,7 +418,7 @@ export const ChatView = () => {
 
   const assistantName = settings.assistantName || "Horus";
   const lastMessage = messages[messages.length - 1];
-  const showGlobeCenter = messages.length === 0 || (isLoading && lastMessage?.role === "user");
+  const showGlobeCenter = messages.length === 0 || (isLoading && lastMessage?.role === "user") || isSpeaking;
 
   if (isLoadingHistory) {
     return (
