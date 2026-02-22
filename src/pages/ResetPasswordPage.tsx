@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import aurataskLogo from "@/assets/auratask-logo.png";
+import horusLogo from "@/assets/horus-logo.png";
 
 const ResetPasswordPage = () => {
   const [password, setPassword] = useState("");
@@ -56,7 +56,7 @@ const ResetPasswordPage = () => {
     <div className="min-h-screen bg-gradient-dark flex items-center justify-center px-4">
       <Card className="w-full max-w-md bg-card border-border">
         <CardHeader className="text-center">
-          <img src={aurataskLogo} alt="Horus" className="w-16 h-16 mx-auto mb-4 rounded-xl" />
+          <img src={horusLogo} alt="Horus" className="w-16 h-16 mx-auto mb-4 rounded-xl" />
           <CardTitle className="text-2xl">Redefinir Senha</CardTitle>
           <CardDescription>Digite sua nova senha abaixo</CardDescription>
         </CardHeader>
