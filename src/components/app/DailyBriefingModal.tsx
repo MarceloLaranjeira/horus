@@ -56,8 +56,9 @@ export function DailyBriefingModal({ open, onOpenChange, data }: DailyBriefingMo
     setGenerated(false);
 
     const today = format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
+    const manausHour = new Date().toLocaleString("en-US", { timeZone: "America/Manaus", hour: "numeric", hour12: false });
 
-    const summaryPrompt = `Hoje é ${today}. Gere um briefing diário conciso e motivacional para o usuário com base nos seguintes dados:
+    const summaryPrompt = `Hoje é ${today}. O horário atual em Manaus (fuso UTC-4) é aproximadamente ${manausHour}h. Gere um briefing diário conciso e motivacional para o usuário com base nos seguintes dados:
 
 **Tarefas pendentes (${data.tasks.length}):**
 ${data.tasks.slice(0, 10).map(t => `- ${t.title} (prioridade: ${t.priority}${t.due_date ? `, vence: ${t.due_date}` : ""})`).join("\n") || "Nenhuma tarefa pendente."}
@@ -77,8 +78,8 @@ Receitas: R$ ${data.finances.income.toFixed(2)} | Despesas: R$ ${data.finances.e
 INSTRUÇÕES:
 - Seja breve (máximo 200 palavras)
 - Use emojis com moderação
-- Comece com uma saudação baseada no horário (bom dia/boa tarde/boa noite)
-- Destaque as prioridades mais urgentes
+- Comece com uma saudação baseada no horário de Manaus (bom dia/boa tarde/boa noite)
+- Use o fuso horário de Manaus (America/Manaus, UTC-4) como referência
 - Termine com uma frase motivacional curta
 - Formate em markdown com seções claras
 - Responda em português brasileiro`;
