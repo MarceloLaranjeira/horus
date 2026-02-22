@@ -6,6 +6,7 @@ import { useReminders } from "@/hooks/useReminders";
 import { useProjects } from "@/hooks/useProjects";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { useGmail } from "@/hooks/useGmail";
+import { DailyBriefingModal, useDailyBriefing } from "@/components/app/DailyBriefingModal";
 import {
   CheckSquare, DollarSign, Flame, Bell, Clock, AlertTriangle, Plus,
   Trash2, Check, X, TrendingUp, TrendingDown, FolderKanban, BarChart3,
@@ -91,6 +92,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const { projects } = useProjects();
   const { connected: calConnected, events: calEvents, fetchEvents, loadingEvents } = useGoogleCalendar();
   const { emails: gmailEmails, loading: gmailLoading, fetchUnread: fetchGmailUnread } = useGmail();
+  const { showBriefing, setShowBriefing, dismiss: dismissBriefing } = useDailyBriefing();
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [showAddTask, setShowAddTask] = useState(false);
@@ -543,6 +545,24 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
         </div>
 
       </div>
+
+      <DailyBriefingModal
+        open={showBriefing}
+        onOpenChange={(open) => { if (!open) dismissBriefing(); else setShowBriefing(true); }}
+        data={{
+          tasks: pendingTasks.map(t => ({ title: t.title, priority: t.priority, due_date: t.due_date, status: t.status })),
+          habits: activeHabits.map(h => ({
+            name: h.name,
+            completedToday: todayTracks.some(t => t.habit_id === h.id && t.completed),
+          })),
+          reminders: pendingReminders.map(r => ({ title: r.title, due_date: r.due_date })),
+          calendarEvents: calEvents.slice(0, 5).map((e: any) => ({
+            summary: e.summary || "",
+            start: e.start?.dateTime || e.start?.date || "",
+          })),
+          finances: { balance, income: totalIncome, expenses: totalExpenses },
+        }}
+      />
     </div>
   );
 };
