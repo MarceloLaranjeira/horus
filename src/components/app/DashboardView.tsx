@@ -39,7 +39,7 @@ const SummaryCard = ({
     initial={{ opacity: 0, y: 15 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.3, delay }}
-    className="flex flex-col items-center gap-1.5 p-4 rounded-xl bg-card border border-border/50 card-glow flex-1 min-w-[120px]"
+    className="flex flex-col items-center gap-1.5 p-4 rounded-xl bg-card border border-[hsl(var(--nectar-gold))]/20 card-glow flex-1 min-w-[120px]"
   >
     <Icon className="w-5 h-5" style={{ color }} />
     <span className="text-2xl font-bold">{value}</span>
@@ -68,7 +68,7 @@ const SectionCard = ({
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.3, delay }}
-    className="bg-card border border-border/50 rounded-xl p-5 card-glow flex flex-col"
+    className="bg-card border border-[hsl(var(--nectar-gold))]/15 rounded-xl p-5 card-glow flex flex-col"
   >
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
@@ -203,7 +203,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1">
-          <h1 className="text-2xl font-bold text-gradient-cyan">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gradient-gold">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
             {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
           </p>
@@ -518,9 +518,9 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
           </SectionCard>
 
           {/* ANÁLISE IA */}
-          <SectionCard title="Análise Horus" icon={BarChart3} iconColor="hsl(var(--primary))" action="Gerar análise" onAction={() => onNavigate("chat")} delay={0.45}>
+          <SectionCard title="Análise Horus" icon={BarChart3} iconColor="hsl(var(--nectar-gold))" action="Gerar análise" onAction={() => onNavigate("chat")} delay={0.45}>
             <div className="space-y-3">
-              <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+              <div className="p-3 rounded-lg bg-[hsl(var(--nectar-gold))]/5 border border-[hsl(var(--nectar-gold))]/15">
                 <p className="text-xs text-muted-foreground mb-2">Visão geral da semana</p>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
@@ -542,7 +542,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
               <p className="text-xs text-muted-foreground text-center">
                 Peça ao Horus uma análise completa dos seus dados para insights personalizados e plano de ação.
               </p>
-              <Button variant="outline" size="sm" className="w-full border-primary/20 text-primary hover:bg-primary/10" onClick={() => onNavigate("chat")}>
+              <Button variant="outline" size="sm" className="w-full border-[hsl(var(--nectar-gold))]/30 text-[hsl(var(--nectar-gold))] hover:bg-[hsl(var(--nectar-gold))]/10" onClick={() => onNavigate("chat")}>
                 <BarChart3 className="w-3.5 h-3.5 mr-1.5" /> Solicitar Análise Completa
               </Button>
             </div>
