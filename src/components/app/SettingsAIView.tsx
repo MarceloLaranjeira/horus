@@ -277,11 +277,58 @@ export const SettingsAIView = () => {
                 </div>
               </div>
 
-              {settings.ttsProvider === "elevenlabs" && (
-                <Button variant="outline" size="sm" onClick={() => previewVoice(settings.ttsVoiceId)} className="w-full mt-2">
-                  <Volume2 className="w-4 h-4 mr-2" /> Testar Voz Selecionada
-                </Button>
-              )}
+              <Button variant="outline" size="sm" onClick={() => {
+                if (settings.ttsProvider === "elevenlabs") {
+                  previewVoice(settings.ttsVoiceId);
+                } else {
+                  // Test OpenAI/Gemini via chat function
+                  const testTTS = async () => {
+                    try {
+                      const response = await fetch(
+                        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                          },
+                          body: JSON.stringify({
+                            mode: "tts",
+                            ttsProvider: settings.ttsProvider,
+                            ttsVoiceId: settings.ttsVoiceId,
+                            ttsText: "Olá! Eu sou seu assistente pessoal.",
+                          }),
+                        }
+                      );
+                      if (!response.ok) {
+                        toast({ title: "Erro ao testar voz", variant: "destructive" });
+                        return;
+                      }
+                      const contentType = response.headers.get("content-type") || "";
+                      if (contentType.includes("audio")) {
+                        const blob = await response.blob();
+                        const url = URL.createObjectURL(blob);
+                        const audio = new Audio(url);
+                        audio.onended = () => URL.revokeObjectURL(url);
+                        audio.play();
+                      } else {
+                        // Gemini fallback - use browser speech
+                        if ("speechSynthesis" in window) {
+                          const utterance = new SpeechSynthesisUtterance("Olá! Eu sou seu assistente pessoal.");
+                          utterance.lang = "pt-BR";
+                          window.speechSynthesis.speak(utterance);
+                        }
+                        toast({ title: "Voz Gemini usa síntese do navegador", description: "A voz pode variar conforme o dispositivo." });
+                      }
+                    } catch {
+                      toast({ title: "Erro ao testar voz", variant: "destructive" });
+                    }
+                  };
+                  testTTS();
+                }
+              }} className="w-full mt-2">
+                <Volume2 className="w-4 h-4 mr-2" /> Testar Voz Selecionada
+              </Button>
             </div>
           )}
         </motion.div>
