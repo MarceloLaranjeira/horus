@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Send, Mic, MicOff, Loader2, CheckCircle2, X, CheckSquare, DollarSign, Flame, Bell, FolderKanban, Calendar, Trash2 } from "lucide-react";
+import { Send, Mic, MicOff, Loader2, CheckCircle2, CheckSquare, DollarSign, Flame, Bell, Calendar, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,33 +26,6 @@ type ActionResult = {
   success: boolean;
 };
 
-type DetectedMenu = {
-  id: string;
-  label: string;
-  icon: React.ElementType;
-  color: string;
-};
-
-const MENU_KEYWORDS: { keywords: string[]; menu: DetectedMenu }[] = [
-  { keywords: ["tarefa", "tarefas", "task"], menu: { id: "tasks", label: "Tarefas", icon: CheckSquare, color: "hsl(var(--cyan))" } },
-  { keywords: ["financ", "despesa", "receita", "gasto", "dinheiro", "orçamento"], menu: { id: "finances", label: "Finanças", icon: DollarSign, color: "hsl(var(--nectar-gold))" } },
-  { keywords: ["hábito", "habito", "habit"], menu: { id: "habits", label: "Hábitos", icon: Flame, color: "hsl(var(--nectar-orange))" } },
-  { keywords: ["lembrete", "reminder", "alarme"], menu: { id: "reminders", label: "Lembretes", icon: Bell, color: "hsl(var(--nectar-red))" } },
-  { keywords: ["projeto", "kanban", "project"], menu: { id: "projects", label: "Projetos", icon: FolderKanban, color: "hsl(var(--nectar-green))" } },
-  { keywords: ["calendário", "calendar", "agenda", "evento"], menu: { id: "calendar", label: "Calendário", icon: Calendar, color: "hsl(187 100% 50%)" } },
-  { keywords: ["email", "gmail", "e-mail", "inbox", "caixa de entrada"], menu: { id: "gmail", label: "Gmail", icon: Send, color: "hsl(0 80% 60%)" } },
-];
-
-function detectMenus(text: string): DetectedMenu[] {
-  const lower = text.toLowerCase();
-  const found: DetectedMenu[] = [];
-  for (const { keywords, menu } of MENU_KEYWORDS) {
-    if (keywords.some((k) => lower.includes(k)) && !found.some((f) => f.id === menu.id)) {
-      found.push(menu);
-    }
-  }
-  return found;
-}
 
 /** Immersive Jarvis Globe */
 const JarvisGlobe = ({ isThinking, isSpeaking }: { isThinking: boolean; isSpeaking: boolean }) => {
@@ -158,23 +131,6 @@ const JarvisGlobe = ({ isThinking, isSpeaking }: { isThinking: boolean; isSpeaki
   );
 };
 
-/** Interactive menu panel */
-const MenuPanel = ({ menu, onDismiss }: { menu: DetectedMenu; onDismiss: () => void }) => (
-  <motion.div
-    initial={{ opacity: 0, x: 30, scale: 0.9 }}
-    animate={{ opacity: 1, x: 0, scale: 1 }}
-    exit={{ opacity: 0, x: 30, scale: 0.9 }}
-    className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card/80 border border-border/50 backdrop-blur-sm cursor-pointer hover:border-primary/30 transition-all group"
-    onClick={onDismiss}
-    style={{ borderLeftWidth: 4, borderLeftColor: menu.color }}
-  >
-    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${menu.color}15` }}>
-      <menu.icon className="w-5 h-5" style={{ color: menu.color }} />
-    </div>
-    <span className="text-sm font-medium">{menu.label}</span>
-    <X className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
-  </motion.div>
-);
 
 /** Small globe for message bubbles */
 const SmallGlobe = ({ isThinking }: { isThinking: boolean }) => (
@@ -194,7 +150,7 @@ export const ChatView = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [activeMenus, setActiveMenus] = useState<DetectedMenu[]>([]);
+  
   const [liveTranscript, setLiveTranscript] = useState("");
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef("");
@@ -258,14 +214,6 @@ export const ChatView = () => {
     }
   }, [messages]);
 
-  // Detect menus from latest assistant message
-  useEffect(() => {
-    const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-    if (lastAssistant) {
-      const detected = detectMenus(lastAssistant.content);
-      setActiveMenus(detected);
-    }
-  }, [messages]);
 
   const saveMessage = useCallback(async (role: string, content: string) => {
     if (!user || !conversationId) return;
@@ -575,7 +523,7 @@ export const ChatView = () => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const dismissMenu = (id: string) => setActiveMenus((prev) => prev.filter((m) => m.id !== id));
+
 
   const assistantName = settings.assistantName || "Maxx";
   const lastMessage = messages[messages.length - 1];
@@ -739,26 +687,6 @@ export const ChatView = () => {
             </div>
           </ScrollArea>
 
-          {/* Interactive Menu Panels - sidebar */}
-          <AnimatePresence>
-            {activeMenus.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 220 }}
-                exit={{ opacity: 0, width: 0 }}
-                className="border-l border-border/30 bg-card/20 backdrop-blur-sm overflow-hidden shrink-0"
-              >
-                <div className="p-3 space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium px-1 mb-3">Módulos relacionados</p>
-                  <AnimatePresence>
-                    {activeMenus.map((menu) => (
-                      <MenuPanel key={menu.id} menu={menu} onDismiss={() => dismissMenu(menu.id)} />
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </div>
 
