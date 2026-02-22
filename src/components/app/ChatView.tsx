@@ -394,34 +394,14 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         });
         if (!response.ok) { setIsSpeaking(false); return; }
         playAudioBlob(await response.blob());
-      } else if (provider === "gemini") {
-        // Gemini TTS via chat function - falls back to browser speechSynthesis with selected voice
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-          body: JSON.stringify({ mode: "tts", ttsProvider: "gemini", ttsVoiceId: voiceId, ttsText: cleanText }),
-        });
-        if (response.ok) {
-          const contentType = response.headers.get("content-type") || "";
-          if (contentType.includes("audio")) {
-            playAudioBlob(await response.blob());
-          } else {
-            // Fallback to browser speech synthesis with voice matching
-            if ("speechSynthesis" in window) {
-              window.speechSynthesis.cancel();
-              const utterance = new SpeechSynthesisUtterance(cleanText);
-              utterance.lang = settings.voiceLang || "pt-BR";
-              // Try to match a browser voice by name
-              const voices = window.speechSynthesis.getVoices();
-              const match = voices.find(v => v.name.toLowerCase().includes(voiceId.toLowerCase()));
-              if (match) utterance.voice = match;
-              utterance.onend = () => setIsSpeaking(false);
-              utterance.onerror = () => setIsSpeaking(false);
-              window.speechSynthesis.speak(utterance);
-            } else {
-              setIsSpeaking(false);
-            }
-          }
+      } else {
+        // Unsupported provider, fallback to browser speech
+        if ("speechSynthesis" in window) {
+          const utterance = new SpeechSynthesisUtterance(cleanText);
+          utterance.lang = settings.voiceLang || "pt-BR";
+          utterance.onend = () => setIsSpeaking(false);
+          utterance.onerror = () => setIsSpeaking(false);
+          window.speechSynthesis.speak(utterance);
         } else {
           setIsSpeaking(false);
         }
