@@ -23,6 +23,8 @@ async function callGmailFn(action: string, body: any = {}) {
 export function useGmail() {
   const [emails, setEmails] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [readingEmail, setReadingEmail] = useState(false);
+  const [selectedEmail, setSelectedEmail] = useState<any>(null);
 
   const fetchUnread = useCallback(async (maxResults = 5) => {
     setLoading(true);
@@ -41,5 +43,21 @@ export function useGmail() {
     }
   }, []);
 
-  return { emails, loading, fetchUnread };
+  const readEmail = useCallback(async (messageId: string) => {
+    setReadingEmail(true);
+    try {
+      const data = await callGmailFn("read_email", { messageId });
+      setSelectedEmail(data.email || null);
+      return data.email || null;
+    } catch (e) {
+      console.error("Gmail read error:", e);
+      return null;
+    } finally {
+      setReadingEmail(false);
+    }
+  }, []);
+
+  const clearSelectedEmail = useCallback(() => setSelectedEmail(null), []);
+
+  return { emails, loading, fetchUnread, readEmail, readingEmail, selectedEmail, clearSelectedEmail };
 }

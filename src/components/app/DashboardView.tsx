@@ -7,6 +7,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { useGmail } from "@/hooks/useGmail";
 import { DailyBriefingModal, useDailyBriefing } from "@/components/app/DailyBriefingModal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   CheckSquare, DollarSign, Flame, Bell, Clock, AlertTriangle, Plus,
   Trash2, Check, X, TrendingUp, TrendingDown, FolderKanban, BarChart3,
@@ -91,7 +92,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const { reminders, toggleReminder, deleteReminder, addReminder } = useReminders();
   const { projects } = useProjects();
   const { connected: calConnected, events: calEvents, fetchEvents, loadingEvents } = useGoogleCalendar();
-  const { emails: gmailEmails, loading: gmailLoading, fetchUnread: fetchGmailUnread } = useGmail();
+  const { emails: gmailEmails, loading: gmailLoading, fetchUnread: fetchGmailUnread, readEmail, readingEmail, selectedEmail, clearSelectedEmail } = useGmail();
   const { showBriefing, setShowBriefing, dismiss: dismissBriefing } = useDailyBriefing();
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -446,7 +447,11 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
                 {gmailEmails.slice(0, 5).map((email: any, i: number) => {
                   const fromName = email.from?.replace(/<.*>/, "").trim() || "Desconhecido";
                   return (
-                    <li key={email.id || i} className="flex items-center gap-3 text-sm p-2 rounded-lg bg-destructive/5 border border-destructive/10">
+                    <li
+                      key={email.id || i}
+                      className="flex items-center gap-3 text-sm p-2 rounded-lg bg-destructive/5 border border-destructive/10 cursor-pointer hover:bg-destructive/10 transition-colors"
+                      onClick={() => email.id && readEmail(email.id)}
+                    >
                       <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
                         <MailOpen className="w-4 h-4 text-destructive" />
                       </div>
@@ -563,6 +568,35 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
           finances: { balance, income: totalIncome, expenses: totalExpenses },
         }}
       />
+
+      {/* Email Detail Modal */}
+      <Dialog open={!!selectedEmail} onOpenChange={(open) => { if (!open) clearSelectedEmail(); }}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-destructive" />
+              <span className="truncate">{selectedEmail?.subject || "(Sem assunto)"}</span>
+            </DialogTitle>
+            <div className="text-xs text-muted-foreground space-y-0.5 pt-1">
+              <p><span className="font-medium">De:</span> {selectedEmail?.from}</p>
+              <p><span className="font-medium">Para:</span> {selectedEmail?.to}</p>
+              <p><span className="font-medium">Data:</span> {selectedEmail?.date}</p>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {readingEmail ? (
+              <div className="flex items-center justify-center py-12 gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Carregando email...</span>
+              </div>
+            ) : (
+              <pre className="text-sm whitespace-pre-wrap font-sans text-foreground bg-secondary/30 rounded-lg p-4 max-h-[50vh] overflow-auto">
+                {selectedEmail?.body || selectedEmail?.snippet || "Sem conteúdo"}
+              </pre>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
