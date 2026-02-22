@@ -365,43 +365,62 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000);
       if (!cleanText.trim()) { setIsSpeaking(false); return; }
 
-      const provider = (settings as any).ttsProvider || "elevenlabs";
+      const provider = settings.ttsProvider || "elevenlabs";
+      const voiceId = settings.ttsVoiceId;
+
+      const playAudioBlob = (blob: Blob) => {
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
+        audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
+        audio.play();
+      };
 
       if (provider === "elevenlabs") {
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-          body: JSON.stringify({ text: cleanText, voiceId: settings.ttsVoiceId }),
+          body: JSON.stringify({ text: cleanText, voiceId }),
         });
         if (!response.ok) { setIsSpeaking(false); return; }
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        audio.onended = () => { setIsSpeaking(false); audioRef.current = null; };
-        audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; };
-        audio.play();
+        playAudioBlob(await response.blob());
       } else if (provider === "openai") {
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-          body: JSON.stringify({ mode: "tts", ttsProvider: "openai", ttsVoiceId: settings.ttsVoiceId, ttsText: cleanText }),
+          body: JSON.stringify({ mode: "tts", ttsProvider: "openai", ttsVoiceId: voiceId, ttsText: cleanText }),
         });
         if (!response.ok) { setIsSpeaking(false); return; }
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        audio.onended = () => { setIsSpeaking(false); audioRef.current = null; };
-        audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; };
-        audio.play();
+        playAudioBlob(await response.blob());
       } else if (provider === "gemini") {
-        if ("speechSynthesis" in window) {
-          const utterance = new SpeechSynthesisUtterance(cleanText);
-          utterance.lang = settings.voiceLang || "pt-BR";
-          utterance.onend = () => setIsSpeaking(false);
-          utterance.onerror = () => setIsSpeaking(false);
-          window.speechSynthesis.speak(utterance);
+        // Gemini TTS via chat function - falls back to browser speechSynthesis with selected voice
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+          body: JSON.stringify({ mode: "tts", ttsProvider: "gemini", ttsVoiceId: voiceId, ttsText: cleanText }),
+        });
+        if (response.ok) {
+          const contentType = response.headers.get("content-type") || "";
+          if (contentType.includes("audio")) {
+            playAudioBlob(await response.blob());
+          } else {
+            // Fallback to browser speech synthesis with voice matching
+            if ("speechSynthesis" in window) {
+              window.speechSynthesis.cancel();
+              const utterance = new SpeechSynthesisUtterance(cleanText);
+              utterance.lang = settings.voiceLang || "pt-BR";
+              // Try to match a browser voice by name
+              const voices = window.speechSynthesis.getVoices();
+              const match = voices.find(v => v.name.toLowerCase().includes(voiceId.toLowerCase()));
+              if (match) utterance.voice = match;
+              utterance.onend = () => setIsSpeaking(false);
+              utterance.onerror = () => setIsSpeaking(false);
+              window.speechSynthesis.speak(utterance);
+            } else {
+              setIsSpeaking(false);
+            }
+          }
         } else {
           setIsSpeaking(false);
         }
