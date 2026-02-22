@@ -12,6 +12,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAISettings } from "@/hooks/useAISettings";
 import { HorusConstellation, SmallConstellation } from "@/components/app/HorusConstellation";
+import { ChatProgressCards } from "@/components/app/ChatProgressCards";
+import type { AppView } from "@/pages/AppDashboard";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
@@ -31,7 +33,7 @@ type ActionResult = {
 
 
 
-export const ChatView = () => {
+export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -496,7 +498,11 @@ export const ChatView = () => {
           )}
         </AnimatePresence>
 
-        {/* Messages + Menus area */}
+        {/* Progress cards */}
+        {onNavigate && (
+          <ChatProgressCards onNavigate={onNavigate} />
+        )}
+
         <div className="flex-1 flex overflow-hidden">
           {/* Chat messages */}
           <ScrollArea className="flex-1 px-6 py-4" ref={scrollRef}>
