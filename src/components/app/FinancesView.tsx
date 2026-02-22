@@ -45,7 +45,39 @@ const fmtBRLShort = (v: number) => {
   return `R$${v.toFixed(0)}`;
 };
 
-export const FinancesView = ({ subView }: { subView?: string }) => {
+const FINANCE_TABS = [
+  { id: "finances", label: "Visão Geral", icon: DollarSign },
+  { id: "finances-income", label: "Receitas", icon: TrendingUp },
+  { id: "finances-expenses", label: "Despesas", icon: TrendingDown },
+  { id: "finances-budget", label: "Orçamento", icon: Wallet },
+  { id: "finances-cashflow", label: "Fluxo de Caixa", icon: BarChart3 },
+  { id: "finances-analysis", label: "Análise", icon: PieChart },
+] as const;
+
+export const FinancesView = ({ subView, onNavigate }: { subView?: string; onNavigate?: (view: any) => void }) => {
+  const TabBar = () => (
+    <div className="px-4 py-2 border-b border-border/50 flex gap-1 overflow-x-auto scrollbar-hide">
+      {FINANCE_TABS.map(tab => {
+        const Icon = tab.icon;
+        const isActive = (subView || "finances") === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onNavigate?.(tab.id)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+              isActive
+                ? "bg-primary/15 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+            )}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
   const { transactions, categories, isLoading, addTransaction, addCategory, deleteTransaction, updateTransaction } = useFinances();
 
   // Form state
@@ -209,6 +241,7 @@ export const FinancesView = ({ subView }: { subView?: string }) => {
           <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center"><PieChart className="w-4 h-4 text-primary" /></div>
           <div><h2 className="font-semibold text-sm">Análise Financeira</h2><p className="text-xs text-muted-foreground">KPIs, relatórios e projeções</p></div>
         </div>
+        <TabBar />
         <ScrollArea className="flex-1 px-6 py-4">
           <div className="max-w-5xl mx-auto space-y-6">
 
@@ -501,6 +534,7 @@ export const FinancesView = ({ subView }: { subView?: string }) => {
           <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center"><BarChart3 className="w-4 h-4 text-primary" /></div>
           <div><h2 className="font-semibold text-sm">Fluxo de Caixa</h2><p className="text-xs text-muted-foreground">Últimos 6 meses</p></div>
         </div>
+        <TabBar />
         <ScrollArea className="flex-1 px-6 py-4">
           <div className="max-w-4xl mx-auto space-y-6">
             <Card className="bg-card/50 border-border/50">
@@ -554,6 +588,7 @@ export const FinancesView = ({ subView }: { subView?: string }) => {
           <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center"><Wallet className="w-4 h-4 text-primary" /></div>
           <div><h2 className="font-semibold text-sm">Orçamento</h2><p className="text-xs text-muted-foreground">{categories.length} categorias</p></div>
         </div>
+        <TabBar />
         <div className="px-6 py-3 border-b border-border flex gap-2">
           <Input value={newCatName} onChange={(e) => setNewCatName(e.target.value)} placeholder="Nova categoria..." className="flex-1 bg-secondary" onKeyDown={(e) => e.key === "Enter" && handleAddCategory()} />
           <Button size="icon" onClick={handleAddCategory}><Plus className="w-4 h-4" /></Button>
@@ -604,6 +639,7 @@ export const FinancesView = ({ subView }: { subView?: string }) => {
           <p className="text-xs text-muted-foreground">Acompanhe receitas, despesas e investimentos</p>
         </div>
       </div>
+      <TabBar />
 
       {/* Summary */}
       {(subView === "finances" || !subView) && (
