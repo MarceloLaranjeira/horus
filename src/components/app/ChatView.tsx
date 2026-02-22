@@ -43,6 +43,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   
   const [liveTranscript, setLiveTranscript] = useState("");
+  const [showProgressCards, setShowProgressCards] = useState(false);
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -227,6 +228,12 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     setIsLoading(true);
 
     await saveMessage("user", text);
+
+    // Check if user is asking about tasks/progress
+    const progressKeywords = /\b(tarefa|tarefas|task|tasks|progresso|evolução|andamento|status|hábito|hábitos|habit|finanças|finance|lembrete|lembretes|reminder|projeto|projetos|project|resumo do dia|como estou|meu dia|pendente|pendentes|concluíd)/i;
+    if (progressKeywords.test(text)) {
+      setShowProgressCards(true);
+    }
 
     const apiMessages = updatedMessages.slice(-50).map((m) => ({ role: m.role, content: m.content }));
 
@@ -442,6 +449,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     if (!user || !conversationId) return;
     await supabase.from("chat_messages").delete().eq("conversation_id", conversationId);
     setMessages([]);
+    setShowProgressCards(false);
     toast({ title: "Chat limpo com sucesso!" });
   };
 
@@ -531,10 +539,19 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           )}
         </AnimatePresence>
 
-        {/* Progress cards */}
-        {onNavigate && (
-          <ChatProgressCards onNavigate={onNavigate} />
-        )}
+        {/* Progress cards - only shown when user asks about tasks/progress */}
+        <AnimatePresence>
+          {onNavigate && showProgressCards && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ChatProgressCards onNavigate={onNavigate} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="flex-1 flex overflow-hidden">
           {/* Chat messages */}
