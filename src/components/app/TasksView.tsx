@@ -58,15 +58,32 @@ export const TasksView = ({ subView }: { subView?: string }) => {
     });
   };
 
+  const tasksDone = tasks.filter(t => t.status === "done").length;
+  const totalTasks = tasks.length;
+  const completionPct = totalTasks > 0 ? Math.round((tasksDone / totalTasks) * 100) : 0;
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-border flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
           <ListChecks className="w-5 h-5 text-primary" />
         </div>
-        <div>
+        <div className="flex-1">
           <h2 className="font-semibold">{subLabels[subView || "tasks"]}</h2>
           <p className="text-xs text-muted-foreground">{filteredTasks.length} tarefas</p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs text-muted-foreground">{tasksDone}/{totalTasks}</span>
+          <div className="w-24 h-2 rounded-full bg-secondary overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${completionPct}%` }}
+              transition={{ duration: 0.8 }}
+              className="h-full rounded-full"
+              style={{ background: "linear-gradient(90deg, hsl(var(--nectar-green)), hsl(var(--primary)))" }}
+            />
+          </div>
+          <span className="text-xs font-semibold text-[hsl(var(--nectar-green))]">{completionPct}%</span>
         </div>
       </div>
 

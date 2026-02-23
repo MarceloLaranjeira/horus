@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Loader2, CheckCircle2, CheckSquare, DollarSign, Flame, Bell, Calendar, Trash2, VolumeX, Volume2 } from "lucide-react";
+import { Send, Mic, MicOff, Loader2, CheckCircle2, CheckSquare, DollarSign, Flame, Bell, Calendar, Trash2, VolumeX, Volume2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,8 +28,68 @@ type ActionResult = {
   title: string;
   success: boolean;
 };
+const ChatActionCards = ({ actions }: { actions: ActionResult[] }) => {
+  const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
 
+  const toggleCheck = (index: number) => {
+    setCheckedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index); else next.add(index);
+      return next;
+    });
+  };
 
+  const actionConfig: Record<string, { icon: React.ElementType; color: string; bg: string; border: string; barColor: string }> = {
+    task: { icon: CheckSquare, color: "text-[hsl(var(--nectar-green))]", bg: "bg-[hsl(var(--nectar-green))]/5", border: "border-[hsl(var(--nectar-green))]/20", barColor: "hsl(var(--nectar-green))" },
+    habit: { icon: Flame, color: "text-[hsl(var(--nectar-orange))]", bg: "bg-[hsl(var(--nectar-orange))]/5", border: "border-[hsl(var(--nectar-orange))]/20", barColor: "hsl(var(--nectar-orange))" },
+    finance: { icon: DollarSign, color: "text-primary", bg: "bg-primary/5", border: "border-primary/20", barColor: "hsl(var(--primary))" },
+    reminder: { icon: Bell, color: "text-[hsl(var(--nectar-orange))]", bg: "bg-[hsl(var(--nectar-orange))]/5", border: "border-[hsl(var(--nectar-orange))]/20", barColor: "hsl(var(--nectar-orange))" },
+    email: { icon: Send, color: "text-destructive", bg: "bg-destructive/5", border: "border-destructive/20", barColor: "hsl(var(--destructive))" },
+    calendar: { icon: Calendar, color: "text-[hsl(var(--cyan))]", bg: "bg-[hsl(var(--cyan))]/5", border: "border-[hsl(var(--cyan))]/20", barColor: "hsl(var(--cyan))" },
+    note: { icon: CheckSquare, color: "text-[hsl(var(--nectar-purple))]", bg: "bg-[hsl(var(--nectar-purple))]/5", border: "border-[hsl(var(--nectar-purple))]/20", barColor: "hsl(var(--nectar-purple))" },
+  };
+
+  return (
+    <div className="space-y-1.5 mt-2">
+      {actions.map((a, j) => {
+        const cfg = actionConfig[a.type] || actionConfig.task;
+        const ActionIcon = cfg.icon;
+        const checked = checkedItems.has(j);
+        return (
+          <motion.div
+            key={j}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: j * 0.1 }}
+            className={cn(
+              "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all",
+              cfg.bg, cfg.border,
+              checked && "opacity-60"
+            )}
+            style={{ borderLeftWidth: 4, borderLeftColor: cfg.barColor }}
+            onClick={() => toggleCheck(j)}
+          >
+            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", cfg.bg)}>
+              <ActionIcon className={cn("w-4 h-4", cfg.color)} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={cn("text-sm font-medium truncate", checked && "line-through text-muted-foreground")}>{a.title}</p>
+              <p className={cn("text-[10px] capitalize", cfg.color)}>{a.success ? "✓ Criado" : "✗ Erro"}</p>
+            </div>
+            <div className={cn(
+              "w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
+              checked
+                ? "bg-[hsl(var(--nectar-green))] border-[hsl(var(--nectar-green))]"
+                : "border-border/60 hover:border-primary"
+            )}>
+              {checked && <Check className="w-3.5 h-3.5 text-white" />}
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+};
 
 
 
@@ -640,38 +700,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
                         </div>
                       )}
                       {msg.actions && msg.actions.length > 0 && (
-                        <div className="space-y-1.5 mt-1">
-                          {msg.actions.map((a, j) => {
-                            const actionConfig: Record<string, { icon: React.ElementType; color: string; bg: string; border: string }> = {
-                              task: { icon: CheckSquare, color: "text-[hsl(var(--nectar-green))]", bg: "bg-[hsl(var(--nectar-green))]/5", border: "border-[hsl(var(--nectar-green))]/20" },
-                              habit: { icon: Flame, color: "text-[hsl(var(--nectar-orange,25_95%_53%))]", bg: "bg-[hsl(var(--nectar-orange))]/5", border: "border-[hsl(var(--nectar-orange))]/20" },
-                              finance: { icon: DollarSign, color: "text-primary", bg: "bg-primary/5", border: "border-primary/20" },
-                              reminder: { icon: Bell, color: "text-destructive", bg: "bg-destructive/5", border: "border-destructive/20" },
-                              email: { icon: Send, color: "text-[hsl(0_80%_60%)]", bg: "bg-[hsl(0_80%_60%)]/5", border: "border-[hsl(0_80%_60%)]/20" },
-                              calendar: { icon: Calendar, color: "text-[hsl(187_100%_50%)]", bg: "bg-[hsl(187_100%_50%)]/5", border: "border-[hsl(187_100%_50%)]/20" },
-                            };
-                            const cfg = actionConfig[a.type] || { icon: CheckCircle2, color: "text-primary", bg: "bg-primary/5", border: "border-primary/20" };
-                            const ActionIcon = cfg.icon;
-                            return (
-                              <motion.div
-                                key={j}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: j * 0.1 }}
-                                className={cn("flex items-center gap-3 p-3 rounded-xl border", cfg.bg, cfg.border)}
-                              >
-                                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", cfg.bg)}>
-                                  <ActionIcon className={cn("w-4 h-4", cfg.color)} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{a.title}</p>
-                                  <p className={cn("text-[10px] capitalize", cfg.color)}>{a.success ? "✓ Criado" : "✗ Erro"}</p>
-                                </div>
-                                {a.success && <CheckCircle2 className={cn("w-4 h-4 shrink-0", cfg.color)} />}
-                              </motion.div>
-                            );
-                          })}
-                        </div>
+                        <ChatActionCards actions={msg.actions} />
                       )}
                     </div>
                   </motion.div>
