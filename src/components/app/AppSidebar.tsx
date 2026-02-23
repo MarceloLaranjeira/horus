@@ -48,7 +48,6 @@ const mainItems: NavItem[] = [
 const modulesItems: NavItem[] = [
   { id: "tasks", icon: CheckSquare, label: "Tarefas" },
   { id: "projects", icon: FolderKanban, label: "Projetos" },
-  { id: "agenda", icon: CalendarDays, label: "Agenda" },
   { id: "reminders", icon: Bell, label: "Lembretes" },
   { id: "habits", icon: Flame, label: "Hábitos" },
   { id: "finances", icon: DollarSign, label: "Finanças" },
@@ -57,6 +56,7 @@ const modulesItems: NavItem[] = [
 ];
 
 const communicationItems: NavItem[] = [
+  { id: "agenda", icon: CalendarDays, label: "Google Calendar" },
   { id: "gmail", icon: Mail, label: "Gmail" },
   { id: "whatsapp", icon: MessageCircle, label: "WhatsApp" },
   { id: "telegram", icon: Bot, label: "Telegram" },
@@ -118,7 +118,7 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Comunicação</SidebarGroupLabel>
+          <SidebarGroupLabel>Apps & Comunicação</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>{renderItems(communicationItems)}</SidebarMenu>
           </SidebarGroupContent>
