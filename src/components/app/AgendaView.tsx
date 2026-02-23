@@ -280,7 +280,9 @@ export const AgendaView = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: getEventColor(selectedEvent!) }} />
+              {selectedEvent && (
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: getEventColor(selectedEvent) }} />
+              )}
               {selectedEvent?.summary}
             </DialogTitle>
           </DialogHeader>
