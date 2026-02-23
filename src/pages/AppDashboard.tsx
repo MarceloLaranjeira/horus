@@ -11,6 +11,8 @@ import { SettingsView } from "@/components/app/SettingsView";
 import { AnalysisView } from "@/components/app/AnalysisView";
 import { NotesView } from "@/components/app/NotesView";
 import { AgendaView } from "@/components/app/AgendaView";
+import { GmailView } from "@/components/app/GmailView";
+import { MessagingView } from "@/components/app/MessagingView";
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { GoogleCalendarOAuthHandler } from "@/components/app/GoogleCalendarOAuthHandler";
@@ -25,6 +27,9 @@ export type AppView =
   | "finances" | "finances-income" | "finances-expenses" | "finances-budget" | "finances-cashflow" | "finances-analysis"
   | "projects" | "projects-kanban" | "projects-calendar"
   | "agenda"
+  | "gmail"
+  | "whatsapp"
+  | "telegram"
   | "notes"
   | "analysis"
   | "settings" | "settings-profile" | "settings-notifications" | "settings-appearance" | "settings-ai" | "settings-integrations";
@@ -41,6 +46,9 @@ const AppDashboard = () => {
     if (activeView.startsWith("reminders")) return <RemindersView subView={activeView} />;
     if (activeView.startsWith("projects")) return <ProjectsView subView={activeView} />;
     if (activeView === "agenda") return <AgendaView />;
+    if (activeView === "gmail") return <GmailView />;
+    if (activeView === "whatsapp") return <MessagingView platform="whatsapp" />;
+    if (activeView === "telegram") return <MessagingView platform="telegram" />;
     if (activeView === "analysis") return <AnalysisView />;
     if (activeView === "notes") return <NotesView />;
     if (activeView.startsWith("settings")) return <SettingsView subView={activeView} />;

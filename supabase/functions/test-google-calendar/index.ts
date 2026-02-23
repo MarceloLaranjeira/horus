@@ -96,14 +96,12 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body.action || "status";
 
-    // Check connection status
     if (action === "status") {
       const creds = await getTokens(supabase, userId);
       const connected = !!(creds?.access_token && creds?.refresh_token);
       return jsonResponse({ connected, has_tokens: !!creds?.access_token });
     }
 
-    // Generate OAuth URL
     if (action === "get_auth_url") {
       const redirectUri = body.redirect_uri || `${req.headers.get("origin")}/app`;
       const scope = [
@@ -116,7 +114,6 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: true, auth_url: authUrl });
     }
 
-    // Exchange authorization code for tokens
     if (action === "exchange_code") {
       const { code, redirect_uri } = body;
       if (!code) return jsonResponse({ error: "Código de autorização ausente" }, 400);
@@ -137,7 +134,6 @@ Deno.serve(async (req) => {
         return jsonResponse({ success: false, error: "Erro ao trocar código", details: tokenData }, 400);
       }
 
-      // Upsert tokens in user_integrations
       const { data: existing } = await supabase
         .from("user_integrations")
         .select("id")
@@ -165,7 +161,6 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: true, message: "Google Calendar conectado!" });
     }
 
-    // Disconnect
     if (action === "disconnect") {
       await supabase
         .from("user_integrations")
@@ -175,14 +170,13 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: true });
     }
 
-    // List events
     if (action === "list_events") {
       const accessToken = await getValidAccessToken(supabase, userId);
       if (!accessToken) return jsonResponse({ error: "Autorize o Google Calendar primeiro." }, 401);
 
       const timeMin = body.timeMin || new Date().toISOString();
       const timeMax = body.timeMax || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      const maxResults = body.maxResults || 10;
+      const maxResults = body.maxResults || 50;
 
       const calRes = await fetch(
         `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=${maxResults}`,
@@ -194,12 +188,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: true, events: calData.items || [] });
     }
 
-    // Create event
+    // Create event with attendees, location, Google Meet support
     if (action === "create_event") {
       const accessToken = await getValidAccessToken(supabase, userId);
       if (!accessToken) return jsonResponse({ error: "Autorize o Google Calendar primeiro." }, 401);
 
-      const { summary, description, start, end, location } = body;
+      const { summary, description, start, end, location, attendees, colorId, addMeet } = body;
       if (!summary || !start || !end) {
         return jsonResponse({ error: "summary, start e end são obrigatórios" }, 400);
       }
@@ -211,22 +205,86 @@ Deno.serve(async (req) => {
         end: typeof end === "string" ? { dateTime: end, timeZone: "America/Sao_Paulo" } : end,
       };
       if (location) event.location = location;
-
-      const createRes = await fetch(
-        "https://www.googleapis.com/calendar/v3/calendars/primary/events",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
+      if (colorId) event.colorId = colorId;
+      if (attendees && Array.isArray(attendees) && attendees.length > 0) {
+        event.attendees = attendees.map((email: string) => ({ email }));
+      }
+      if (addMeet) {
+        event.conferenceData = {
+          createRequest: {
+            requestId: crypto.randomUUID(),
+            conferenceSolutionKey: { type: "hangoutsMeet" },
           },
-          body: JSON.stringify(event),
-        }
-      );
+        };
+      }
+
+      const url = addMeet
+        ? "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all"
+        : "https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all";
+
+      const createRes = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(event),
+      });
       const createData = await createRes.json();
       if (!createRes.ok) return jsonResponse({ success: false, error: "Erro ao criar evento", details: createData }, createRes.status);
 
       return jsonResponse({ success: true, event: createData });
+    }
+
+    // Update event
+    if (action === "update_event") {
+      const accessToken = await getValidAccessToken(supabase, userId);
+      if (!accessToken) return jsonResponse({ error: "Autorize o Google Calendar primeiro." }, 401);
+
+      const { eventId, ...updates } = body;
+      if (!eventId) return jsonResponse({ error: "eventId é obrigatório" }, 400);
+
+      const event: any = {};
+      if (updates.summary) event.summary = updates.summary;
+      if (updates.description !== undefined) event.description = updates.description;
+      if (updates.location !== undefined) event.location = updates.location;
+      if (updates.colorId) event.colorId = updates.colorId;
+      if (updates.start) event.start = typeof updates.start === "string" ? { dateTime: updates.start, timeZone: "America/Sao_Paulo" } : updates.start;
+      if (updates.end) event.end = typeof updates.end === "string" ? { dateTime: updates.end, timeZone: "America/Sao_Paulo" } : updates.end;
+      if (updates.attendees) event.attendees = updates.attendees.map((email: string) => ({ email }));
+
+      const patchRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}?sendUpdates=all`,
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify(event),
+        }
+      );
+      const patchData = await patchRes.json();
+      if (!patchRes.ok) return jsonResponse({ success: false, error: "Erro ao atualizar evento", details: patchData }, patchRes.status);
+
+      return jsonResponse({ success: true, event: patchData });
+    }
+
+    // Delete event
+    if (action === "delete_event") {
+      const accessToken = await getValidAccessToken(supabase, userId);
+      if (!accessToken) return jsonResponse({ error: "Autorize o Google Calendar primeiro." }, 401);
+
+      const { eventId } = body;
+      if (!eventId) return jsonResponse({ error: "eventId é obrigatório" }, 400);
+
+      const delRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}?sendUpdates=all`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (!delRes.ok && delRes.status !== 204) {
+        const errData = await delRes.json().catch(() => ({}));
+        return jsonResponse({ success: false, error: "Erro ao deletar evento", details: errData }, delRes.status);
+      }
+
+      return jsonResponse({ success: true });
     }
 
     return jsonResponse({ error: "Ação não reconhecida" }, 400);
