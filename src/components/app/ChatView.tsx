@@ -728,75 +728,94 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     }
     // Stop any ongoing speech when starting to record
     stopSpeaking();
-    // Start recording - use ref to avoid stale closure in onend
-    isListeningRef.current = true;
-    setIsListening(true);
-    setLiveTranscript("");
-    transcriptRef.current = "";
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = settings.voiceLang || "pt-BR";
-    recognition.interimResults = true;
-    // continuous=false is more reliable on mobile Safari/Chrome
+    // On mobile, request microphone permission FIRST via getUserMedia
+    // This must happen synchronously in the user gesture context
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    recognition.continuous = !isMobile;
-
-    recognition.onresult = (event: any) => {
-      let full = "";
-      for (let i = 0; i < event.results.length; i++) {
-        full += event.results[i][0].transcript;
-      }
-      transcriptRef.current = full;
-      setLiveTranscript(full);
-    };
-
-    recognition.onerror = (e: any) => {
-      console.log("[STT] Error:", e.error, "| isListening:", isListeningRef.current);
-      // On mobile, "no-speech" and "aborted" are common — restart silently
-      if ((e.error === "no-speech" || e.error === "aborted") && isListeningRef.current) {
-        // Delay restart on mobile to avoid rapid-fire errors
-        setTimeout(() => {
-          if (isListeningRef.current && recognitionRef.current) {
-            try { recognitionRef.current.start(); } catch { /* ignore */ }
-          }
-        }, 300);
-        return;
-      }
-      isListeningRef.current = false;
-      setIsListening(false);
+    
+    const startRecognition = () => {
+      isListeningRef.current = true;
+      setIsListening(true);
       setLiveTranscript("");
       transcriptRef.current = "";
-      if (e.error === "not-allowed") {
-        toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
-      } else if (e.error !== "no-speech") {
-        console.error("[STT] Unhandled error:", e.error);
-      }
-    };
 
-    recognition.onend = () => {
-      console.log("[STT] onend | isListening:", isListeningRef.current);
-      // Use ref instead of state to avoid stale closure
-      if (isListeningRef.current && recognitionRef.current) {
-        // On mobile, add delay before restarting to prevent race conditions
-        setTimeout(() => {
-          if (isListeningRef.current && recognitionRef.current) {
-            try { recognitionRef.current.start(); } catch {
-              isListeningRef.current = false;
-              setIsListening(false);
+      const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognitionAPI();
+      recognition.lang = settings.voiceLang || "pt-BR";
+      recognition.interimResults = true;
+      recognition.continuous = !isMobile;
+
+      recognition.onresult = (event: any) => {
+        let full = "";
+        for (let i = 0; i < event.results.length; i++) {
+          full += event.results[i][0].transcript;
+        }
+        transcriptRef.current = full;
+        setLiveTranscript(full);
+      };
+
+      recognition.onerror = (e: any) => {
+        console.log("[STT] Error:", e.error, "| isListening:", isListeningRef.current);
+        if ((e.error === "no-speech" || e.error === "aborted") && isListeningRef.current) {
+          setTimeout(() => {
+            if (isListeningRef.current && recognitionRef.current) {
+              try { recognitionRef.current.start(); } catch { /* ignore */ }
             }
-          }
-        }, 200);
+          }, 300);
+          return;
+        }
+        isListeningRef.current = false;
+        setIsListening(false);
+        setLiveTranscript("");
+        transcriptRef.current = "";
+        if (e.error === "not-allowed") {
+          toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
+        } else if (e.error !== "no-speech") {
+          console.error("[STT] Unhandled error:", e.error);
+        }
+      };
+
+      recognition.onend = () => {
+        console.log("[STT] onend | isListening:", isListeningRef.current);
+        if (isListeningRef.current && recognitionRef.current) {
+          setTimeout(() => {
+            if (isListeningRef.current && recognitionRef.current) {
+              try { recognitionRef.current.start(); } catch {
+                isListeningRef.current = false;
+                setIsListening(false);
+              }
+            }
+          }, 200);
+        }
+      };
+
+      recognitionRef.current = recognition;
+      try {
+        recognition.start();
+        console.log("[STT] Recognition started successfully");
+      } catch (err) {
+        console.error("[STT] Start error:", err);
+        isListeningRef.current = false;
+        setIsListening(false);
+        toast({ title: "Erro ao iniciar microfone", variant: "destructive" });
       }
     };
 
-    recognitionRef.current = recognition;
-    try {
-      recognition.start();
-    } catch (err) {
-      isListeningRef.current = false;
-      setIsListening(false);
-      toast({ title: "Erro ao iniciar microfone", variant: "destructive" });
+    if (isMobile && navigator.mediaDevices?.getUserMedia) {
+      // CRITICAL: Call getUserMedia directly in click handler for mobile
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then((stream) => {
+          // Got permission - stop the stream immediately, we only needed the permission
+          stream.getTracks().forEach(t => t.stop());
+          console.log("[STT] Microphone permission granted via getUserMedia");
+          startRecognition();
+        })
+        .catch((err) => {
+          console.error("[STT] getUserMedia denied:", err);
+          toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
+        });
+    } else {
+      startRecognition();
     }
   };
 
