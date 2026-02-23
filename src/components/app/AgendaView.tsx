@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Calendar as CalendarIcon, Plus, Loader2, ExternalLink, Clock,
   ChevronLeft, ChevronRight, RefreshCw, MapPin, Users, Video,
-  Trash2, X,
+  Trash2, X, CheckCircle2, Circle,
 } from "lucide-react";
 import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, isSameDay, addWeeks, subWeeks, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -41,7 +41,21 @@ export const AgendaView = () => {
     attendeeInput: "",
   });
   const [creating, setCreating] = useState(false);
+  const [completedEvents, setCompletedEvents] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("horus-completed-events");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
 
+  const toggleCompleted = (eventId: string) => {
+    setCompletedEvents(prev => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId); else next.add(eventId);
+      localStorage.setItem("horus-completed-events", JSON.stringify([...next]));
+      return next;
+    });
+  };
   const monthStart = useMemo(() => startOfMonth(currentMonth), [currentMonth]);
   const monthEnd = useMemo(() => endOfMonth(currentMonth), [currentMonth]);
 
@@ -267,7 +281,7 @@ export const AgendaView = () => {
             ) : (
               <AnimatePresence>
                 {selectedDayEvents.map((ev) => (
-                  <EventCard key={ev.id} event={ev} onSelect={setSelectedEvent} onDelete={handleDelete} />
+                  <EventCard key={ev.id} event={ev} onSelect={setSelectedEvent} onDelete={handleDelete} completed={completedEvents.has(ev.id)} onToggleComplete={toggleCompleted} />
                 ))}
               </AnimatePresence>
             )}
@@ -327,6 +341,20 @@ export const AgendaView = () => {
             </div>
           )}
           <DialogFooter className="gap-2">
+            {selectedEvent && (
+              <Button
+                variant={completedEvents.has(selectedEvent.id) ? "default" : "outline"}
+                size="sm"
+                onClick={() => toggleCompleted(selectedEvent.id)}
+                className="gap-1.5"
+              >
+                {completedEvents.has(selectedEvent.id) ? (
+                  <><CheckCircle2 className="w-3.5 h-3.5" /> Concluído</>
+                ) : (
+                  <><Circle className="w-3.5 h-3.5" /> Marcar concluído</>
+                )}
+              </Button>
+            )}
             {selectedEvent?.htmlLink && (
               <Button variant="outline" size="sm" asChild>
                 <a href={selectedEvent.htmlLink} target="_blank" rel="noopener noreferrer">
@@ -418,7 +446,7 @@ export const AgendaView = () => {
   );
 };
 
-function EventCard({ event, onSelect, onDelete }: { event: CalendarEvent; onSelect: (e: CalendarEvent) => void; onDelete: (id: string) => void }) {
+function EventCard({ event, onSelect, onDelete, completed, onToggleComplete }: { event: CalendarEvent; onSelect: (e: CalendarEvent) => void; onDelete: (id: string) => void; completed: boolean; onToggleComplete: (id: string) => void }) {
   const color = GOOGLE_COLORS[event.colorId || "7"] || GOOGLE_COLORS["7"];
   const startTime = event.start?.dateTime ? format(new Date(event.start.dateTime), "HH:mm") : "Dia todo";
   const endTime = event.end?.dateTime ? format(new Date(event.end.dateTime), "HH:mm") : "";
@@ -427,12 +455,20 @@ function EventCard({ event, onSelect, onDelete }: { event: CalendarEvent; onSele
     <motion.div
       initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}
       onClick={() => onSelect(event)}
-      className="rounded-lg p-3 cursor-pointer hover:bg-accent/30 transition-colors border border-border/30"
+      className={cn("rounded-lg p-3 cursor-pointer hover:bg-accent/30 transition-colors border border-border/30", completed && "opacity-60")}
       style={{ borderLeftWidth: 4, borderLeftColor: color }}
     >
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-sm truncate">{event.summary}</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleComplete(event.id); }}
+              className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+            >
+              {completed ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <Circle className="w-4 h-4" />}
+            </button>
+            <p className={cn("font-medium text-sm truncate", completed && "line-through")}>{event.summary}</p>
+          </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
             <Clock className="w-3 h-3" />
             {startTime}{endTime ? ` – ${endTime}` : ""}
