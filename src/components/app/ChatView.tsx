@@ -663,6 +663,8 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     }
   };
 
+  const isListeningRef = useRef(false);
+
   const toggleVoice = () => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
       toast({ title: "Voz não suportada neste navegador.", variant: "destructive" });
@@ -670,6 +672,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     }
     if (isListening) {
       // Stop recording and send accumulated transcript
+      isListeningRef.current = false;
       setIsListening(false);
       if (recognitionRef.current) {
         recognitionRef.current.stop();
@@ -687,15 +690,20 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     }
     // Stop any ongoing speech when starting to record
     stopSpeaking();
-    // Start recording
+    // Start recording - use ref to avoid stale closure in onend
+    isListeningRef.current = true;
     setIsListening(true);
     setLiveTranscript("");
     transcriptRef.current = "";
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = settings.voiceLang || "pt-BR";
     recognition.interimResults = true;
-    recognition.continuous = true;
+    // continuous=false is more reliable on mobile Safari/Chrome
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    recognition.continuous = !isMobile;
+
     recognition.onresult = (event: any) => {
       let full = "";
       for (let i = 0; i < event.results.length; i++) {
@@ -704,15 +712,40 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       transcriptRef.current = full;
       setLiveTranscript(full);
     };
-    recognition.onerror = () => { setIsListening(false); setLiveTranscript(""); transcriptRef.current = ""; };
-    recognition.onend = () => {
-      // If still listening (browser auto-stopped), restart
-      if (isListening && recognitionRef.current) {
-        try { recognitionRef.current.start(); } catch { /* ignore */ }
+
+    recognition.onerror = (e: any) => {
+      // On mobile, "no-speech" is common — restart silently
+      if (e.error === "no-speech" && isListeningRef.current) {
+        try { recognition.start(); } catch { /* ignore */ }
+        return;
+      }
+      isListeningRef.current = false;
+      setIsListening(false);
+      setLiveTranscript("");
+      transcriptRef.current = "";
+      if (e.error === "not-allowed") {
+        toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
       }
     };
+
+    recognition.onend = () => {
+      // Use ref instead of state to avoid stale closure
+      if (isListeningRef.current && recognitionRef.current) {
+        try { recognitionRef.current.start(); } catch {
+          isListeningRef.current = false;
+          setIsListening(false);
+        }
+      }
+    };
+
     recognitionRef.current = recognition;
-    recognition.start();
+    try {
+      recognition.start();
+    } catch (err) {
+      isListeningRef.current = false;
+      setIsListening(false);
+      toast({ title: "Erro ao iniciar microfone", variant: "destructive" });
+    }
   };
 
   const clearChat = async () => {
