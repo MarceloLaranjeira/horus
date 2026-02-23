@@ -12,4 +12,8 @@ if (savedTheme === "light" || (savedTheme === "system" && window.matchMedia("(pr
   document.documentElement.classList.add("dark");
 }
 
+// Apply saved visual theme
+const savedVisualTheme = localStorage.getItem("horus-visual-theme") || "nectar";
+document.documentElement.setAttribute("data-theme", savedVisualTheme);
+
 createRoot(document.getElementById("root")!).render(<App />);
