@@ -444,7 +444,21 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     setAttachedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Pre-unlock audio element ref for mobile TTS (must be created in user gesture)
+  const pendingAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const sendMessage = async (text: string) => {
+    // Immediately unlock audio in user gesture context for mobile TTS
+    if (settings.ttsEnabled) {
+      const audio = new Audio();
+      audio.preload = "auto";
+      // Play silent audio to unlock autoplay on iOS/Android
+      audio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+      audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
+      pendingAudioRef.current = audio;
+      console.log("[TTS] Audio element pre-unlocked in user gesture");
+    }
+
     // Build message with file info
     let finalText = text.trim();
     if (attachedFiles.length > 0) {
@@ -597,14 +611,12 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     setIsSpeaking(true);
     lastAssistantTextRef.current = text;
 
-    // Create Audio element immediately in user gesture context for mobile autoplay unlock
-    const audio = new Audio();
+    // Reuse pre-unlocked audio element from user gesture, or create new one
+    const audio = pendingAudioRef.current || new Audio();
+    pendingAudioRef.current = null;
     audio.preload = "auto";
-    // Use a silent data URI to unlock audio context on iOS/Safari within user gesture
-    audio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-    const playPromise = audio.play();
-    if (playPromise) playPromise.catch(() => {});
     audioRef.current = audio;
+    console.log("[TTS] Using", pendingAudioRef.current ? "pre-unlocked" : "new", "audio element");
 
     try {
       const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000);
@@ -719,9 +731,15 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     };
 
     recognition.onerror = (e: any) => {
-      // On mobile, "no-speech" is common — restart silently
-      if (e.error === "no-speech" && isListeningRef.current) {
-        try { recognition.start(); } catch { /* ignore */ }
+      console.log("[STT] Error:", e.error, "| isListening:", isListeningRef.current);
+      // On mobile, "no-speech" and "aborted" are common — restart silently
+      if ((e.error === "no-speech" || e.error === "aborted") && isListeningRef.current) {
+        // Delay restart on mobile to avoid rapid-fire errors
+        setTimeout(() => {
+          if (isListeningRef.current && recognitionRef.current) {
+            try { recognitionRef.current.start(); } catch { /* ignore */ }
+          }
+        }, 300);
         return;
       }
       isListeningRef.current = false;
@@ -730,16 +748,24 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       transcriptRef.current = "";
       if (e.error === "not-allowed") {
         toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
+      } else if (e.error !== "no-speech") {
+        console.error("[STT] Unhandled error:", e.error);
       }
     };
 
     recognition.onend = () => {
+      console.log("[STT] onend | isListening:", isListeningRef.current);
       // Use ref instead of state to avoid stale closure
       if (isListeningRef.current && recognitionRef.current) {
-        try { recognitionRef.current.start(); } catch {
-          isListeningRef.current = false;
-          setIsListening(false);
-        }
+        // On mobile, add delay before restarting to prevent race conditions
+        setTimeout(() => {
+          if (isListeningRef.current && recognitionRef.current) {
+            try { recognitionRef.current.start(); } catch {
+              isListeningRef.current = false;
+              setIsListening(false);
+            }
+          }
+        }, 200);
       }
     };
 
