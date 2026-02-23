@@ -384,7 +384,16 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
           body: JSON.stringify({ text: cleanText, voiceId }),
         });
-        if (!response.ok) { setIsSpeaking(false); return; }
+        if (!response.ok) {
+          setIsSpeaking(false);
+          try {
+            const err = await response.json().catch(() => ({}));
+            if (response.status === 401 || (err.error && err.error.includes("401"))) {
+              toast({ title: "Cota do ElevenLabs esgotada", description: "Troque o provedor de voz para OpenAI ou Gemini nas configurações da IA.", variant: "destructive" });
+            }
+          } catch { /* ignore */ }
+          return;
+        }
         playAudioBlob(await response.blob());
       } else if (provider === "openai" || provider === "gemini") {
         // Both use browser speechSynthesis (gateway doesn't support audio TTS)
