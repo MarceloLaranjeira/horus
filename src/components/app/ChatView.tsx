@@ -612,11 +612,19 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     lastAssistantTextRef.current = text;
 
     // Reuse pre-unlocked audio element from user gesture, or create new one
+    const hasPending = !!pendingAudioRef.current;
     const audio = pendingAudioRef.current || new Audio();
     pendingAudioRef.current = null;
     audio.preload = "auto";
     audioRef.current = audio;
-    console.log("[TTS] Using", pendingAudioRef.current ? "pre-unlocked" : "new", "audio element");
+    console.log("[TTS] Using", hasPending ? "pre-unlocked" : "new", "audio element");
+
+    // On mobile, if we don't have a pre-unlocked element, try to unlock now
+    // by playing a silent sound (may not work without gesture, but worth trying)
+    if (!hasPending) {
+      audio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+      try { await audio.play(); audio.pause(); audio.currentTime = 0; } catch { /* expected outside gesture */ }
+    }
 
     try {
       const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000);
@@ -634,7 +642,20 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         audio.onended = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
         audio.onerror = (e) => { console.error("[TTS] Audio error:", e); setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
         audio.load();
-        audio.play().catch((err) => { console.error("[TTS] Play error:", err); setIsSpeaking(false); });
+        audio.play().catch((err) => {
+          console.warn("[TTS] Play blocked, falling back to speechSynthesis:", err);
+          URL.revokeObjectURL(url);
+          // Fallback: use native speechSynthesis
+          if ("speechSynthesis" in window) {
+            const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 500));
+            utterance.lang = settings.voiceLang || "pt-BR";
+            utterance.onend = () => { setIsSpeaking(false); };
+            utterance.onerror = () => { setIsSpeaking(false); };
+            window.speechSynthesis.speak(utterance);
+          } else {
+            setIsSpeaking(false);
+          }
+        });
       };
 
       if (provider === "elevenlabs") {
@@ -930,7 +951,14 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => playTTS(msg.content)}
+                              onClick={() => {
+                                // Pre-unlock audio in user gesture for mobile
+                                const a = new Audio();
+                                a.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+                                a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+                                pendingAudioRef.current = a;
+                                playTTS(msg.content);
+                              }}
                               className="h-7 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/10"
                             >
                               <Volume2 className="w-3.5 h-3.5 mr-1" /> Ouvir
