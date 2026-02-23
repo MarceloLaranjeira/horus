@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { AISettingsProvider } from "@/hooks/useAISettings";
 import { ProtectedRoute } from "@/components/app/ProtectedRoute";
+import { PWAInstallBanner } from "@/components/app/PWAInstallBanner";
 import AppDashboard from "./pages/AppDashboard";
 import { Navigate } from "react-router-dom";
 import AuthPage from "./pages/AuthPage";
@@ -21,6 +22,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <PWAInstallBanner />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Navigate to="/app" replace />} />
