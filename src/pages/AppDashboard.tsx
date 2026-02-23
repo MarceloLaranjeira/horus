@@ -13,6 +13,7 @@ import { NotesView } from "@/components/app/NotesView";
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { GoogleCalendarOAuthHandler } from "@/components/app/GoogleCalendarOAuthHandler";
+import { ErrorBoundary } from "@/components/app/ErrorBoundary";
 
 export type AppView =
   | "dashboard"
@@ -53,7 +54,9 @@ const AppDashboard = () => {
             <SidebarTrigger />
           </header>
           <main className="flex-1 overflow-hidden">
-            {renderView()}
+            <ErrorBoundary>
+              {renderView()}
+            </ErrorBoundary>
           </main>
         </div>
       </div>

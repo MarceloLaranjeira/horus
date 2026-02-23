@@ -410,10 +410,12 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
               utterance.voice = match;
             } else {
               // Use voiceId as index hint - pick different voices for different selections
-              const langVoices = voices.filter(v => v.lang.startsWith(utterance.lang.split("-")[0]));
-              const pool = langVoices.length > 0 ? langVoices : voices;
-              const hash = voiceId.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-              utterance.voice = pool[hash % pool.length];
+              try {
+                const langVoices = voices.filter(v => v.lang.startsWith(utterance.lang.split("-")[0]));
+                const pool = langVoices.length > 0 ? langVoices : voices;
+                const hash = String(voiceId || "").split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
+                if (pool.length > 0) utterance.voice = pool[hash % pool.length];
+              } catch { /* ignore voice matching error */ }
             }
           }
           utterance.onend = () => setIsSpeaking(false);
