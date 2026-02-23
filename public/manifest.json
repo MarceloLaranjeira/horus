@@ -1,0 +1,23 @@
+{
+  "name": "Horus — Seu Jarvis Pessoal",
+  "short_name": "Horus",
+  "description": "Organize sua vida inteira apenas conversando. Tarefas, hábitos, finanças e mais com IA.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#00ddf0",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
