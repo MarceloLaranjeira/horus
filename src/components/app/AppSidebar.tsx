@@ -99,7 +99,12 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-1">
           <img src={horusLogo} alt="Horus" className="w-8 h-8 rounded-xl object-cover shrink-0" />
-          {!collapsed && <span className="font-bold text-lg">Horus</span>}
+          {!collapsed && (
+            <div className="flex flex-col leading-tight">
+              <span className="font-bold text-lg">Horus</span>
+              <span className="text-[10px] text-muted-foreground tracking-wide">Sua IA de produtividade</span>
+            </div>
+          )}
         </div>
       </SidebarHeader>
 
