@@ -413,7 +413,9 @@ serve(async (req) => {
       });
     }
 
-    // Streaming chat response
+    // Non-streaming mode for analysis etc.
+    const shouldStream = mode !== "no-stream";
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -423,7 +425,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model,
         messages: [...systemMessages, ...messages],
-        stream: true,
+        stream: shouldStream,
         temperature: Math.min(Math.max(temperature, 0), 1.2),
       }),
     });
@@ -447,6 +449,14 @@ serve(async (req) => {
         JSON.stringify({ error: "Erro ao conectar com a IA" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    if (!shouldStream) {
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      return new Response(JSON.stringify({ content }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     return new Response(response.body, {
