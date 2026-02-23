@@ -20,7 +20,7 @@ import { format, isToday, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
+import { InteractiveProgress } from "./InteractiveProgress";
 import { toast } from "sonner";
 import type { AppView } from "@/pages/AppDashboard";
 
@@ -233,13 +233,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
               <StatBox value={pendingTasks.length} label="Pendentes" bgColor="bg-primary/10" textColor="text-primary" />
               <StatBox value={overdueTasks.length} label="Atrasadas" bgColor="bg-destructive/10" textColor="text-destructive" />
             </div>
-            <div className="space-y-1.5 mb-3">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Taxa de Conclusão</span>
-                <span className="font-medium text-foreground">{taskCompletionRate}%</span>
-              </div>
-              <Progress value={taskCompletionRate} className="h-2" />
-            </div>
+            <InteractiveProgress value={taskCompletionRate} label="Taxa de Conclusão" className="mb-3" />
             {/* Recent tasks list */}
             {pendingTasks.slice(0, 3).map((task) => (
               <div key={task.id} className="flex items-center gap-2 text-sm py-1.5 group cursor-pointer hover:bg-secondary/30 rounded-lg px-1 transition-colors" onClick={() => setEditTask(task)}>
@@ -278,13 +272,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
               <StatBox value={activeProjects.length} label="Ativos" bgColor="bg-primary/10" textColor="text-primary" />
               <StatBox value={pendingProjects.length} label="Pendentes" bgColor="bg-[hsl(var(--nectar-orange))]/10" textColor="text-[hsl(var(--nectar-orange))]" />
             </div>
-            <div className="space-y-1.5 mb-3">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Taxa de Conclusão</span>
-                <span className="font-medium text-foreground">{projectCompletionRate}%</span>
-              </div>
-              <Progress value={projectCompletionRate} className="h-2" />
-            </div>
+            <InteractiveProgress value={projectCompletionRate} label="Taxa de Conclusão" className="mb-3" />
             {projects.slice(0, 4).map((p) => (
               <div key={p.id} className="flex items-center gap-2 text-sm py-1.5 cursor-pointer hover:bg-secondary/30 rounded-lg px-1 transition-colors" onClick={() => setEditProject(p)}>
                 <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || "hsl(var(--primary))" }} />
@@ -331,7 +319,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
                         <span className={cn("truncate flex-1", done && "text-muted-foreground line-through")}>{h.icon} {h.name}</span>
                         <span className="text-[10px] text-muted-foreground">🔥 {streakDays} 📅 {weekTracks}/{target}</span>
                       </div>
-                      <Progress value={progress} className="h-1.5 ml-7" />
+                      <InteractiveProgress value={progress} showPercentage={false} className="ml-7" />
                     </li>
                   );
                 })}
