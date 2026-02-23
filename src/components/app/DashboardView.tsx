@@ -93,7 +93,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const { reminders, toggleReminder, deleteReminder, addReminder, updateReminder } = useReminders();
   const { projects, updateProject, deleteProject } = useProjects();
   const { connected: calConnected, events: calEvents, fetchEvents, loadingEvents } = useGoogleCalendar();
-  const { emails: gmailEmails, loading: gmailLoading, fetchUnread: fetchGmailUnread, readEmail, readingEmail, selectedEmail, clearSelectedEmail } = useGmail();
+  const { emails: gmailEmails, loading: gmailLoading, fetchEmails: fetchGmailUnread, readEmail, readingEmail, selectedEmail, clearSelectedEmail } = useGmail();
   const { showBriefing, setShowBriefing, dismiss: dismissBriefing } = useDailyBriefing();
 
   const [newTaskTitle, setNewTaskTitle] = useState("");

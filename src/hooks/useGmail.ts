@@ -20,19 +20,30 @@ async function callGmailFn(action: string, body: any = {}) {
   return data;
 }
 
+export interface GmailMessage {
+  id: string;
+  threadId: string;
+  snippet: string;
+  subject: string;
+  from: string;
+  to: string;
+  date: string;
+  labelIds: string[];
+  isUnread: boolean;
+  body?: string;
+}
+
 export function useGmail() {
-  const [emails, setEmails] = useState<any[]>([]);
+  const [emails, setEmails] = useState<GmailMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [readingEmail, setReadingEmail] = useState(false);
-  const [selectedEmail, setSelectedEmail] = useState<any>(null);
+  const [selectedEmail, setSelectedEmail] = useState<GmailMessage | null>(null);
+  const [sending, setSending] = useState(false);
 
-  const fetchUnread = useCallback(async (maxResults = 5) => {
+  const fetchEmails = useCallback(async (maxResults = 20, query = "in:inbox") => {
     setLoading(true);
     try {
-      const data = await callGmailFn("list_emails", {
-        maxResults,
-        query: "is:unread in:inbox",
-      });
+      const data = await callGmailFn("list_emails", { maxResults, query });
       setEmails(data.emails || []);
       return data.emails || [];
     } catch (e) {
@@ -57,7 +68,17 @@ export function useGmail() {
     }
   }, []);
 
+  const sendEmail = useCallback(async (to: string, subject: string, body: string) => {
+    setSending(true);
+    try {
+      const data = await callGmailFn("send_email", { to, subject, body });
+      return data;
+    } finally {
+      setSending(false);
+    }
+  }, []);
+
   const clearSelectedEmail = useCallback(() => setSelectedEmail(null), []);
 
-  return { emails, loading, fetchUnread, readEmail, readingEmail, selectedEmail, clearSelectedEmail };
+  return { emails, loading, fetchEmails, readEmail, readingEmail, selectedEmail, clearSelectedEmail, sendEmail, sending };
 }

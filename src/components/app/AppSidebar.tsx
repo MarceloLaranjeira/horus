@@ -13,6 +13,9 @@ import {
   Brain,
   StickyNote,
   CalendarDays,
+  Mail,
+  MessageCircle,
+  Bot,
 } from "lucide-react";
 import horusLogo from "@/assets/horus-logo.png";
 import type { AppView } from "@/pages/AppDashboard";
@@ -51,6 +54,12 @@ const modulesItems: NavItem[] = [
   { id: "finances", icon: DollarSign, label: "Finanças" },
   { id: "notes", icon: StickyNote, label: "Notas" },
   { id: "analysis", icon: Brain, label: "Análise Horus" },
+];
+
+const communicationItems: NavItem[] = [
+  { id: "gmail", icon: Mail, label: "Gmail" },
+  { id: "whatsapp", icon: MessageCircle, label: "WhatsApp" },
+  { id: "telegram", icon: Bot, label: "Telegram" },
 ];
 
 const settingsItems: NavItem[] = [
@@ -105,6 +114,13 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
           <SidebarGroupLabel>Módulos</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>{renderItems(modulesItems)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Comunicação</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>{renderItems(communicationItems)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 

@@ -21,11 +21,36 @@ async function callCalendarFn(action: string, body: any = {}) {
   return data;
 }
 
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  location?: string;
+  colorId?: string;
+  start: { dateTime?: string; date?: string };
+  end: { dateTime?: string; date?: string };
+  attendees?: Array<{ email: string; responseStatus?: string }>;
+  hangoutLink?: string;
+  conferenceData?: any;
+  htmlLink?: string;
+}
+
+export interface CreateEventInput {
+  summary: string;
+  start: string;
+  end: string;
+  description?: string;
+  location?: string;
+  attendees?: string[];
+  colorId?: string;
+  addMeet?: boolean;
+}
+
 export function useGoogleCalendar() {
   const { user } = useAuth();
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
 
   const checkStatus = useCallback(async () => {
@@ -79,9 +104,17 @@ export function useGoogleCalendar() {
     }
   }, []);
 
-  const createEvent = useCallback(async (event: { summary: string; start: string; end: string; description?: string; location?: string }) => {
+  const createEvent = useCallback(async (event: CreateEventInput) => {
     return await callCalendarFn("create_event", event);
   }, []);
 
-  return { connected, loading, connect, exchangeCode, disconnect, events, fetchEvents, loadingEvents, createEvent };
+  const updateEvent = useCallback(async (eventId: string, updates: Partial<CreateEventInput>) => {
+    return await callCalendarFn("update_event", { eventId, ...updates });
+  }, []);
+
+  const deleteEvent = useCallback(async (eventId: string) => {
+    return await callCalendarFn("delete_event", { eventId });
+  }, []);
+
+  return { connected, loading, connect, exchangeCode, disconnect, events, fetchEvents, loadingEvents, createEvent, updateEvent, deleteEvent };
 }
