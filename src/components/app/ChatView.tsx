@@ -597,11 +597,13 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     setIsSpeaking(true);
     lastAssistantTextRef.current = text;
 
-    // Create Audio element immediately in user gesture context to avoid autoplay blocking
+    // Create Audio element immediately in user gesture context for mobile autoplay unlock
     const audio = new Audio();
     audio.preload = "auto";
-    // Unlock audio on iOS/Safari by calling play() immediately (will fail silently)
-    audio.play().catch(() => {});
+    // Use a silent data URI to unlock audio context on iOS/Safari within user gesture
+    audio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+    const playPromise = audio.play();
+    if (playPromise) playPromise.catch(() => {});
     audioRef.current = audio;
 
     try {
@@ -614,9 +616,12 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
 
       const playAudioBlob = (blob: Blob) => {
         const url = URL.createObjectURL(blob);
+        audio.pause();
+        audio.currentTime = 0;
         audio.src = url;
         audio.onended = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
-        audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
+        audio.onerror = (e) => { console.error("[TTS] Audio error:", e); setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
+        audio.load();
         audio.play().catch((err) => { console.error("[TTS] Play error:", err); setIsSpeaking(false); });
       };
 
