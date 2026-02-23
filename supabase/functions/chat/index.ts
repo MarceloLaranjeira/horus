@@ -190,7 +190,7 @@ const MOOD_INSTRUCTIONS: Record<string, string> = {
   concise: "Seja extremamente direto e conciso. Respostas curtas, sem rodeios. Máximo 2-3 frases por resposta quando possível.",
 };
 
-function buildSystemPrompt(assistantName: string, customPrompt?: string, mood?: string): string {
+function buildSystemPrompt(assistantName: string, customPrompt?: string, mood?: string, userProfile?: any): string {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Manaus" });
   const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Manaus" });
   let base = `Você é o ${assistantName}, um assistente pessoal de IA avançado inspirado no Jarvis do Homem de Ferro. Você opera em modo conversacional — seu objetivo é manter uma conversa natural, útil e contextualizada com o usuário.
@@ -216,6 +216,20 @@ Diretrizes conversacionais:
 - Use o contexto da conversa para personalizar suas respostas
 - Quando o usuário perguntar "como está meu dia", forneça um resumo das tarefas, lembretes e compromissos pendentes`;
 
+  // Add user profile context
+  if (userProfile) {
+    const parts: string[] = [];
+    if (userProfile.name) parts.push(`Nome: ${userProfile.name}`);
+    if (userProfile.bio) parts.push(`Bio: ${userProfile.bio}`);
+    if (userProfile.company) parts.push(`Empresa: ${userProfile.company}`);
+    if (userProfile.role) parts.push(`Cargo/Função: ${userProfile.role}`);
+    if (userProfile.industry) parts.push(`Setor/Indústria: ${userProfile.industry}`);
+    if (userProfile.services) parts.push(`Serviços/Produtos: ${userProfile.services}`);
+    if (parts.length > 0) {
+      base += `\n\nPerfil do usuário (use estas informações para personalizar respostas e entender o contexto profissional):\n${parts.join("\n")}`;
+    }
+  }
+
   // Apply mood instructions
   const moodKey = mood || "friendly";
   if (MOOD_INSTRUCTIONS[moodKey]) {
@@ -234,7 +248,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, mode = "chat", model = "google/gemini-3-flash-preview", assistantName = "Horus", executedActions, customPrompt, temperature = 0.7, mood = "friendly", ttsProvider, ttsVoiceId, ttsText } = await req.json();
+    const { messages, mode = "chat", model = "google/gemini-3-flash-preview", assistantName = "Horus", executedActions, customPrompt, temperature = 0.7, mood = "friendly", ttsProvider, ttsVoiceId, ttsText, userProfile } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -331,7 +345,7 @@ serve(async (req) => {
       },
     }];
 
-    const systemPrompt = buildSystemPrompt(assistantName, customPrompt, mood);
+    const systemPrompt = buildSystemPrompt(assistantName, customPrompt, mood, userProfile);
 
     // If actions were executed, add context
     const systemMessages = [{ role: "system", content: systemPrompt }];

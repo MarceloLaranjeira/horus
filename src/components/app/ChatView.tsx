@@ -15,6 +15,15 @@ import { HorusConstellation, SmallConstellation } from "@/components/app/HorusCo
 import { ChatProgressCards } from "@/components/app/ChatProgressCards";
 import type { AppView } from "@/pages/AppDashboard";
 
+type UserProfile = {
+  name: string | null;
+  bio: string | null;
+  company: string | null;
+  role: string | null;
+  industry: string | null;
+  services: string | null;
+};
+
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 type Message = {
@@ -113,8 +122,21 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { settings } = useAISettings();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // Load conversation
+  // Load user profile for AI context
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("name, bio, company, role, industry, services")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setUserProfile(data as UserProfile);
+      });
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
     const loadConversation = async () => {
@@ -304,7 +326,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       const actionResp = await fetch(CHAT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        body: JSON.stringify({ messages: apiMessages, mode: "actions", model: settings.model, assistantName: settings.assistantName, customPrompt: settings.customPrompt, temperature: settings.temperature, mood: settings.mood }),
+        body: JSON.stringify({ messages: apiMessages, mode: "actions", model: settings.model, assistantName: settings.assistantName, customPrompt: settings.customPrompt, temperature: settings.temperature, mood: settings.mood, userProfile }),
       });
       let actionResults: ActionResult[] = [];
       if (actionResp.ok) {
@@ -325,6 +347,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           customPrompt: settings.customPrompt,
           temperature: settings.temperature,
           mood: settings.mood,
+          userProfile,
           executedActions: actionResults.length > 0 ? actionResults.map((a) => `${a.type}: "${a.title}" criado com sucesso`) : undefined,
         }),
       });
