@@ -396,39 +396,18 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         }
         playAudioBlob(await response.blob());
       } else if (provider === "openai" || provider === "gemini") {
-        // Both use browser speechSynthesis (gateway doesn't support audio TTS)
-        // Gemini uses browser speechSynthesis
-        if ("speechSynthesis" in window) {
-          window.speechSynthesis.cancel();
-          // Ensure voices are loaded
-          const getVoices = (): Promise<SpeechSynthesisVoice[]> => {
-            return new Promise((resolve) => {
-              const voices = window.speechSynthesis.getVoices();
-              if (voices.length > 0) return resolve(voices);
-              window.speechSynthesis.onvoiceschanged = () => resolve(window.speechSynthesis.getVoices());
-              setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
-            });
-          };
-          const voices = await getVoices();
-          const utterance = new SpeechSynthesisUtterance(cleanText);
-          utterance.lang = settings.voiceLang || "pt-BR";
-          // Match voice by exact name (browser voices are now stored by name)
-          if (voiceId && voices.length > 0) {
-            const exactMatch = voices.find(v => v.name === voiceId);
-            if (exactMatch) {
-              utterance.voice = exactMatch;
-            } else {
-              // Fallback: partial match
-              const partialMatch = voices.find(v => v.name.toLowerCase().includes(voiceId.toLowerCase()));
-              if (partialMatch) utterance.voice = partialMatch;
-            }
-          }
-          utterance.onend = () => setIsSpeaking(false);
-          utterance.onerror = () => setIsSpeaking(false);
-          window.speechSynthesis.speak(utterance);
-        } else {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+          body: JSON.stringify({ text: cleanText, voiceId, provider }),
+        });
+        if (!response.ok) {
           setIsSpeaking(false);
+          const err = await response.json().catch(() => ({}));
+          toast({ title: `Erro TTS ${provider}`, description: err.error || `Status ${response.status}`, variant: "destructive" });
+          return;
         }
+        playAudioBlob(await response.blob());
       }
     } catch (e) {
       console.error("TTS error:", e);

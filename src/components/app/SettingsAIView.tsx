@@ -314,31 +314,38 @@ export const SettingsAIView = () => {
                 )}
               </div>
 
-              <Button variant="outline" size="sm" onClick={() => {
+              <Button variant="outline" size="sm" onClick={async () => {
                 if (settings.ttsProvider === "elevenlabs") {
                   previewVoice(settings.ttsVoiceId);
                 } else {
-                  // OpenAI & Gemini use browser speechSynthesis
-                  if ("speechSynthesis" in window) {
-                    window.speechSynthesis.cancel();
-                    const utterance = new SpeechSynthesisUtterance("Olá! Eu sou seu assistente pessoal.");
-                    utterance.lang = settings.voiceLang || "pt-BR";
-                    const voices = window.speechSynthesis.getVoices();
-                    const voiceId = settings.ttsVoiceId;
-                    if (voices.length > 0 && voiceId) {
-                      const match = voices.find(v => v.name.toLowerCase().includes(voiceId.toLowerCase()));
-                      if (match) {
-                        utterance.voice = match;
-                      } else {
-                        const langVoices = voices.filter(v => v.lang.startsWith("pt"));
-                        const pool = langVoices.length > 0 ? langVoices : voices;
-                        const hash = voiceId.split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
-                        utterance.voice = pool[hash % pool.length];
+                  // OpenAI & Gemini use real TTS APIs via edge function
+                  try {
+                    const response = await fetch(
+                      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tts`,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                        },
+                        body: JSON.stringify({
+                          text: "Olá! Eu sou seu assistente pessoal.",
+                          voiceId: settings.ttsVoiceId,
+                          provider: settings.ttsProvider,
+                        }),
                       }
+                    );
+                    if (!response.ok) {
+                      const err = await response.json().catch(() => ({}));
+                      toast({ title: "Erro ao testar voz", description: err.error || `Status ${response.status}`, variant: "destructive" });
+                      return;
                     }
-                    window.speechSynthesis.speak(utterance);
-                  } else {
-                    toast({ title: "Síntese de voz não suportada neste navegador", variant: "destructive" });
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    const audio = new Audio(url);
+                    audio.play();
+                  } catch {
+                    toast({ title: "Erro ao testar voz", variant: "destructive" });
                   }
                 }
               }} className="w-full mt-2">
