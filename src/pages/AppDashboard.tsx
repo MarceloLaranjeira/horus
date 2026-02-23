@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppSidebar } from "@/components/app/AppSidebar";
 import { ChatView } from "@/components/app/ChatView";
 import { TasksView } from "@/components/app/TasksView";
@@ -17,6 +17,7 @@ import { MessagingView } from "@/components/app/MessagingView";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { GoogleCalendarOAuthHandler } from "@/components/app/GoogleCalendarOAuthHandler";
 import { ErrorBoundary } from "@/components/app/ErrorBoundary";
+import { ProfileDropdown } from "@/components/app/ProfileDropdown";
 
 export type AppView =
   | "dashboard"
@@ -61,8 +62,9 @@ const AppDashboard = () => {
       <div className="flex min-h-screen w-full bg-gradient-dark">
         <AppSidebar activeView={activeView} onViewChange={setActiveView} />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="h-12 flex items-center border-b border-border/50 px-2 shrink-0 bg-card/30 backdrop-blur-sm">
+          <header className="h-12 flex items-center justify-between border-b border-border/50 px-2 shrink-0 bg-card/30 backdrop-blur-sm">
             <SidebarTrigger />
+            <ProfileDropdown onNavigate={setActiveView} />
           </header>
           <main className="flex-1 overflow-hidden">
             <ErrorBoundary key={activeView}>
