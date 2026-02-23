@@ -12,6 +12,7 @@ import {
   LogOut,
   Brain,
   StickyNote,
+  CalendarDays,
 } from "lucide-react";
 import horusLogo from "@/assets/horus-logo.png";
 import type { AppView } from "@/pages/AppDashboard";
@@ -44,6 +45,7 @@ const mainItems: NavItem[] = [
 const modulesItems: NavItem[] = [
   { id: "tasks", icon: CheckSquare, label: "Tarefas" },
   { id: "projects", icon: FolderKanban, label: "Projetos" },
+  { id: "agenda", icon: CalendarDays, label: "Agenda" },
   { id: "reminders", icon: Bell, label: "Lembretes" },
   { id: "habits", icon: Flame, label: "Hábitos" },
   { id: "finances", icon: DollarSign, label: "Finanças" },
