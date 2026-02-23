@@ -361,9 +361,17 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     stopSpeaking(); // Stop any current speech first
     setIsSpeaking(true);
     lastAssistantTextRef.current = text;
+
+    // Create Audio element immediately in user gesture context to avoid autoplay blocking
+    const audio = new Audio();
+    audio.preload = "auto";
+    // Unlock audio on iOS/Safari by calling play() immediately (will fail silently)
+    audio.play().catch(() => {});
+    audioRef.current = audio;
+
     try {
       const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000);
-      if (!cleanText.trim()) { setIsSpeaking(false); return; }
+      if (!cleanText.trim()) { setIsSpeaking(false); audioRef.current = null; return; }
 
       const provider = settings.ttsProvider || "elevenlabs";
       const voiceId = settings.ttsVoiceId;
@@ -371,11 +379,10 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
 
       const playAudioBlob = (blob: Blob) => {
         const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audioRef.current = audio;
+        audio.src = url;
         audio.onended = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
         audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
-        audio.play();
+        audio.play().catch((err) => { console.error("[TTS] Play error:", err); setIsSpeaking(false); });
       };
 
       if (provider === "elevenlabs") {
