@@ -92,7 +92,7 @@
   }
 
   .light {
-    --background: 210 20% 98%;
+    --background: 220 30% 97%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -101,43 +101,43 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 187 100% 38%;
+    --primary: 195 100% 42%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 93%;
-    --secondary-foreground: 222 30% 20%;
+    --secondary: 220 25% 93%;
+    --secondary-foreground: 222 30% 18%;
 
-    --muted: 210 20% 93%;
+    --muted: 220 20% 94%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 187 80% 35%;
+    --accent: 260 60% 55%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 88%;
-    --input: 214 20% 88%;
-    --ring: 187 100% 38%;
+    --border: 220 18% 90%;
+    --input: 220 18% 88%;
+    --ring: 195 100% 42%;
 
-    --sidebar-background: 210 20% 96%;
-    --sidebar-foreground: 222 30% 30%;
-    --sidebar-primary: 38 100% 45%;
+    --sidebar-background: 225 25% 96%;
+    --sidebar-foreground: 222 30% 25%;
+    --sidebar-primary: 195 100% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 20% 92%;
-    --sidebar-accent-foreground: 222 30% 20%;
-    --sidebar-border: 38 30% 85%;
-    --sidebar-ring: 38 100% 45%;
+    --sidebar-accent: 220 20% 92%;
+    --sidebar-accent-foreground: 222 30% 18%;
+    --sidebar-border: 220 18% 88%;
+    --sidebar-ring: 195 100% 42%;
 
-    --cyan: 187 100% 38%;
-    --cyan-glow: 187 100% 48%;
-    --nectar-glow: 187 100% 38%;
-    --nectar-gold: 38 100% 50%;
-    --nectar-green: 142 70% 40%;
-    --nectar-red: 0 84% 55%;
-    --nectar-orange: 25 95% 48%;
-    --nectar-purple: 270 70% 55%;
-    --nectar-blue: 210 100% 50%;
+    --cyan: 195 100% 45%;
+    --cyan-glow: 195 100% 55%;
+    --nectar-glow: 195 100% 45%;
+    --nectar-gold: 38 95% 52%;
+    --nectar-green: 152 68% 38%;
+    --nectar-red: 0 80% 55%;
+    --nectar-orange: 25 92% 50%;
+    --nectar-purple: 260 65% 55%;
+    --nectar-blue: 215 95% 52%;
   }
   .dark {
     --background: 220 40% 8%;
