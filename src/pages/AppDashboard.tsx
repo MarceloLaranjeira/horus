@@ -65,7 +65,7 @@ const AppDashboard = () => {
             <SidebarTrigger />
           </header>
           <main className="flex-1 overflow-hidden">
-            <ErrorBoundary>
+            <ErrorBoundary key={activeView}>
               {renderView()}
             </ErrorBoundary>
           </main>
