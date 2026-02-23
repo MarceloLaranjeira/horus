@@ -703,47 +703,15 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
 
   const isListeningRef = useRef(false);
 
-  const toggleVoice = async () => {
+  const startRecognition = () => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
       toast({ title: "Voz não suportada neste navegador.", variant: "destructive" });
       return;
     }
-    if (isListening) {
-      isListeningRef.current = false;
-      setIsListening(false);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
-      }
-      const finalText = transcriptRef.current.trim();
-      if (finalText) {
-        setLiveTranscript("");
-        sendMessage(finalText);
-      } else {
-        setLiveTranscript("");
-      }
-      transcriptRef.current = "";
-      return;
-    }
-    stopSpeaking();
 
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    // CRITICAL: On mobile, request mic permission via getUserMedia BEFORE SpeechRecognition
-    if (isMobile && navigator.mediaDevices?.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(t => t.stop());
-        console.log("[STT] Microphone permission granted via getUserMedia");
-      } catch (err) {
-        console.error("[STT] getUserMedia denied:", err);
-        toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
-        return;
-      }
-    }
-
-    // Now start recognition
     isListeningRef.current = true;
     setIsListening(true);
     setLiveTranscript("");
@@ -762,6 +730,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       }
       transcriptRef.current = full;
       setLiveTranscript(full);
+      console.log("[STT] Transcript:", full);
     };
 
     recognition.onerror = (e: any) => {
@@ -806,6 +775,46 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       isListeningRef.current = false;
       setIsListening(false);
       toast({ title: "Erro ao iniciar microfone", variant: "destructive" });
+    }
+  };
+
+  const toggleVoice = () => {
+    if (isListening) {
+      isListeningRef.current = false;
+      setIsListening(false);
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+      const finalText = transcriptRef.current.trim();
+      if (finalText) {
+        setLiveTranscript("");
+        sendMessage(finalText);
+      } else {
+        setLiveTranscript("");
+      }
+      transcriptRef.current = "";
+      return;
+    }
+    stopSpeaking();
+
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    // CRITICAL: On mobile, request mic permission SYNCHRONOUSLY within user gesture
+    // then start recognition in the .then() callback to preserve gesture context
+    if (isMobile && navigator.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then((stream) => {
+          stream.getTracks().forEach(t => t.stop());
+          console.log("[STT] Mobile: mic permission granted via getUserMedia");
+          startRecognition();
+        })
+        .catch((err) => {
+          console.error("[STT] getUserMedia denied:", err);
+          toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
+        });
+    } else {
+      startRecognition();
     }
   };
 
