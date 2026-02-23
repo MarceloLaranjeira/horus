@@ -46,6 +46,7 @@ Dados do usuário para análise mensal:
 
       const { data, error } = await supabase.functions.invoke("chat", {
         body: {
+          mode: "no-stream",
           messages: [
             {
               role: "system",
@@ -72,7 +73,7 @@ Dados do usuário para análise mensal:
       });
 
       if (error) throw error;
-      setAnalysis(data.content || data.message || "Análise não disponível.");
+      setAnalysis(data.content || "Análise não disponível.");
     } catch (err) {
       console.error(err);
       // Fallback: generate local analysis
