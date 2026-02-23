@@ -412,19 +412,15 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           const voices = await getVoices();
           const utterance = new SpeechSynthesisUtterance(cleanText);
           utterance.lang = settings.voiceLang || "pt-BR";
-          // Match voice by Gemini voice name in browser voices
+          // Match voice by exact name (browser voices are now stored by name)
           if (voiceId && voices.length > 0) {
-            const match = voices.find(v => v.name.toLowerCase().includes(voiceId.toLowerCase()));
-            if (match) {
-              utterance.voice = match;
+            const exactMatch = voices.find(v => v.name === voiceId);
+            if (exactMatch) {
+              utterance.voice = exactMatch;
             } else {
-              // Use voiceId as index hint - pick different voices for different selections
-              try {
-                const langVoices = voices.filter(v => v.lang.startsWith(utterance.lang.split("-")[0]));
-                const pool = langVoices.length > 0 ? langVoices : voices;
-                const hash = String(voiceId || "").split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
-                if (pool.length > 0) utterance.voice = pool[hash % pool.length];
-              } catch { /* ignore voice matching error */ }
+              // Fallback: partial match
+              const partialMatch = voices.find(v => v.name.toLowerCase().includes(voiceId.toLowerCase()));
+              if (partialMatch) utterance.voice = partialMatch;
             }
           }
           utterance.onend = () => setIsSpeaking(false);
