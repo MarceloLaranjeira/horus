@@ -302,6 +302,22 @@
   border-color: hsl(195 60% 70% / 0.5);
 }
 
+/* Glassmorphism for light mode header */
+.light header {
+  background: hsl(0 0% 100% / 0.5) !important;
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-color: hsl(220 30% 90% / 0.6) !important;
+}
+
+/* Glassmorphism for light mode sidebar */
+.light [data-sidebar="sidebar"] {
+  background: hsl(225 25% 96% / 0.6) !important;
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border-color: hsl(220 30% 90% / 0.5) !important;
+}
+
 /* Scanline effect */
 @keyframes scanline {
   0% { top: 0%; opacity: 0; }
