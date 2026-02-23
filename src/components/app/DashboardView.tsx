@@ -233,7 +233,20 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
               <StatBox value={pendingTasks.length} label="Pendentes" bgColor="bg-primary/10" textColor="text-primary" />
               <StatBox value={overdueTasks.length} label="Atrasadas" bgColor="bg-destructive/10" textColor="text-destructive" />
             </div>
-            <InteractiveProgress value={taskCompletionRate} label="Taxa de Conclusão" className="mb-3" />
+            <InteractiveProgress value={taskCompletionRate} label="Taxa de Conclusão" className="mb-3" onValueChange={(v) => {
+              // Mark tasks as done/undone to match the dragged percentage
+              const targetDone = Math.round((v / 100) * tasks.length);
+              const currentDone = completedTasks.length;
+              if (targetDone > currentDone) {
+                // Complete next pending task
+                const next = pendingTasks[0];
+                if (next) updateTask.mutate({ id: next.id, status: "done", completed_at: new Date().toISOString() });
+              } else if (targetDone < currentDone) {
+                // Reopen last completed task
+                const last = completedTasks[completedTasks.length - 1];
+                if (last) updateTask.mutate({ id: last.id, status: "todo", completed_at: null });
+              }
+            }} />
             {/* Recent tasks list */}
             {pendingTasks.slice(0, 3).map((task) => (
               <div key={task.id} className="flex items-center gap-2 text-sm py-1.5 group cursor-pointer hover:bg-secondary/30 rounded-lg px-1 transition-colors" onClick={() => setEditTask(task)}>
@@ -272,7 +285,17 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
               <StatBox value={activeProjects.length} label="Ativos" bgColor="bg-primary/10" textColor="text-primary" />
               <StatBox value={pendingProjects.length} label="Pendentes" bgColor="bg-[hsl(var(--nectar-orange))]/10" textColor="text-[hsl(var(--nectar-orange))]" />
             </div>
-            <InteractiveProgress value={projectCompletionRate} label="Taxa de Conclusão" className="mb-3" />
+            <InteractiveProgress value={projectCompletionRate} label="Taxa de Conclusão" className="mb-3" onValueChange={(v) => {
+              const targetDone = Math.round((v / 100) * projects.length);
+              const currentDone = completedProjects.length;
+              if (targetDone > currentDone) {
+                const next = projects.find(p => p.status !== "done");
+                if (next) updateProject.mutate({ id: next.id, status: "done" });
+              } else if (targetDone < currentDone) {
+                const last = completedProjects[completedProjects.length - 1];
+                if (last) updateProject.mutate({ id: last.id, status: "in_progress" });
+              }
+            }} />
             {projects.slice(0, 4).map((p) => (
               <div key={p.id} className="flex items-center gap-2 text-sm py-1.5 cursor-pointer hover:bg-secondary/30 rounded-lg px-1 transition-colors" onClick={() => setEditProject(p)}>
                 <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || "hsl(var(--primary))" }} />
