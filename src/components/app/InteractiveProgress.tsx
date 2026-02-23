@@ -74,9 +74,10 @@ export const InteractiveProgress = ({
         onPointerCancel={handlePointerUp}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        style={{ touchAction: interactive ? "none" : "auto" }}
         className={cn(
-          "relative h-3 w-full overflow-hidden rounded-full bg-secondary/50 transition-all",
-          interactive && "cursor-pointer hover:h-4",
+          "relative h-3 w-full overflow-visible rounded-full bg-secondary/50 transition-all",
+          interactive && "cursor-pointer hover:h-4 active:h-4",
           dragging && "h-4"
         )}
       >
@@ -86,11 +87,11 @@ export const InteractiveProgress = ({
           animate={{ width: `${value}%` }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         />
-        {interactive && (hovered || dragging) && (
+        {interactive && (
           <motion.div
-            className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-primary border-2 border-background shadow-lg"
+            className="absolute top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-primary border-2 border-background shadow-lg z-10"
             initial={false}
-            animate={{ left: `calc(${value}% - 10px)` }}
+            animate={{ left: `calc(${value}% - 12px)`, opacity: hovered || dragging ? 1 : 0.6 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           />
         )}
