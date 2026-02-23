@@ -258,13 +258,8 @@ export const SettingsAIView = () => {
                     <button
                       key={provider.value}
                       onClick={() => {
-                        const defaultVoices: Record<string, string> = { elevenlabs: "EXAVITQu4vr4xnSDxMaL", openai: "", gemini: "" };
-                        // For browser providers, auto-select first available voice
-                        let defaultVoice = defaultVoices[provider.value];
-                        if (provider.value !== "elevenlabs" && browserVoices.length > 0) {
-                          defaultVoice = browserVoices[0].name;
-                        }
-                        updateSettings({ ttsProvider: provider.value, ttsVoiceId: defaultVoice });
+                        const defaultVoices: Record<string, string> = { elevenlabs: "EXAVITQu4vr4xnSDxMaL", openai: "alloy", gemini: "Aoede" };
+                        updateSettings({ ttsProvider: provider.value, ttsVoiceId: defaultVoices[provider.value] });
                       }}
                       className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
                         settings.ttsProvider === provider.value
@@ -299,38 +294,24 @@ export const SettingsAIView = () => {
                       </button>
                     ))}
                   </div>
-                ) : (() => {
-                  const ptVoices = browserVoices.filter(v => v.lang.startsWith("pt"));
-                  const voicesToShow = ptVoices.length > 0 ? ptVoices : browserVoices;
-                  return voicesToShow.length > 0 ? (
-                  <div className="space-y-2">
-                    {ptVoices.length > 0 && (
-                      <p className="text-xs text-muted-foreground">Mostrando vozes em Português ({ptVoices.length} disponíveis)</p>
-                    )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
-                      {voicesToShow.map((voice) => (
-                        <button
-                          key={voice.name}
-                          onClick={() => updateSettings({ ttsVoiceId: voice.name })}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all text-left ${
-                            settings.ttsVoiceId === voice.name
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border/50 bg-secondary/30 hover:border-border text-muted-foreground"
-                          }`}
-                        >
-                          <Volume2 className="w-3.5 h-3.5 shrink-0" />
-                          <div className="truncate">
-                            <span className="font-medium">{voice.name.split(" ").slice(0, 3).join(" ")}</span>
-                            <span className="text-xs text-muted-foreground ml-1">({voice.lang})</span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {(settings.ttsProvider === "openai" ? openaiVoices : geminiVoices).map((voice) => (
+                      <button
+                        key={voice.id}
+                        onClick={() => updateSettings({ ttsVoiceId: voice.id })}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
+                          settings.ttsVoiceId === voice.id
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border/50 bg-secondary/30 hover:border-border text-muted-foreground"
+                        }`}
+                      >
+                        <Volume2 className="w-3.5 h-3.5 shrink-0" />
+                        {voice.name}
+                      </button>
+                    ))}
                   </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Nenhuma voz em português disponível neste navegador.</p>
-                  );
-                })()}
+                )}
               </div>
 
               <Button variant="outline" size="sm" onClick={() => {
