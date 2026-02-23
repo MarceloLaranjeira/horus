@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useGoogleCalendar, CalendarEvent, CreateEventInput } from "@/hooks/useGoogleCalendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,8 +42,8 @@ export const AgendaView = () => {
   });
   const [creating, setCreating] = useState(false);
 
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
+  const monthStart = useMemo(() => startOfMonth(currentMonth), [currentMonth]);
+  const monthEnd = useMemo(() => endOfMonth(currentMonth), [currentMonth]);
 
   const loadEvents = useCallback(() => {
     if (connected) {
