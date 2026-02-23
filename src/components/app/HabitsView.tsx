@@ -89,15 +89,32 @@ export const HabitsView = ({ subView }: { subView?: string }) => {
     );
   }
 
+  const todayCompleted = activeHabits.filter(h => isCompletedToday(h.id)).length;
+  const todayTotal = activeHabits.length;
+  const todayPct = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-border flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-[hsl(var(--nectar-green))]/15 flex items-center justify-center">
           <Flame className="w-5 h-5 text-[hsl(var(--nectar-green))]" />
         </div>
-        <div>
+        <div className="flex-1">
           <h2 className="font-semibold">Hábitos Saudáveis</h2>
           <p className="text-xs text-muted-foreground">Construa rotinas positivas e acompanhe seu progresso</p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs text-muted-foreground">{todayCompleted}/{todayTotal} hoje</span>
+          <div className="w-24 h-2 rounded-full bg-secondary overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${todayPct}%` }}
+              transition={{ duration: 0.8 }}
+              className="h-full rounded-full"
+              style={{ background: "linear-gradient(90deg, hsl(var(--nectar-green)), hsl(var(--primary)))" }}
+            />
+          </div>
+          <span className="text-xs font-semibold text-[hsl(var(--nectar-green))]">{todayPct}%</span>
         </div>
       </div>
 
