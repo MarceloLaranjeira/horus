@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const GOOGLE_COLORS: Record<string, string> = {
   "1": "#7986cb", "2": "#33b679", "3": "#8e24aa", "4": "#e67c73",
@@ -31,6 +32,7 @@ const COLOR_OPTIONS = Object.entries(GOOGLE_COLORS).map(([id, color]) => ({ id, 
 
 export const AgendaView = () => {
   const { connected, loading, connect, disconnect, events, fetchEvents, loadingEvents, createEvent, deleteEvent } = useGoogleCalendar();
+  const isMobile = useIsMobile();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -175,39 +177,39 @@ export const AgendaView = () => {
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className={cn("flex h-full overflow-hidden", isMobile && "flex-col")}>
       {/* Left: Calendar grid */}
       <div className="flex-1 flex flex-col overflow-hidden border-r border-border/30">
         {/* Month navigation */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 shrink-0">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(s => subMonths(s, 1))}>
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-b border-border/30 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(s => subMonths(s, 1))}>
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <h2 className="text-lg font-semibold min-w-[180px] text-center capitalize">
-              {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+            <h2 className="text-sm sm:text-lg font-semibold min-w-[120px] sm:min-w-[180px] text-center capitalize">
+              {format(currentMonth, isMobile ? "MMM yyyy" : "MMMM yyyy", { locale: ptBR })}
             </h2>
-            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(s => addMonths(s, 1))}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(s => addMonths(s, 1))}>
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => { setCurrentMonth(new Date()); setSelectedDate(new Date()); }}>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-xs" onClick={() => { setCurrentMonth(new Date()); setSelectedDate(new Date()); }}>
               Hoje
             </Button>
-            <Button variant="outline" size="icon" onClick={loadEvents} disabled={loadingEvents}>
-              <RefreshCw className={cn("w-4 h-4", loadingEvents && "animate-spin")} />
+            <Button variant="outline" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={loadEvents} disabled={loadingEvents}>
+              <RefreshCw className={cn("w-3.5 h-3.5", loadingEvents && "animate-spin")} />
             </Button>
-            <Button size="sm" className="gap-1.5" onClick={() => openCreateForDate(selectedDate || new Date())}>
-              <Plus className="w-4 h-4" /> Novo
+            <Button size="sm" className="gap-1 h-7 sm:h-8 text-xs" onClick={() => openCreateForDate(selectedDate || new Date())}>
+              <Plus className="w-3.5 h-3.5" /> {!isMobile && "Novo"}
             </Button>
           </div>
         </div>
 
         {/* Day headers */}
         <div className="grid grid-cols-7 border-b border-border/30 shrink-0">
-          {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(d => (
-            <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2 uppercase tracking-wider">
+          {(isMobile ? ["D", "S", "T", "Q", "Q", "S", "S"] : ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]).map((d, i) => (
+            <div key={i} className="text-center text-[10px] sm:text-xs font-medium text-muted-foreground py-1.5 sm:py-2 uppercase tracking-wider">
               {d}
             </div>
           ))}
@@ -259,7 +261,7 @@ export const AgendaView = () => {
       </div>
 
       {/* Right: Day detail panel */}
-      <div className="w-80 flex flex-col overflow-hidden bg-card/30">
+      <div className={cn("flex flex-col overflow-hidden bg-card/30", isMobile ? "border-t border-border/30 h-48" : "w-80")}>
         <div className="px-4 py-3 border-b border-border/30 shrink-0">
           <h3 className="font-semibold capitalize">
             {selectedDate ? format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR }) : "Selecione um dia"}

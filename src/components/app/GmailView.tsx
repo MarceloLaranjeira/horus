@@ -16,9 +16,11 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const GmailView = () => {
   const { emails, loading, fetchEmails, readEmail, readingEmail, selectedEmail, clearSelectedEmail, sendEmail, sending } = useGmail();
+  const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("in:inbox");
   const [showCompose, setShowCompose] = useState(false);
   const [compose, setCompose] = useState({ to: "", subject: "", body: "" });
@@ -67,7 +69,7 @@ export const GmailView = () => {
   return (
     <div className="flex h-full overflow-hidden">
       {/* Email list */}
-      <div className={cn("flex flex-col overflow-hidden border-r border-border/30 transition-all", selectedEmail ? "w-96" : "flex-1")}>
+      <div className={cn("flex flex-col overflow-hidden border-r border-border/30 transition-all", selectedEmail ? (isMobile ? "hidden" : "w-96") : "flex-1")}>
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30 shrink-0">
           <Inbox className="w-5 h-5 text-primary" />
