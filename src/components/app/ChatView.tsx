@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Loader2, CheckCircle2, CheckSquare, DollarSign, Flame, Bell, Calendar, Trash2, VolumeX, Volume2, Check } from "lucide-react";
+import { Send, Mic, MicOff, Loader2, CheckCircle2, CheckSquare, DollarSign, Flame, Bell, Calendar, Trash2, VolumeX, Volume2, Check, Paperclip, Image, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,6 +53,7 @@ const ChatActionCards = ({ actions }: { actions: ActionResult[] }) => {
     habit: { icon: Flame, color: "text-[hsl(var(--nectar-orange))]", bg: "bg-[hsl(var(--nectar-orange))]/5", border: "border-[hsl(var(--nectar-orange))]/20", barColor: "hsl(var(--nectar-orange))" },
     finance: { icon: DollarSign, color: "text-primary", bg: "bg-primary/5", border: "border-primary/20", barColor: "hsl(var(--primary))" },
     reminder: { icon: Bell, color: "text-[hsl(var(--nectar-orange))]", bg: "bg-[hsl(var(--nectar-orange))]/5", border: "border-[hsl(var(--nectar-orange))]/20", barColor: "hsl(var(--nectar-orange))" },
+    project: { icon: CheckSquare, color: "text-[hsl(var(--nectar-purple))]", bg: "bg-[hsl(var(--nectar-purple))]/5", border: "border-[hsl(var(--nectar-purple))]/20", barColor: "hsl(var(--nectar-purple))" },
     email: { icon: Send, color: "text-destructive", bg: "bg-destructive/5", border: "border-destructive/20", barColor: "hsl(var(--destructive))" },
     calendar: { icon: Calendar, color: "text-[hsl(var(--cyan))]", bg: "bg-[hsl(var(--cyan))]/5", border: "border-[hsl(var(--cyan))]/20", barColor: "hsl(var(--cyan))" },
     note: { icon: CheckSquare, color: "text-[hsl(var(--nectar-purple))]", bg: "bg-[hsl(var(--nectar-purple))]/5", border: "border-[hsl(var(--nectar-purple))]/20", barColor: "hsl(var(--nectar-purple))" },
@@ -113,6 +114,8 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   
   const [liveTranscript, setLiveTranscript] = useState("");
   const [showProgressCards, setShowProgressCards] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -212,22 +215,151 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       try {
         const args = JSON.parse(call.function.arguments);
         const name = call.function.name;
+
+        // Helper: find record by title (partial match) or ID
+        const findByTitleOrId = async (table: string, titleField: string, titleArg?: string, idArg?: string): Promise<any> => {
+          if (idArg) {
+            const { data } = await supabase.from(table as any).select("*").eq("id", idArg).eq("user_id", user!.id).maybeSingle();
+            return data as any;
+          }
+          if (titleArg) {
+            const { data } = await supabase.from(table as any).select("*").eq("user_id", user!.id).ilike(titleField, `%${titleArg}%`).limit(1).maybeSingle();
+            return data as any;
+          }
+          return null;
+        };
+
+        // === TASKS ===
         if (name === "create_task" && user) {
-          const { error } = await supabase.from("tasks").insert({ title: args.title, priority: args.priority || "medium", due_date: args.due_date || null, user_id: user.id });
+          const { error } = await supabase.from("tasks").insert({ title: args.title, description: args.description || null, priority: args.priority || "medium", due_date: args.due_date || null, user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["tasks"] }); results.push({ type: "task", title: args.title, success: true }); }
-        } else if (name === "create_habit" && user) {
+        } else if (name === "update_task" && user) {
+          const record = await findByTitleOrId("tasks", "title", args.task_title, args.task_id);
+          if (record) {
+            const updates: any = {};
+            if (args.new_title) updates.title = args.new_title;
+            if (args.description !== undefined) updates.description = args.description;
+            if (args.priority) updates.priority = args.priority;
+            if (args.status) { updates.status = args.status; if (args.status === "done") updates.completed_at = new Date().toISOString(); }
+            if (args.due_date) updates.due_date = args.due_date;
+            const { error } = await supabase.from("tasks").update(updates).eq("id", record.id);
+            if (!error) { queryClient.invalidateQueries({ queryKey: ["tasks"] }); results.push({ type: "task", title: `Tarefa "${record.title}" atualizada`, success: true }); }
+          } else { results.push({ type: "task", title: "Tarefa não encontrada", success: false }); }
+        } else if (name === "delete_task" && user) {
+          const record = await findByTitleOrId("tasks", "title", args.task_title, args.task_id);
+          if (record) {
+            const { error } = await supabase.from("tasks").delete().eq("id", record.id);
+            if (!error) { queryClient.invalidateQueries({ queryKey: ["tasks"] }); results.push({ type: "task", title: `Tarefa "${record.title}" excluída`, success: true }); }
+          } else { results.push({ type: "task", title: "Tarefa não encontrada", success: false }); }
+        } else if (name === "list_tasks" && user) {
+          let query = supabase.from("tasks").select("title, status, priority, due_date").eq("user_id", user.id);
+          if (args.status) query = query.eq("status", args.status);
+          if (args.priority) query = query.eq("priority", args.priority);
+          const { data } = await query.order("created_at", { ascending: false }).limit(args.limit || 10);
+          if (data && data.length > 0) {
+            const summary = data.map((t: any) => `• ${t.title} [${t.status}/${t.priority}]${t.due_date ? ` — ${t.due_date}` : ""}`).join("\n");
+            results.push({ type: "task", title: `${data.length} tarefa(s):\n${summary}`, success: true });
+          } else { results.push({ type: "task", title: "Nenhuma tarefa encontrada", success: true }); }
+        }
+        // === HABITS ===
+        else if (name === "create_habit" && user) {
           const { error } = await supabase.from("habits").insert({ name: args.name, icon: args.icon || "🎯", target_days_per_week: args.target_days_per_week || 7, user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["habits"] }); results.push({ type: "habit", title: args.name, success: true }); }
-        } else if (name === "add_finance" && user) {
+        } else if (name === "update_habit" && user) {
+          const record = await findByTitleOrId("habits", "name", args.habit_name, args.habit_id);
+          if (record) {
+            const updates: any = {};
+            if (args.new_name) updates.name = args.new_name;
+            if (args.icon) updates.icon = args.icon;
+            if (args.target_days_per_week !== undefined) updates.target_days_per_week = args.target_days_per_week;
+            if (args.active !== undefined) updates.active = args.active;
+            const { error } = await supabase.from("habits").update(updates).eq("id", record.id);
+            if (!error) { queryClient.invalidateQueries({ queryKey: ["habits"] }); results.push({ type: "habit", title: `Hábito "${record.name}" atualizado`, success: true }); }
+          } else { results.push({ type: "habit", title: "Hábito não encontrado", success: false }); }
+        } else if (name === "delete_habit" && user) {
+          const record = await findByTitleOrId("habits", "name", args.habit_name, args.habit_id);
+          if (record) {
+            const { error } = await supabase.from("habits").delete().eq("id", record.id);
+            if (!error) { queryClient.invalidateQueries({ queryKey: ["habits"] }); results.push({ type: "habit", title: `Hábito "${record.name}" excluído`, success: true }); }
+          } else { results.push({ type: "habit", title: "Hábito não encontrado", success: false }); }
+        }
+        // === FINANCES ===
+        else if (name === "add_finance" && user) {
           const { error } = await supabase.from("finances").insert({ description: args.description, amount: args.amount, type: args.type, user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["finances"] }); results.push({ type: "finance", title: args.description, success: true }); }
-        } else if (name === "create_reminder" && user) {
-          const { error } = await supabase.from("reminders").insert({ title: args.title, due_date: args.due_date, user_id: user.id });
+        } else if (name === "delete_finance" && user) {
+          const record = await findByTitleOrId("finances", "description", args.finance_description, args.finance_id);
+          if (record) {
+            const { error } = await supabase.from("finances").delete().eq("id", record.id);
+            if (!error) { queryClient.invalidateQueries({ queryKey: ["finances"] }); results.push({ type: "finance", title: `Transação "${record.description}" excluída`, success: true }); }
+          } else { results.push({ type: "finance", title: "Transação não encontrada", success: false }); }
+        }
+        // === REMINDERS ===
+        else if (name === "create_reminder" && user) {
+          const { error } = await supabase.from("reminders").insert({ title: args.title, description: args.description || null, due_date: args.due_date, user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["reminders"] }); results.push({ type: "reminder", title: args.title, success: true }); }
-        } else if (name === "create_note" && user) {
+        } else if (name === "update_reminder" && user) {
+          const record = await findByTitleOrId("reminders", "title", args.reminder_title, args.reminder_id);
+          if (record) {
+            const updates: any = {};
+            if (args.new_title) updates.title = args.new_title;
+            if (args.description !== undefined) updates.description = args.description;
+            if (args.due_date) updates.due_date = args.due_date;
+            if (args.completed !== undefined) updates.completed = args.completed;
+            const { error } = await supabase.from("reminders").update(updates).eq("id", record.id);
+            if (!error) { queryClient.invalidateQueries({ queryKey: ["reminders"] }); results.push({ type: "reminder", title: `Lembrete "${record.title}" atualizado`, success: true }); }
+          } else { results.push({ type: "reminder", title: "Lembrete não encontrado", success: false }); }
+        } else if (name === "delete_reminder" && user) {
+          const record = await findByTitleOrId("reminders", "title", args.reminder_title, args.reminder_id);
+          if (record) {
+            const { error } = await supabase.from("reminders").delete().eq("id", record.id);
+            if (!error) { queryClient.invalidateQueries({ queryKey: ["reminders"] }); results.push({ type: "reminder", title: `Lembrete "${record.title}" excluído`, success: true }); }
+          } else { results.push({ type: "reminder", title: "Lembrete não encontrado", success: false }); }
+        }
+        // === PROJECTS ===
+        else if (name === "create_project" && user) {
+          const { error } = await supabase.from("projects").insert({ title: args.title, description: args.description || null, status: args.status || "backlog", color: args.color || "#6366f1", user_id: user.id });
+          if (!error) { queryClient.invalidateQueries({ queryKey: ["projects"] }); results.push({ type: "project", title: args.title, success: true }); }
+        } else if (name === "update_project" && user) {
+          const record = await findByTitleOrId("projects", "title", args.project_title, args.project_id);
+          if (record) {
+            const updates: any = {};
+            if (args.new_title) updates.title = args.new_title;
+            if (args.description !== undefined) updates.description = args.description;
+            if (args.status) updates.status = args.status;
+            if (args.color) updates.color = args.color;
+            const { error } = await supabase.from("projects").update(updates).eq("id", record.id);
+            if (!error) { queryClient.invalidateQueries({ queryKey: ["projects"] }); results.push({ type: "project", title: `Projeto "${record.title}" atualizado`, success: true }); }
+          } else { results.push({ type: "project", title: "Projeto não encontrado", success: false }); }
+        } else if (name === "delete_project" && user) {
+          const record = await findByTitleOrId("projects", "title", args.project_title, args.project_id);
+          if (record) {
+            const { error } = await supabase.from("projects").delete().eq("id", record.id);
+            if (!error) { queryClient.invalidateQueries({ queryKey: ["projects"] }); results.push({ type: "project", title: `Projeto "${record.title}" excluído`, success: true }); }
+          } else { results.push({ type: "project", title: "Projeto não encontrado", success: false }); }
+        }
+        // === NOTES ===
+        else if (name === "create_note" && user) {
           const { error } = await supabase.from("notes" as any).insert({ title: args.title, content: args.content || "", user_id: user.id } as any);
           if (!error) { queryClient.invalidateQueries({ queryKey: ["notes"] }); results.push({ type: "note", title: args.title, success: true }); }
-        } else if (name === "list_calendar_events") {
+        } else if (name === "update_note" && user) {
+          const record = await findByTitleOrId("notes", "title", args.note_title, args.note_id);
+          if (record) {
+            const updates: any = {};
+            if (args.new_title) updates.title = args.new_title;
+            if (args.content !== undefined) updates.content = args.content;
+            const { error } = await supabase.from("notes" as any).update(updates as any).eq("id", record.id);
+            if (!error) { queryClient.invalidateQueries({ queryKey: ["notes"] }); results.push({ type: "note", title: `Nota "${record.title}" atualizada`, success: true }); }
+          } else { results.push({ type: "note", title: "Nota não encontrada", success: false }); }
+        } else if (name === "delete_note" && user) {
+          const record = await findByTitleOrId("notes", "title", args.note_title, args.note_id);
+          if (record) {
+            const { error } = await supabase.from("notes" as any).delete().eq("id", record.id);
+            if (!error) { queryClient.invalidateQueries({ queryKey: ["notes"] }); results.push({ type: "note", title: `Nota "${record.title}" excluída`, success: true }); }
+          } else { results.push({ type: "note", title: "Nota não encontrada", success: false }); }
+        }
+        // === CALENDAR ===
+        else if (name === "list_calendar_events") {
           const token = await getToken();
           const days = args.days || 7;
           const timeMax = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
@@ -302,9 +434,29 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     return results;
   };
 
+  const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setAttachedFiles(prev => [...prev, ...files].slice(0, 5));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const sendMessage = async (text: string) => {
-    if (!text.trim() || isLoading) return;
-    const userMsg: Message = { role: "user", content: text };
+    // Build message with file info
+    let finalText = text.trim();
+    if (attachedFiles.length > 0) {
+      const fileNames = attachedFiles.map(f => f.name).join(", ");
+      finalText += `\n\n[Arquivos anexados: ${fileNames}]`;
+      if (!finalText.replace(/\[Arquivos anexados:.*\]/, "").trim()) {
+        finalText = `Criei uma tarefa a partir dos seguintes arquivos: ${fileNames}. Por favor, crie uma tarefa com base nos nomes dos arquivos.`;
+      }
+    }
+    if (!finalText || isLoading) return;
+    setAttachedFiles([]);
+    const userMsg: Message = { role: "user", content: finalText };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput("");
@@ -750,7 +902,30 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
 
       {/* Input bar */}
       <div className="px-6 py-4 border-t border-border/30 bg-card/20 backdrop-blur-sm relative z-10">
+        {/* Attached files preview */}
+        {attachedFiles.length > 0 && (
+          <div className="max-w-3xl mx-auto mb-2 flex flex-wrap gap-2">
+            {attachedFiles.map((file, i) => (
+              <div key={i} className="flex items-center gap-1.5 bg-secondary/70 rounded-lg px-2.5 py-1.5 text-xs border border-border/50">
+                {file.type.startsWith("image/") ? <Image className="w-3.5 h-3.5 text-primary" /> : <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />}
+                <span className="truncate max-w-[120px]">{file.name}</span>
+                <button onClick={() => removeFile(i)} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="max-w-3xl mx-auto flex items-end gap-2">
+          <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx" multiple className="hidden" onChange={handleFileAttach} />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            className="shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 h-11 w-11 rounded-xl"
+          >
+            <Paperclip className="w-5 h-5" />
+          </Button>
           <div className="flex-1 relative">
             <Textarea
               value={input}
@@ -777,7 +952,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           <Button
             size="icon"
             onClick={handleSend}
-            disabled={!input.trim() || isLoading}
+            disabled={(!input.trim() && attachedFiles.length === 0) || isLoading}
             className="shrink-0 glow-cyan bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-11 rounded-xl"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

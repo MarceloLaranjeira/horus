@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const tools = [
+  // === TASKS ===
   {
     type: "function",
     function: {
@@ -16,6 +17,7 @@ const tools = [
         type: "object",
         properties: {
           title: { type: "string", description: "Título da tarefa" },
+          description: { type: "string", description: "Descrição da tarefa" },
           priority: { type: "string", enum: ["low", "medium", "high", "urgent"], description: "Prioridade" },
           due_date: { type: "string", description: "Data de vencimento no formato YYYY-MM-DD" },
         },
@@ -24,6 +26,60 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "update_task",
+      description: "Atualiza uma tarefa existente pelo título ou ID. Use para editar título, prioridade, status, descrição ou data",
+      parameters: {
+        type: "object",
+        properties: {
+          task_title: { type: "string", description: "Título atual da tarefa a ser atualizada (busca parcial)" },
+          task_id: { type: "string", description: "ID da tarefa (se conhecido)" },
+          new_title: { type: "string", description: "Novo título" },
+          description: { type: "string", description: "Nova descrição" },
+          priority: { type: "string", enum: ["low", "medium", "high", "urgent"] },
+          status: { type: "string", enum: ["todo", "in_progress", "done"] },
+          due_date: { type: "string", description: "Nova data YYYY-MM-DD" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_task",
+      description: "Exclui uma tarefa pelo título ou ID",
+      parameters: {
+        type: "object",
+        properties: {
+          task_title: { type: "string", description: "Título da tarefa a excluir (busca parcial)" },
+          task_id: { type: "string", description: "ID da tarefa (se conhecido)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_tasks",
+      description: "Lista as tarefas do usuário, opcionalmente filtrando por status ou prioridade",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["todo", "in_progress", "done"], description: "Filtrar por status" },
+          priority: { type: "string", enum: ["low", "medium", "high", "urgent"], description: "Filtrar por prioridade" },
+          limit: { type: "number", description: "Máximo de resultados (padrão: 10)" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  // === HABITS ===
   {
     type: "function",
     function: {
@@ -44,6 +100,43 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "update_habit",
+      description: "Atualiza um hábito existente",
+      parameters: {
+        type: "object",
+        properties: {
+          habit_name: { type: "string", description: "Nome atual do hábito (busca parcial)" },
+          habit_id: { type: "string", description: "ID do hábito" },
+          new_name: { type: "string", description: "Novo nome" },
+          icon: { type: "string", description: "Novo emoji" },
+          target_days_per_week: { type: "number" },
+          active: { type: "boolean", description: "Ativar/desativar" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_habit",
+      description: "Exclui um hábito pelo nome ou ID",
+      parameters: {
+        type: "object",
+        properties: {
+          habit_name: { type: "string", description: "Nome do hábito (busca parcial)" },
+          habit_id: { type: "string", description: "ID do hábito" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  // === FINANCES ===
+  {
+    type: "function",
+    function: {
       name: "add_finance",
       description: "Registra uma transação financeira (receita ou despesa)",
       parameters: {
@@ -61,12 +154,30 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "delete_finance",
+      description: "Exclui uma transação financeira pela descrição ou ID",
+      parameters: {
+        type: "object",
+        properties: {
+          finance_description: { type: "string", description: "Descrição da transação (busca parcial)" },
+          finance_id: { type: "string", description: "ID da transação" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  // === REMINDERS ===
+  {
+    type: "function",
+    function: {
       name: "create_reminder",
       description: "Cria um lembrete com data e hora",
       parameters: {
         type: "object",
         properties: {
           title: { type: "string", description: "Título do lembrete" },
+          description: { type: "string", description: "Descrição do lembrete" },
           due_date: { type: "string", description: "Data/hora no formato ISO 8601" },
         },
         required: ["title", "due_date"],
@@ -74,6 +185,149 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "update_reminder",
+      description: "Atualiza um lembrete existente",
+      parameters: {
+        type: "object",
+        properties: {
+          reminder_title: { type: "string", description: "Título atual (busca parcial)" },
+          reminder_id: { type: "string", description: "ID do lembrete" },
+          new_title: { type: "string", description: "Novo título" },
+          description: { type: "string", description: "Nova descrição" },
+          due_date: { type: "string", description: "Nova data ISO 8601" },
+          completed: { type: "boolean", description: "Marcar como concluído" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_reminder",
+      description: "Exclui um lembrete pelo título ou ID",
+      parameters: {
+        type: "object",
+        properties: {
+          reminder_title: { type: "string", description: "Título (busca parcial)" },
+          reminder_id: { type: "string", description: "ID do lembrete" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  // === PROJECTS ===
+  {
+    type: "function",
+    function: {
+      name: "create_project",
+      description: "Cria um novo projeto",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título do projeto" },
+          description: { type: "string", description: "Descrição do projeto" },
+          status: { type: "string", enum: ["backlog", "todo", "in_progress", "review", "done"], description: "Status inicial" },
+          color: { type: "string", description: "Cor hex do projeto" },
+        },
+        required: ["title"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_project",
+      description: "Atualiza um projeto existente",
+      parameters: {
+        type: "object",
+        properties: {
+          project_title: { type: "string", description: "Título atual (busca parcial)" },
+          project_id: { type: "string", description: "ID do projeto" },
+          new_title: { type: "string", description: "Novo título" },
+          description: { type: "string", description: "Nova descrição" },
+          status: { type: "string", enum: ["backlog", "todo", "in_progress", "review", "done"] },
+          color: { type: "string" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_project",
+      description: "Exclui um projeto pelo título ou ID",
+      parameters: {
+        type: "object",
+        properties: {
+          project_title: { type: "string", description: "Título (busca parcial)" },
+          project_id: { type: "string", description: "ID do projeto" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  // === NOTES ===
+  {
+    type: "function",
+    function: {
+      name: "create_note",
+      description: "Cria uma nova nota/anotação",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título da nota" },
+          content: { type: "string", description: "Conteúdo da nota" },
+        },
+        required: ["title"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_note",
+      description: "Atualiza uma nota existente",
+      parameters: {
+        type: "object",
+        properties: {
+          note_title: { type: "string", description: "Título atual (busca parcial)" },
+          note_id: { type: "string", description: "ID da nota" },
+          new_title: { type: "string", description: "Novo título" },
+          content: { type: "string", description: "Novo conteúdo" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_note",
+      description: "Exclui uma nota pelo título ou ID",
+      parameters: {
+        type: "object",
+        properties: {
+          note_title: { type: "string", description: "Título (busca parcial)" },
+          note_id: { type: "string", description: "ID da nota" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  // === CALENDAR ===
   {
     type: "function",
     function: {
@@ -99,8 +353,8 @@ const tools = [
         properties: {
           summary: { type: "string", description: "Título do evento" },
           description: { type: "string", description: "Descrição do evento" },
-          start: { type: "string", description: "Data/hora de início no formato ISO 8601 (ex: 2026-02-21T09:00:00-03:00)" },
-          end: { type: "string", description: "Data/hora de fim no formato ISO 8601 (ex: 2026-02-21T10:00:00-03:00)" },
+          start: { type: "string", description: "Data/hora de início ISO 8601" },
+          end: { type: "string", description: "Data/hora de fim ISO 8601" },
           location: { type: "string", description: "Local do evento" },
         },
         required: ["summary", "start", "end"],
@@ -108,6 +362,7 @@ const tools = [
       },
     },
   },
+  // === EMAIL ===
   {
     type: "function",
     function: {
@@ -116,7 +371,7 @@ const tools = [
       parameters: {
         type: "object",
         properties: {
-          query: { type: "string", description: "Filtro de busca do Gmail (ex: 'is:unread', 'from:example@gmail.com', 'subject:reunião')" },
+          query: { type: "string", description: "Filtro de busca do Gmail" },
           maxResults: { type: "number", description: "Número máximo de emails (1-10)" },
         },
         additionalProperties: false,
@@ -327,23 +582,7 @@ serve(async (req) => {
       });
     }
 
-    // Add create_note tool
-    const allTools = [...tools, {
-      type: "function",
-      function: {
-        name: "create_note",
-        description: "Cria uma nova nota/anotação no bloco de notas do usuário",
-        parameters: {
-          type: "object",
-          properties: {
-            title: { type: "string", description: "Título da nota" },
-            content: { type: "string", description: "Conteúdo da nota" },
-          },
-          required: ["title"],
-          additionalProperties: false,
-        },
-      },
-    }];
+    const allTools = tools;
 
     const systemPrompt = buildSystemPrompt(assistantName, customPrompt, mood, userProfile);
 
