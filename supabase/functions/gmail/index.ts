@@ -140,10 +140,16 @@ Deno.serve(async (req) => {
           const detail = await detailRes.json();
           const headers = detail.payload?.headers || [];
           const getHeader = (name: string) => headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
+          // Decode HTML entities in snippet (Gmail returns &amp; &#39; etc.)
+          const decodeHtmlEntities = (str: string) =>
+            str.replace(/&#(\d+);/g, (_m: string, c: string) => String.fromCodePoint(Number(c)))
+               .replace(/&#x([0-9a-fA-F]+);/g, (_m: string, c: string) => String.fromCodePoint(parseInt(c, 16)))
+               .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+               .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'");
           return {
             id: detail.id,
             threadId: detail.threadId,
-            snippet: detail.snippet,
+            snippet: decodeHtmlEntities(detail.snippet || ""),
             subject: getHeader("Subject"),
             from: getHeader("From"),
             to: getHeader("To"),
@@ -181,11 +187,26 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Extract body text
+      // Extract body text with proper UTF-8 decoding
       let bodyText = "";
+      const decodeBase64Utf8 = (b64: string): string => {
+        const raw = b64.replace(/-/g, "+").replace(/_/g, "/");
+        const binaryStr = atob(raw);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        return new TextDecoder("utf-8").decode(bytes);
+      };
+
       const extractText = (part: any): string => {
         if (part.mimeType === "text/plain" && part.body?.data) {
-          return atob(part.body.data.replace(/-/g, "+").replace(/_/g, "/"));
+          return decodeBase64Utf8(part.body.data);
+        }
+        if (part.mimeType === "text/html" && part.body?.data && !bodyText) {
+          // Fallback to HTML stripped of tags if no plain text
+          const html = decodeBase64Utf8(part.body.data);
+          return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
         }
         if (part.parts) {
           return part.parts.map(extractText).join("\n");
