@@ -1046,19 +1046,35 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
               rows={1}
             />
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleVoice}
-            className={cn(
-              "shrink-0 transition-all h-11 w-11 rounded-xl",
-              isListening
-                ? "text-destructive bg-destructive/10 animate-pulse shadow-[0_0_20px_-3px_hsl(0_84%_60%/0.5)]"
-                : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+          <div className="relative shrink-0">
+            {isListening && (
+              <>
+                <motion.span
+                  className="absolute inset-0 rounded-xl bg-destructive/20"
+                  animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+                <motion.span
+                  className="absolute inset-0 rounded-xl bg-destructive/15"
+                  animate={{ scale: [1, 1.8, 1], opacity: [0.3, 0, 0.3] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                />
+              </>
             )}
-          >
-            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleVoice}
+              className={cn(
+                "relative z-10 transition-all h-11 w-11 rounded-xl",
+                isListening
+                  ? "text-destructive bg-destructive/10 shadow-[0_0_20px_-3px_hsl(0_84%_60%/0.5)]"
+                  : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+              )}
+            >
+              {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            </Button>
+          </div>
           <Button
             size="icon"
             onClick={handleSend}
