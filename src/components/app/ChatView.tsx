@@ -735,7 +735,9 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
 
     recognition.onerror = (e: any) => {
       console.log("[STT] Error:", e.error, "| isListening:", isListeningRef.current);
-      if ((e.error === "no-speech" || e.error === "aborted") && isListeningRef.current) {
+
+      // Em mobile, não reiniciar automaticamente fora de gesto do usuário
+      if (!isMobile && (e.error === "no-speech" || e.error === "aborted") && isListeningRef.current) {
         setTimeout(() => {
           if (isListeningRef.current && recognitionRef.current) {
             try { recognitionRef.current.start(); } catch { /* ignore */ }
@@ -743,10 +745,13 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         }, 300);
         return;
       }
+
       isListeningRef.current = false;
       setIsListening(false);
       setLiveTranscript("");
       transcriptRef.current = "";
+      recognitionRef.current = null;
+
       if (e.error === "not-allowed") {
         toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
       }
@@ -754,6 +759,20 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
 
     recognition.onend = () => {
       console.log("[STT] onend | isListening:", isListeningRef.current);
+
+      // Em mobile, finaliza a captura sem tentar restart automático
+      if (isMobile) {
+        const finalText = transcriptRef.current.trim();
+        isListeningRef.current = false;
+        setIsListening(false);
+        setLiveTranscript("");
+        transcriptRef.current = "";
+        recognitionRef.current = null;
+
+        if (finalText) sendMessage(finalText);
+        return;
+      }
+
       if (isListeningRef.current && recognitionRef.current) {
         setTimeout(() => {
           if (isListeningRef.current && recognitionRef.current) {

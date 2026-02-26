@@ -6,6 +6,64 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+
+const base64ToUint8Array = (base64: string): Uint8Array => {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+};
+
+const pcm16ToWav = (pcmData: Uint8Array, sampleRate: number, isBigEndian: boolean): Uint8Array => {
+  const evenLength = pcmData.length - (pcmData.length % 2);
+  const source = pcmData.subarray(0, evenLength);
+
+  const pcmLittleEndian = isBigEndian
+    ? (() => {
+        const swapped = new Uint8Array(source.length);
+        for (let i = 0; i < source.length; i += 2) {
+          swapped[i] = source[i + 1] ?? 0;
+          swapped[i + 1] = source[i] ?? 0;
+        }
+        return swapped;
+      })()
+    : source;
+
+  const header = new ArrayBuffer(44);
+  const view = new DataView(header);
+
+  const writeString = (offset: number, value: string) => {
+    for (let i = 0; i < value.length; i++) {
+      view.setUint8(offset + i, value.charCodeAt(i));
+    }
+  };
+
+  const dataLength = pcmLittleEndian.length;
+  const channels = 1;
+  const bitsPerSample = 16;
+  const byteRate = sampleRate * channels * (bitsPerSample / 8);
+  const blockAlign = channels * (bitsPerSample / 8);
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + dataLength, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeString(36, "data");
+  view.setUint32(40, dataLength, true);
+
+  const wav = new Uint8Array(44 + dataLength);
+  wav.set(new Uint8Array(header), 0);
+  wav.set(pcmLittleEndian, 44);
+  return wav;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -78,7 +136,10 @@ serve(async (req) => {
           body: JSON.stringify({
             contents: [
               {
-                parts: [{ text: cleanText }],
+                role: "user",
+                parts: [{
+                  text: `Converta exatamente o texto abaixo em áudio falado. Não adicione, não remova e não reescreva nada. Retorne somente áudio.\n\nTexto:\n${cleanText}`,
+                }],
               },
             ],
             generationConfig: {
@@ -116,16 +177,16 @@ serve(async (req) => {
         );
       }
 
-      // Decode base64 audio
-      const binaryString = atob(audioPart.data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
+      const mimeType = String(audioPart.mimeType || "");
+      const rateMatch = mimeType.match(/rate=(\d+)/i);
+      const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000;
+      const isBigEndian = /audio\/L16/i.test(mimeType);
 
-      const mimeType = audioPart.mimeType || "audio/wav";
-      return new Response(bytes, {
-        headers: { ...corsHeaders, "Content-Type": mimeType },
+      const pcmBytes = base64ToUint8Array(audioPart.data);
+      const wavBytes = pcm16ToWav(pcmBytes, sampleRate, isBigEndian);
+
+      return new Response(wavBytes, {
+        headers: { ...corsHeaders, "Content-Type": "audio/wav" },
       });
 
     } else {
