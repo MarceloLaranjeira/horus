@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Bot, Volume2, Sparkles, Save, Mic, AudioLines, MessageSquare, Thermometer, Drama } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Bot, Volume2, Sparkles, Save, Mic, AudioLines, MessageSquare, Thermometer, Drama, Activity, CheckCircle2, XCircle, AlertTriangle, Play, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -373,6 +373,9 @@ export const SettingsAIView = () => {
           />
         </motion.div>
 
+        {/* Audio Diagnostic Panel */}
+        <AudioDiagnosticPanel settings={settings} toast={toast} />
+
         {/* Save */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
           <Button onClick={handleSave} className="w-full glow-cyan bg-primary text-primary-foreground hover:bg-primary/90">
@@ -381,5 +384,177 @@ export const SettingsAIView = () => {
         </motion.div>
       </div>
     </div>
+  );
+};
+
+// === Audio Diagnostic Panel ===
+const AudioDiagnosticPanel = ({ settings, toast }: { settings: any; toast: any }) => {
+  const [micStatus, setMicStatus] = useState<"unknown" | "granted" | "denied" | "prompt">("unknown");
+  const [micTestResult, setMicTestResult] = useState<string | null>(null);
+  const [ttsTestResult, setTtsTestResult] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [isTestingTTS, setIsTestingTTS] = useState(false);
+
+  useEffect(() => {
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: "microphone" as PermissionName }).then((result) => {
+        setMicStatus(result.state as any);
+        result.onchange = () => setMicStatus(result.state as any);
+      }).catch(() => setMicStatus("unknown"));
+    }
+  }, []);
+
+  const testMicrophone = async () => {
+    setIsTesting(true);
+    setMicTestResult(null);
+    setLastError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      let maxLevel = 0;
+      const checkLevel = () => {
+        analyser.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        if (avg > maxLevel) maxLevel = avg;
+      };
+
+      const interval = setInterval(checkLevel, 100);
+      await new Promise((r) => setTimeout(r, 2000));
+      clearInterval(interval);
+
+      stream.getTracks().forEach((t) => t.stop());
+      await audioContext.close();
+
+      setMicStatus("granted");
+      if (maxLevel > 5) {
+        setMicTestResult(`✅ Microfone funcionando! Nível captado: ${Math.round(maxLevel)}`);
+      } else {
+        setMicTestResult("⚠️ Microfone detectado mas sem áudio captado. Tente falar mais alto.");
+      }
+    } catch (err: any) {
+      setMicStatus("denied");
+      setLastError(err.message || "Erro desconhecido");
+      setMicTestResult("❌ Falha ao acessar microfone");
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const testTTS = async () => {
+    setIsTestingTTS(true);
+    setTtsTestResult(null);
+    setLastError(null);
+    try {
+      const provider = settings.ttsProvider || "elevenlabs";
+      const voiceId = settings.ttsVoiceId;
+
+      const url = provider === "elevenlabs"
+        ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`
+        : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tts`;
+
+      const body = provider === "elevenlabs"
+        ? { text: "Teste de áudio. Tudo funcionando!", voiceId }
+        : { text: "Teste de áudio. Tudo funcionando!", voiceId, provider };
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const audio = new Audio();
+      // Unlock for mobile
+      audio.play().catch(() => {});
+      const objUrl = URL.createObjectURL(blob);
+      audio.src = objUrl;
+      await audio.play();
+      audio.onended = () => URL.revokeObjectURL(objUrl);
+
+      setTtsTestResult(`✅ Áudio reproduzido com sucesso! (${provider}, ${voiceId})`);
+    } catch (err: any) {
+      setLastError(err.message || "Erro desconhecido");
+      setTtsTestResult(`❌ Falha no TTS: ${err.message}`);
+    } finally {
+      setIsTestingTTS(false);
+    }
+  };
+
+  const statusIcon = (status: string) => {
+    if (status === "granted") return <CheckCircle2 className="w-4 h-4 text-[hsl(var(--nectar-green))]" />;
+    if (status === "denied") return <XCircle className="w-4 h-4 text-destructive" />;
+    return <AlertTriangle className="w-4 h-4 text-[hsl(var(--nectar-orange))]" />;
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
+      className="bg-card border border-border/50 rounded-xl p-6 card-glow space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Activity className="w-4 h-4 text-primary" />
+        </div>
+        <h3 className="font-semibold text-sm">Diagnóstico de Áudio</h3>
+      </div>
+      <p className="text-xs text-muted-foreground">Verifique microfone e reprodução antes de usar o chat por voz.</p>
+
+      {/* Status Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border/30">
+          {statusIcon(micStatus)}
+          <div>
+            <p className="text-xs font-medium">Permissão Microfone</p>
+            <p className="text-[10px] text-muted-foreground capitalize">{micStatus === "unknown" ? "Não verificado" : micStatus === "granted" ? "Concedida" : micStatus === "denied" ? "Negada" : "Pendente"}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border/30">
+          <CheckCircle2 className="w-4 h-4 text-primary" />
+          <div>
+            <p className="text-xs font-medium">Provedor TTS Ativo</p>
+            <p className="text-[10px] text-muted-foreground capitalize">{settings.ttsProvider || "elevenlabs"} — {settings.ttsVoiceId}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Test Buttons */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Button variant="outline" size="sm" onClick={testMicrophone} disabled={isTesting} className="w-full">
+          {isTesting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mic className="w-4 h-4 mr-2" />}
+          {isTesting ? "Testando... (2s)" : "Testar Microfone"}
+        </Button>
+        <Button variant="outline" size="sm" onClick={testTTS} disabled={isTestingTTS} className="w-full">
+          {isTestingTTS ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+          {isTestingTTS ? "Reproduzindo..." : "Testar Reprodução"}
+        </Button>
+      </div>
+
+      {/* Results */}
+      {micTestResult && (
+        <p className="text-xs p-2 rounded-lg bg-secondary/30 border border-border/30">{micTestResult}</p>
+      )}
+      {ttsTestResult && (
+        <p className="text-xs p-2 rounded-lg bg-secondary/30 border border-border/30">{ttsTestResult}</p>
+      )}
+      {lastError && (
+        <div className="flex items-start gap-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
+          <XCircle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
+          <p className="text-xs text-destructive">{lastError}</p>
+        </div>
+      )}
+    </motion.div>
   );
 };
