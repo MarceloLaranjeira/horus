@@ -32,15 +32,21 @@ const currentMonthLabel = format(new Date(), "MMMM", { locale: ptBR });
 
 /** Top summary icon card */
 const SummaryCard = ({
-  icon: Icon, value, label, color, delay = 0,
+  icon: Icon, value, label, color, delay = 0, onClick,
 }: {
-  icon: React.ElementType; value: number; label: string; color: string; delay?: number;
+  icon: React.ElementType; value: number; label: string; color: string; delay?: number; onClick?: () => void;
 }) => (
   <motion.div
     initial={{ opacity: 0, y: 15 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.3, delay }}
-    className="flex flex-col items-center gap-1.5 p-4 rounded-xl bg-card border border-[hsl(var(--nectar-gold))]/20 card-glow flex-1 min-w-[120px]"
+    whileHover={{ scale: 1.04, y: -2 }}
+    whileTap={{ scale: 0.97 }}
+    onClick={onClick}
+    className={cn(
+      "flex flex-col items-center gap-1.5 p-4 rounded-xl bg-card border border-[hsl(var(--nectar-gold))]/20 card-glow flex-1 min-w-[120px]",
+      onClick && "cursor-pointer hover:border-primary/40 hover:shadow-[0_4px_20px_-6px_hsl(var(--primary)/0.2)] transition-[border-color,box-shadow] duration-300"
+    )}
   >
     <Icon className="w-5 h-5" style={{ color }} />
     <span className="text-2xl font-bold">{value}</span>
@@ -88,7 +94,7 @@ const SectionCard = ({
 
 export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const { data: tasks = [], updateTask, deleteTask, addTask } = useTasks();
-  const { transactions, addTransaction, deleteTransaction } = useFinances();
+  const { transactions, addTransaction, deleteTransaction, updateTransaction } = useFinances();
   const { habits, tracks, toggleTrack, addHabit, updateHabit, deleteHabit } = useHabits();
   const { reminders, toggleReminder, deleteReminder, addReminder, updateReminder } = useReminders();
   const { projects, updateProject, deleteProject } = useProjects();
@@ -112,6 +118,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const [editReminder, setEditReminder] = useState<any>(null);
   const [editProject, setEditProject] = useState<any>(null);
   const [editHabit, setEditHabit] = useState<any>(null);
+  const [editFinance, setEditFinance] = useState<any>(null);
   const today = startOfDay(new Date());
   const todayStr = format(today, "yyyy-MM-dd");
   const todayTracks = tracks.filter((t) => t.track_date === todayStr);
@@ -217,10 +224,10 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
 
         {/* Summary Cards Row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <SummaryCard icon={CheckSquare} value={completedTasks.length} label={`de ${tasks.length} · Concluídas hoje`} color="hsl(var(--nectar-green))" delay={0} />
-          <SummaryCard icon={Clock} value={pendingReminders.length} label="Lembretes Pendentes" color="hsl(var(--primary))" delay={0.05} />
-          <SummaryCard icon={AlertTriangle} value={overdueReminders.length + overdueTasks.length} label="Itens Atrasados" color="hsl(var(--destructive))" delay={0.1} />
-          <SummaryCard icon={FolderKanban} value={projects.length} label="Projetos" color="hsl(var(--nectar-purple, 270 70% 60%))" delay={0.15} />
+          <SummaryCard icon={CheckSquare} value={completedTasks.length} label={`de ${tasks.length} · Concluídas hoje`} color="hsl(var(--nectar-green))" delay={0} onClick={() => onNavigate("tasks")} />
+          <SummaryCard icon={Clock} value={pendingReminders.length} label="Lembretes Pendentes" color="hsl(var(--primary))" delay={0.05} onClick={() => onNavigate("reminders")} />
+          <SummaryCard icon={AlertTriangle} value={overdueReminders.length + overdueTasks.length} label="Itens Atrasados" color="hsl(var(--destructive))" delay={0.1} onClick={() => onNavigate("tasks-overdue")} />
+          <SummaryCard icon={FolderKanban} value={projects.length} label="Projetos" color="hsl(var(--nectar-purple, 270 70% 60%))" delay={0.15} onClick={() => onNavigate("projects")} />
         </div>
 
         {/* Main Grid */}
@@ -394,6 +401,16 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
                 </span>
               </div>
             </div>
+            {/* Recent transactions list */}
+            {monthFinances.slice(0, 4).map((fin) => (
+              <div key={fin.id} className="flex items-center gap-2 text-sm py-1.5 group cursor-pointer hover:bg-secondary/30 rounded-lg px-2 transition-colors" onClick={() => setEditFinance(fin)}>
+                <div className={cn("w-2 h-2 rounded-full shrink-0", fin.type === "income" ? "bg-[hsl(var(--nectar-green))]" : "bg-destructive")} />
+                <span className="truncate flex-1">{fin.description}</span>
+                <span className={cn("text-xs font-medium", fin.type === "income" ? "text-[hsl(var(--nectar-green))]" : "text-destructive")}>
+                  {fin.type === "income" ? "+" : "-"}R$ {Number(fin.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            ))}
             {showAddFin ? (
               <div className="space-y-2">
                 <div className="flex gap-2">
@@ -671,6 +688,28 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
             updateHabit.mutate({ id: editHabit.id, ...vals }, { onSuccess: () => toast.success("Hábito atualizado!") });
           }}
           onDelete={() => { deleteHabit.mutate(editHabit.id, { onSuccess: () => toast.success("Hábito excluído!") }); }}
+        />
+      )}
+
+      {/* Edit Finance Modal */}
+      {editFinance && (
+        <EditItemModal
+          open={!!editFinance}
+          onOpenChange={(open) => !open && setEditFinance(null)}
+          title="Editar Transação"
+          fields={[
+            { key: "description", label: "Descrição", type: "text", placeholder: "Descrição da transação" },
+            { key: "amount", label: "Valor (R$)", type: "number", placeholder: "0.00" },
+            { key: "type", label: "Tipo", type: "select", options: [
+              { value: "income", label: "Receita" }, { value: "expense", label: "Despesa" },
+            ]},
+            { key: "transaction_date", label: "Data", type: "date" },
+          ]}
+          values={{ description: editFinance.description, amount: editFinance.amount, type: editFinance.type, transaction_date: editFinance.transaction_date || "" }}
+          onSave={(vals) => {
+            updateTransaction.mutate({ id: editFinance.id, ...vals }, { onSuccess: () => toast.success("Transação atualizada!") });
+          }}
+          onDelete={() => { deleteTransaction.mutate(editFinance.id, { onSuccess: () => toast.success("Transação excluída!") }); }}
         />
       )}
 
