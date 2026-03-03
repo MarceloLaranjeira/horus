@@ -314,6 +314,24 @@ export const SettingsAIView = () => {
                 )}
               </div>
 
+              {/* Speed control */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Velocidade da Fala</Label>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">0.5×</span>
+                  <span className="text-sm font-medium text-primary">{settings.ttsSpeed.toFixed(1)}×</span>
+                  <span className="text-xs text-muted-foreground">2.0×</span>
+                </div>
+                <Slider
+                  value={[settings.ttsSpeed]}
+                  onValueChange={([v]) => updateSettings({ ttsSpeed: v })}
+                  min={0.5}
+                  max={2.0}
+                  step={0.1}
+                  className="w-full"
+                />
+              </div>
+
               <Button variant="outline" size="sm" onClick={async () => {
                 if (settings.ttsProvider === "elevenlabs") {
                   previewVoice(settings.ttsVoiceId);
@@ -332,6 +350,7 @@ export const SettingsAIView = () => {
                           text: "Olá! Eu sou seu assistente pessoal.",
                           voiceId: settings.ttsVoiceId,
                           provider: settings.ttsProvider,
+                          speed: settings.ttsSpeed,
                         }),
                       }
                     );
