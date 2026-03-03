@@ -25,12 +25,17 @@ export const useFinances = () => {
   const query = useQuery({
     queryKey: ["finances"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("finances")
-        .select("*, budget_categories(name, color)")
-        .order("transaction_date", { ascending: false });
-      if (error) throw error;
-      return data as (Finance & { budget_categories: { name: string; color: string } | null })[];
+      try {
+        const { data, error } = await supabase
+          .from("finances")
+          .select("*, budget_categories(name, color)")
+          .order("transaction_date", { ascending: false });
+        if (error) throw error;
+        return (data ?? []) as (Finance & { budget_categories: { name: string; color: string } | null })[];
+      } catch (e) {
+        console.error("Finances fetch error:", e);
+        return [] as (Finance & { budget_categories: { name: string; color: string } | null })[];
+      }
     },
     enabled: !!user,
   });
@@ -38,9 +43,14 @@ export const useFinances = () => {
   const categories = useQuery({
     queryKey: ["budget_categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("budget_categories").select("*").order("name");
-      if (error) throw error;
-      return data as BudgetCategory[];
+      try {
+        const { data, error } = await supabase.from("budget_categories").select("*").order("name");
+        if (error) throw error;
+        return (data ?? []) as BudgetCategory[];
+      } catch (e) {
+        console.error("Categories fetch error:", e);
+        return [] as BudgetCategory[];
+      }
     },
     enabled: !!user,
   });

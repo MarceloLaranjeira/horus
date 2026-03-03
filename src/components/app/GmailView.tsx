@@ -109,31 +109,34 @@ export const GmailView = () => {
             </div>
           ) : (
             <div>
-              {emails.map((email) => (
-                <div
-                  key={email.id}
-                  onClick={() => readEmail(email.id)}
-                  className={cn(
-                    "flex items-start gap-3 px-4 py-3 border-b border-border/20 cursor-pointer hover:bg-accent/30 transition-colors",
-                    email.isUnread && "bg-accent/10",
-                    selectedEmail?.id === email.id && "bg-accent/40"
-                  )}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className={cn("text-sm truncate", email.isUnread && "font-semibold")}>
-                        {extractName(email.from)}
+              {(emails || []).map((email) => {
+                if (!email || !email.id) return null;
+                return (
+                  <div
+                    key={email.id}
+                    onClick={() => readEmail(email.id)}
+                    className={cn(
+                      "flex items-start gap-3 px-4 py-3 border-b border-border/20 cursor-pointer hover:bg-accent/30 transition-colors",
+                      email.isUnread && "bg-accent/10",
+                      selectedEmail?.id === email.id && "bg-accent/40"
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={cn("text-sm truncate", email.isUnread && "font-semibold")}>
+                          {extractName(email.from)}
+                        </p>
+                        <span className="text-[11px] text-muted-foreground shrink-0">{formatDate(email.date)}</span>
+                      </div>
+                      <p className={cn("text-sm truncate", email.isUnread ? "font-medium" : "text-muted-foreground")}>
+                        {email.subject || "(sem assunto)"}
                       </p>
-                      <span className="text-[11px] text-muted-foreground shrink-0">{formatDate(email.date)}</span>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{email.snippet || ""}</p>
                     </div>
-                    <p className={cn("text-sm truncate", email.isUnread ? "font-medium" : "text-muted-foreground")}>
-                      {email.subject || "(sem assunto)"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{email.snippet}</p>
+                    {email.isUnread && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />}
                   </div>
-                  {email.isUnread && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </ScrollArea>

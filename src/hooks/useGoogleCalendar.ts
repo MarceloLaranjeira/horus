@@ -8,16 +8,29 @@ async function callCalendarFn(action: string, body: any = {}) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Não autenticado");
 
-  const res = await fetch(FUNCTION_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ action, ...body }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Erro na API");
+  let res: Response;
+  try {
+    res = await fetch(FUNCTION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ action, ...body }),
+    });
+  } catch (e) {
+    console.error("Calendar network error:", e);
+    throw new Error("Erro de conexão com o servidor");
+  }
+
+  let data: any;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(`Erro ao processar resposta (status ${res.status})`);
+  }
+
+  if (!res.ok) throw new Error(data?.error || "Erro na API");
   return data;
 }
 
@@ -94,10 +107,12 @@ export function useGoogleCalendar() {
     setLoadingEvents(true);
     try {
       const data = await callCalendarFn("list_events", { timeMin, timeMax, maxResults });
-      setEvents(data.events || []);
-      return data.events || [];
+      const evts = Array.isArray(data?.events) ? data.events : [];
+      setEvents(evts);
+      return evts;
     } catch (e) {
       console.error("Error fetching events:", e);
+      setEvents([]);
       return [];
     } finally {
       setLoadingEvents(false);
