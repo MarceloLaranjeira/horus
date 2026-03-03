@@ -40,20 +40,20 @@ const SummaryCard = ({
   icon: React.ElementType; value: number; label: string; color: string; delay?: number; onClick?: () => void;
 }) => (
   <motion.div
-    initial={{ opacity: 0, y: 15 }}
+    initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3, delay }}
+    transition={{ duration: 0.25, delay }}
     whileHover={{ scale: 1.04, y: -2 }}
     whileTap={{ scale: 0.97 }}
     onClick={onClick}
     className={cn(
-      "flex flex-col items-center gap-1.5 p-4 rounded-xl bg-card border border-[hsl(var(--nectar-gold))]/20 card-glow flex-1 min-w-[120px]",
+      "flex flex-col items-center gap-1 p-2.5 rounded-lg bg-card border border-[hsl(var(--nectar-gold))]/20 card-glow flex-1 min-w-[90px]",
       onClick && "cursor-pointer hover:border-primary/40 hover:shadow-[0_4px_20px_-6px_hsl(var(--primary)/0.2)] transition-[border-color,box-shadow] duration-300"
     )}
   >
-    <Icon className="w-5 h-5" style={{ color }} />
-    <span className="text-2xl font-bold">{value}</span>
-    <span className="text-[11px] text-muted-foreground text-center leading-tight">{label}</span>
+    <Icon className="w-4 h-4" style={{ color }} />
+    <span className="text-xl font-bold leading-none">{value}</span>
+    <span className="text-[10px] text-muted-foreground text-center leading-tight">{label}</span>
   </motion.div>
 );
 
@@ -61,9 +61,9 @@ const SummaryCard = ({
 const StatBox = ({ value, label, bgColor, textColor }: {
   value: number; label: string; bgColor: string; textColor: string;
 }) => (
-  <div className={cn("flex-1 rounded-lg p-3 text-center", bgColor)}>
-    <span className={cn("text-xl font-bold block", textColor)}>{value}</span>
-    <span className="text-[11px] text-muted-foreground">{label}</span>
+  <div className={cn("flex-1 rounded-md p-2 text-center", bgColor)}>
+    <span className={cn("text-lg font-bold block leading-none", textColor)}>{value}</span>
+    <span className="text-[10px] text-muted-foreground">{label}</span>
   </div>
 );
 
@@ -75,18 +75,18 @@ const SectionCard = ({
   action?: string; onAction?: () => void; delay?: number;
 }) => (
   <motion.div
-    initial={{ opacity: 0, y: 20 }}
+    initial={{ opacity: 0, y: 15 }}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3, delay }}
-    className="bg-card border border-[hsl(var(--nectar-gold))]/15 rounded-xl p-5 card-glow flex flex-col"
+    transition={{ duration: 0.25, delay }}
+    className="bg-card border border-[hsl(var(--nectar-gold))]/15 rounded-lg p-3.5 card-glow flex flex-col"
   >
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4" style={{ color: iconColor }} />
-        <h3 className="font-semibold text-sm">{title}</h3>
+    <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-1.5">
+        <Icon className="w-3.5 h-3.5" style={{ color: iconColor }} />
+        <h3 className="font-semibold text-xs">{title}</h3>
       </div>
       {action && onAction && (
-        <button onClick={onAction} className="text-xs text-muted-foreground hover:text-primary transition-colors">
+        <button onClick={onAction} className="text-[10px] text-muted-foreground hover:text-primary transition-colors">
           {action}
         </button>
       )}
@@ -263,18 +263,18 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   };
 
   return (
-    <div className="h-full overflow-auto p-6 jarvis-grid">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="h-full overflow-auto p-4 jarvis-grid">
+      <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1">
-          <h1 className="text-2xl font-bold text-gradient-gold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-0.5">
+          <h1 className="text-xl font-bold text-gradient-gold">Dashboard</h1>
+          <p className="text-xs text-muted-foreground">
             {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
           </p>
         </motion.div>
 
         {/* Summary Cards Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <SummaryCard icon={CheckSquare} value={completedTasks.length} label={`de ${tasks.length} · Concluídas hoje`} color="hsl(var(--nectar-green))" delay={0} onClick={() => onNavigate("tasks")} />
           <SummaryCard icon={Clock} value={pendingReminders.length} label="Lembretes Pendentes" color="hsl(var(--primary))" delay={0.05} onClick={() => onNavigate("reminders")} />
           <SummaryCard icon={AlertTriangle} value={overdueReminders.length + overdueTasks.length} label="Itens Atrasados" color="hsl(var(--destructive))" delay={0.1} onClick={() => onNavigate("tasks-overdue")} />
@@ -282,7 +282,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
         </div>
 
         {/* Main Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
           {/* ===== TAREFAS ===== */}
           <SectionCard title={`Tarefas - ${currentMonthLabel}`} icon={CheckSquare} iconColor="hsl(var(--nectar-green))" action="Ver todas" onAction={() => onNavigate("tasks")} delay={0.2}>
@@ -567,7 +567,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
         )}
 
         {/* ===== LEMBRETES + ANÁLISE ROW ===== */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {/* LEMBRETES */}
           <SectionCard title="Lembretes" icon={Bell} iconColor="hsl(var(--destructive))" action="Ver todos" onAction={() => onNavigate("reminders")} delay={0.4}>
             {overdueReminders.length > 0 && (
