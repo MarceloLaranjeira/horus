@@ -96,6 +96,7 @@ export interface AISettings {
   customPrompt: string;
   temperature: number;
   mood: AgentMood;
+  ttsSpeed: number;
 }
 
 const defaultSettings: AISettings = {
@@ -109,6 +110,7 @@ const defaultSettings: AISettings = {
   customPrompt: "",
   temperature: 0.7,
   mood: "friendly",
+  ttsSpeed: 1.0,
 };
 
 const STORAGE_KEY = "horus-ai-settings";

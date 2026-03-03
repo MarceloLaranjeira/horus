@@ -672,7 +672,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-            body: JSON.stringify({ text: cleanText, voiceId }),
+            body: JSON.stringify({ text: cleanText, voiceId, speed: settings.ttsSpeed }),
             signal: controller.signal,
           });
           clearTimeout(timeoutId);
@@ -712,7 +712,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tts`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-            body: JSON.stringify({ text: cleanText, voiceId, provider }),
+            body: JSON.stringify({ text: cleanText, voiceId, provider, speed: settings.ttsSpeed }),
             signal: controller.signal,
           });
           clearTimeout(timeoutId);

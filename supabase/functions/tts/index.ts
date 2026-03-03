@@ -61,7 +61,8 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voiceId, provider } = await req.json();
+    const { text, voiceId, provider, speed } = await req.json();
+    const ttsSpeed = typeof speed === "number" ? Math.max(0.5, Math.min(2.0, speed)) : 1.0;
 
     if (!text || text.trim().length === 0) {
       return new Response(
@@ -92,6 +93,7 @@ serve(async (req) => {
           input: cleanText,
           voice: voiceId || "alloy",
           response_format: "mp3",
+          speed: ttsSpeed,
         }),
       });
 
@@ -177,7 +179,7 @@ serve(async (req) => {
       const pcmBytes = base64ToUint8Array(audioPart.data);
       const wavBytes = pcm16ToWav(pcmBytes, sampleRate);
 
-      return new Response(wavBytes, {
+      return new Response(wavBytes.buffer as ArrayBuffer, {
         headers: { ...corsHeaders, "Content-Type": "audio/wav" },
       });
 
