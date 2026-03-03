@@ -13,6 +13,7 @@ import { NotesView } from "@/components/app/NotesView";
 import { AgendaView } from "@/components/app/AgendaView";
 import { GmailView } from "@/components/app/GmailView";
 import { MessagingView } from "@/components/app/MessagingView";
+import { WhatsAppView } from "@/components/app/WhatsAppView";
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { GoogleCalendarOAuthHandler } from "@/components/app/GoogleCalendarOAuthHandler";
@@ -48,7 +49,7 @@ const AppDashboard = () => {
     if (activeView.startsWith("projects")) return <ProjectsView subView={activeView} />;
     if (activeView === "agenda") return <AgendaView />;
     if (activeView === "gmail") return <GmailView />;
-    if (activeView === "whatsapp") return <MessagingView platform="whatsapp" />;
+    if (activeView === "whatsapp") return <WhatsAppView />;
     if (activeView === "telegram") return <MessagingView platform="telegram" />;
     if (activeView === "analysis") return <AnalysisView />;
     if (activeView === "notes") return <NotesView />;

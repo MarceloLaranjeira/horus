@@ -504,6 +504,42 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_messages: {
+        Row: {
+          contact_name: string | null
+          contact_phone: string
+          created_at: string
+          direction: string
+          id: string
+          message_text: string
+          status: string | null
+          user_id: string
+          wa_message_id: string | null
+        }
+        Insert: {
+          contact_name?: string | null
+          contact_phone: string
+          created_at?: string
+          direction: string
+          id?: string
+          message_text: string
+          status?: string | null
+          user_id: string
+          wa_message_id?: string | null
+        }
+        Update: {
+          contact_name?: string | null
+          contact_phone?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          message_text?: string
+          status?: string | null
+          user_id?: string
+          wa_message_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
