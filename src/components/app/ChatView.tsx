@@ -611,6 +611,12 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     setIsSpeaking(true);
     lastAssistantTextRef.current = text;
 
+    // Detect iOS/Safari for special handling
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    const isIOSSafari = isIOS && isSafari;
+    console.log("[TTS] isIOSSafari:", isIOSSafari);
+
     // Reuse pre-unlocked audio element from user gesture, or create new one
     const hasPending = !!pendingAudioRef.current;
     const audio = pendingAudioRef.current || new Audio();
@@ -659,35 +665,82 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       };
 
       if (provider === "elevenlabs") {
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-          body: JSON.stringify({ text: cleanText, voiceId }),
-        });
-        if (!response.ok) {
-          setIsSpeaking(false);
-          try {
-            const err = await response.json().catch(() => ({}));
-            if (response.status === 401 || (err.error && err.error.includes("401"))) {
-              toast({ title: "Cota do ElevenLabs esgotada", description: "Troque o provedor de voz para OpenAI ou Gemini nas configurações da IA.", variant: "destructive" });
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundo timeout
+          
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+            body: JSON.stringify({ text: cleanText, voiceId }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            setIsSpeaking(false);
+            try {
+              const err = await response.json().catch(() => ({}));
+              if (response.status === 401 || (err.error && err.error.includes("401"))) {
+                toast({ title: "Cota do ElevenLabs esgotada", description: "Troque o provedor de voz para OpenAI ou Gemini nas configurações da IA.", variant: "destructive" });
+              }
+            } catch { /* ignore */ }
+            return;
+          }
+          playAudioBlob(await response.blob());
+        } catch (err: any) {
+          if (err.name === "AbortError") {
+            console.warn("[TTS] ElevenLabs timeout, falling back to speechSynthesis");
+            if ("speechSynthesis" in window) {
+              const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 500));
+              utterance.lang = settings.voiceLang || "pt-BR";
+              utterance.onend = () => { setIsSpeaking(false); };
+              utterance.onerror = () => { setIsSpeaking(false); };
+              window.speechSynthesis.speak(utterance);
+            } else {
+              setIsSpeaking(false);
             }
-          } catch { /* ignore */ }
-          return;
+          } else {
+            throw err;
+          }
         }
-        playAudioBlob(await response.blob());
       } else if (provider === "openai" || provider === "gemini") {
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tts`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-          body: JSON.stringify({ text: cleanText, voiceId, provider }),
-        });
-        if (!response.ok) {
-          setIsSpeaking(false);
-          const err = await response.json().catch(() => ({}));
-          toast({ title: `Erro TTS ${provider}`, description: err.error || `Status ${response.status}`, variant: "destructive" });
-          return;
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
+          
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+            body: JSON.stringify({ text: cleanText, voiceId, provider }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            setIsSpeaking(false);
+            const err = await response.json().catch(() => ({}));
+            toast({ title: `Erro TTS ${provider}`, description: err.error || `Status ${response.status}`, variant: "destructive" });
+            return;
+          }
+          playAudioBlob(await response.blob());
+        } catch (err: any) {
+          if (err.name === "AbortError") {
+            console.warn(`[TTS] ${provider} timeout, falling back to speechSynthesis`);
+            if ("speechSynthesis" in window) {
+              const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 500));
+              utterance.lang = settings.voiceLang || "pt-BR";
+              utterance.onend = () => { setIsSpeaking(false); };
+              utterance.onerror = () => { setIsSpeaking(false); };
+              window.speechSynthesis.speak(utterance);
+            } else {
+              setIsSpeaking(false);
+            }
+          } else {
+            setIsSpeaking(false);
+            toast({ title: `Erro TTS ${provider}`, description: err.message || "Erro desconhecido", variant: "destructive" });
+          }
         }
-        playAudioBlob(await response.blob());
       }
     } catch (e) {
       console.error("TTS error:", e);
