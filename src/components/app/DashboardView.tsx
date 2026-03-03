@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTasks } from "@/hooks/useTasks";
 import { useFinances } from "@/hooks/useFinances";
 import { useHabits } from "@/hooks/useHabits";
@@ -21,8 +21,11 @@ import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InteractiveProgress } from "./InteractiveProgress";
-import { toast } from "sonner";
+import { successToast } from "@/lib/custom-toast";
 import type { AppView } from "@/pages/AppDashboard";
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import { SortableItem } from "./SortableItem";
 
 interface DashboardViewProps {
   onNavigate: (view: AppView) => void;
@@ -94,6 +97,9 @@ const SectionCard = ({
 
 export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const { data: tasks = [], updateTask, deleteTask, addTask } = useTasks();
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }));
+  const [taskOrder, setTaskOrder] = useState<string[]>([]);
+  const [projectOrder, setProjectOrder] = useState<string[]>([]);
   const { transactions, addTransaction, deleteTransaction, updateTransaction } = useFinances();
   const { habits, tracks, toggleTrack, addHabit, updateHabit, deleteHabit } = useHabits();
   const { reminders, toggleReminder, deleteReminder, addReminder, updateReminder } = useReminders();
@@ -131,8 +137,53 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
     }
   }, [calConnected, fetchEvents, fetchGmailUnread]);
 
+  // Sync task/project order with data
+  useEffect(() => {
+    const pendingIds = tasks.filter(t => t.status !== "done").map(t => t.id);
+    setTaskOrder(prev => {
+      const existing = prev.filter(id => pendingIds.includes(id));
+      const newIds = pendingIds.filter(id => !prev.includes(id));
+      return [...existing, ...newIds];
+    });
+  }, [tasks]);
+
+  useEffect(() => {
+    const ids = projects.map(p => p.id);
+    setProjectOrder(prev => {
+      const existing = prev.filter(id => ids.includes(id));
+      const newIds = ids.filter(id => !prev.includes(id));
+      return [...existing, ...newIds];
+    });
+  }, [projects]);
+
+  const handleDragEndTasks = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setTaskOrder(prev => {
+        const oldIndex = prev.indexOf(active.id as string);
+        const newIndex = prev.indexOf(over.id as string);
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+      successToast("Ordem atualizada!");
+    }
+  };
+
+  const handleDragEndProjects = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setProjectOrder(prev => {
+        const oldIndex = prev.indexOf(active.id as string);
+        const newIndex = prev.indexOf(over.id as string);
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+      successToast("Ordem atualizada!");
+    }
+  };
+
   // Task stats
   const pendingTasks = tasks.filter((t) => t.status !== "done");
+  const sortedPendingTasks = useMemo(() => taskOrder.map(id => pendingTasks.find(t => t.id === id)).filter(Boolean) as typeof pendingTasks, [taskOrder, pendingTasks]);
+  const sortedProjects = useMemo(() => projectOrder.map(id => projects.find(p => p.id === id)).filter(Boolean) as typeof projects, [projectOrder, projects]);
   const completedTasks = tasks.filter((t) => t.status === "done");
   const overdueTasks = tasks.filter((t) => t.due_date && isBefore(new Date(t.due_date), today) && t.status !== "done");
   const taskCompletionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
@@ -182,24 +233,24 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
   const handleAddTask = () => {
     if (!newTaskTitle.trim()) return;
     addTask.mutate({ title: newTaskTitle, due_date: todayStr }, {
-      onSuccess: () => { setNewTaskTitle(""); setShowAddTask(false); toast.success("Tarefa criada!"); },
+      onSuccess: () => { setNewTaskTitle(""); setShowAddTask(false); successToast("Tarefa criada!"); },
     });
   };
   const handleCompleteTask = (id: string) => {
     updateTask.mutate({ id, status: "done", completed_at: new Date().toISOString() }, {
-      onSuccess: () => toast.success("Tarefa concluída!"),
+      onSuccess: () => successToast("Tarefa concluída!"),
     });
   };
   const handleAddFin = () => {
     if (!newFinDesc.trim() || !newFinAmount) return;
     addTransaction.mutate({ type: newFinType, amount: parseFloat(newFinAmount), description: newFinDesc }, {
-      onSuccess: () => { setNewFinDesc(""); setNewFinAmount(""); setShowAddFin(false); toast.success("Transação adicionada!"); },
+      onSuccess: () => { setNewFinDesc(""); setNewFinAmount(""); setShowAddFin(false); successToast("Transação adicionada!"); },
     });
   };
   const handleAddHabit = () => {
     if (!newHabitName.trim()) return;
     addHabit.mutate({ name: newHabitName }, {
-      onSuccess: () => { setNewHabitName(""); setShowAddHabit(false); toast.success("Hábito criado!"); },
+      onSuccess: () => { setNewHabitName(""); setShowAddHabit(false); successToast("Hábito criado!"); },
     });
   };
   const handleAddRem = () => {
@@ -207,7 +258,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
     const dueDate = new Date();
     dueDate.setHours(dueDate.getHours() + 1);
     addReminder.mutate({ title: newRemTitle, due_date: dueDate.toISOString() }, {
-      onSuccess: () => { setNewRemTitle(""); setShowAddRem(false); toast.success("Lembrete criado!"); },
+      onSuccess: () => { setNewRemTitle(""); setShowAddRem(false); successToast("Lembrete criado!"); },
     });
   };
 
@@ -254,24 +305,30 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
                 if (last) updateTask.mutate({ id: last.id, status: "todo", completed_at: null });
               }
             }} />
-            {/* Recent tasks list */}
-            {pendingTasks.slice(0, 3).map((task) => (
-              <div key={task.id} className="flex items-center gap-2 text-sm py-1.5 group cursor-pointer hover:bg-secondary/30 rounded-lg px-1 transition-colors" onClick={() => setEditTask(task)}>
-                <button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} className="w-4 h-4 rounded-full border border-border hover:border-primary shrink-0 transition-colors flex items-center justify-center">
-                  <Check className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-primary" />
-                </button>
-                <div className={cn(
-                  "w-2 h-2 rounded-full shrink-0",
-                  task.priority === "urgent" ? "bg-destructive" :
-                  task.priority === "high" ? "bg-[hsl(var(--nectar-orange))]" :
-                  task.priority === "medium" ? "bg-primary" : "bg-[hsl(var(--nectar-green))]"
-                )} />
-                <span className="truncate flex-1">{task.title}</span>
-                {task.due_date && (
-                  <span className="text-[10px] text-muted-foreground">{format(new Date(task.due_date), "dd/MM")}</span>
-                )}
-              </div>
-            ))}
+            {/* Recent tasks list - DnD */}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndTasks}>
+              <SortableContext items={sortedPendingTasks.slice(0, 3).map(t => t.id)} strategy={verticalListSortingStrategy}>
+                {sortedPendingTasks.slice(0, 3).map((task) => (
+                  <SortableItem key={task.id} id={task.id}>
+                    <div className="flex items-center gap-2 text-sm py-1.5 group cursor-pointer hover:bg-secondary/30 rounded-lg px-1 transition-colors" onClick={() => setEditTask(task)}>
+                      <button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} className="w-4 h-4 rounded-full border border-border hover:border-primary shrink-0 transition-colors flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-primary" />
+                      </button>
+                      <div className={cn(
+                        "w-2 h-2 rounded-full shrink-0",
+                        task.priority === "urgent" ? "bg-destructive" :
+                        task.priority === "high" ? "bg-[hsl(var(--nectar-orange))]" :
+                        task.priority === "medium" ? "bg-primary" : "bg-[hsl(var(--nectar-green))]"
+                      )} />
+                      <span className="truncate flex-1">{task.title}</span>
+                      {task.due_date && (
+                        <span className="text-[10px] text-muted-foreground">{format(new Date(task.due_date), "dd/MM")}</span>
+                      )}
+                    </div>
+                  </SortableItem>
+                ))}
+              </SortableContext>
+            </DndContext>
             {showAddTask ? (
               <div className="flex gap-2 mt-3">
                 <Input value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Nova tarefa..." className="flex-1 h-8 bg-secondary text-sm" onKeyDown={(e) => e.key === "Enter" && handleAddTask()} autoFocus />
@@ -303,19 +360,25 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
                 if (last) updateProject.mutate({ id: last.id, status: "in_progress" });
               }
             }} />
-            {projects.slice(0, 4).map((p) => (
-              <div key={p.id} className="flex items-center gap-2 text-sm py-1.5 cursor-pointer hover:bg-secondary/30 rounded-lg px-1 transition-colors" onClick={() => setEditProject(p)}>
-                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || "hsl(var(--primary))" }} />
-                <span className="truncate flex-1">{p.title}</span>
-                <span className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded-full",
-                  p.status === "done" ? "bg-[hsl(var(--nectar-green))]/10 text-[hsl(var(--nectar-green))]" :
-                  p.status === "in_progress" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                )}>
-                  {p.status === "done" ? "Concluído" : p.status === "in_progress" ? "Em andamento" : p.status === "review" ? "Revisão" : "Pendente"}
-                </span>
-              </div>
-            ))}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndProjects}>
+              <SortableContext items={sortedProjects.slice(0, 4).map(p => p.id)} strategy={verticalListSortingStrategy}>
+                {sortedProjects.slice(0, 4).map((p) => (
+                  <SortableItem key={p.id} id={p.id}>
+                    <div className="flex items-center gap-2 text-sm py-1.5 cursor-pointer hover:bg-secondary/30 rounded-lg px-1 transition-colors" onClick={() => setEditProject(p)}>
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || "hsl(var(--primary))" }} />
+                      <span className="truncate flex-1">{p.title}</span>
+                      <span className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded-full",
+                        p.status === "done" ? "bg-[hsl(var(--nectar-green))]/10 text-[hsl(var(--nectar-green))]" :
+                        p.status === "in_progress" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                      )}>
+                        {p.status === "done" ? "Concluído" : p.status === "in_progress" ? "Em andamento" : p.status === "review" ? "Revisão" : "Pendente"}
+                      </span>
+                    </div>
+                  </SortableItem>
+                ))}
+              </SortableContext>
+            </DndContext>
             {projects.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">Nenhum projeto criado</p>
             )}
@@ -623,9 +686,9 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
           ]}
           values={{ title: editTask.title, description: editTask.description || "", priority: editTask.priority, status: editTask.status, due_date: editTask.due_date || "" }}
           onSave={(vals) => {
-            updateTask.mutate({ id: editTask.id, ...vals }, { onSuccess: () => toast.success("Tarefa atualizada!") });
+            updateTask.mutate({ id: editTask.id, ...vals }, { onSuccess: () => successToast("Tarefa atualizada!") });
           }}
-          onDelete={() => { deleteTask.mutate(editTask.id, { onSuccess: () => toast.success("Tarefa excluída!") }); }}
+          onDelete={() => { deleteTask.mutate(editTask.id, { onSuccess: () => successToast("Tarefa excluída!") }); }}
         />
       )}
 
@@ -642,9 +705,9 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
           ]}
           values={{ title: editReminder.title, description: editReminder.description || "", due_date: editReminder.due_date ? format(new Date(editReminder.due_date), "yyyy-MM-dd'T'HH:mm") : "" }}
           onSave={(vals) => {
-            updateReminder.mutate({ id: editReminder.id, ...vals, due_date: vals.due_date ? new Date(vals.due_date).toISOString() : undefined }, { onSuccess: () => toast.success("Lembrete atualizado!") });
+            updateReminder.mutate({ id: editReminder.id, ...vals, due_date: vals.due_date ? new Date(vals.due_date).toISOString() : undefined }, { onSuccess: () => successToast("Lembrete atualizado!") });
           }}
-          onDelete={() => { deleteReminder.mutate(editReminder.id, { onSuccess: () => toast.success("Lembrete excluído!") }); }}
+          onDelete={() => { deleteReminder.mutate(editReminder.id, { onSuccess: () => successToast("Lembrete excluído!") }); }}
         />
       )}
 
@@ -665,9 +728,9 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
           ]}
           values={{ title: editProject.title, description: editProject.description || "", status: editProject.status, color: editProject.color || "#6366f1" }}
           onSave={(vals) => {
-            updateProject.mutate({ id: editProject.id, ...vals }, { onSuccess: () => toast.success("Projeto atualizado!") });
+            updateProject.mutate({ id: editProject.id, ...vals }, { onSuccess: () => successToast("Projeto atualizado!") });
           }}
-          onDelete={() => { deleteProject.mutate(editProject.id, { onSuccess: () => toast.success("Projeto excluído!") }); }}
+          onDelete={() => { deleteProject.mutate(editProject.id, { onSuccess: () => successToast("Projeto excluído!") }); }}
         />
       )}
 
@@ -685,9 +748,9 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
           ]}
           values={{ name: editHabit.name, icon: editHabit.icon || "🔥", description: editHabit.description || "", target_days_per_week: editHabit.target_days_per_week || 7 }}
           onSave={(vals) => {
-            updateHabit.mutate({ id: editHabit.id, ...vals }, { onSuccess: () => toast.success("Hábito atualizado!") });
+            updateHabit.mutate({ id: editHabit.id, ...vals }, { onSuccess: () => successToast("Hábito atualizado!") });
           }}
-          onDelete={() => { deleteHabit.mutate(editHabit.id, { onSuccess: () => toast.success("Hábito excluído!") }); }}
+          onDelete={() => { deleteHabit.mutate(editHabit.id, { onSuccess: () => successToast("Hábito excluído!") }); }}
         />
       )}
 
@@ -707,9 +770,9 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps) => {
           ]}
           values={{ description: editFinance.description, amount: editFinance.amount, type: editFinance.type, transaction_date: editFinance.transaction_date || "" }}
           onSave={(vals) => {
-            updateTransaction.mutate({ id: editFinance.id, ...vals }, { onSuccess: () => toast.success("Transação atualizada!") });
+            updateTransaction.mutate({ id: editFinance.id, ...vals }, { onSuccess: () => successToast("Transação atualizada!") });
           }}
-          onDelete={() => { deleteTransaction.mutate(editFinance.id, { onSuccess: () => toast.success("Transação excluída!") }); }}
+          onDelete={() => { deleteTransaction.mutate(editFinance.id, { onSuccess: () => successToast("Transação excluída!") }); }}
         />
       )}
 
