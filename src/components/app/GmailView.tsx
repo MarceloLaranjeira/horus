@@ -52,18 +52,21 @@ export const GmailView = () => {
     clearSelectedEmail();
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr: string | undefined | null) => {
+    if (!dateStr) return "";
     try {
       const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return String(dateStr);
       const now = new Date();
       if (d.toDateString() === now.toDateString()) return format(d, "HH:mm");
       return format(d, "dd MMM", { locale: ptBR });
-    } catch { return dateStr; }
+    } catch { return String(dateStr || ""); }
   };
 
-  const extractName = (from: string) => {
-    const match = from?.match(/^(.+?)\s*</);
-    return match ? match[1].replace(/"/g, "") : from?.split("@")[0] || "";
+  const extractName = (from: string | undefined | null) => {
+    if (!from) return "Desconhecido";
+    const match = from.match(/^(.+?)\s*</);
+    return match ? match[1].replace(/"/g, "") : from.split("@")[0] || "Desconhecido";
   };
 
   return (
