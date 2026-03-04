@@ -8,7 +8,7 @@ async function callCalendarFn(action: string, body: any = {}, silent = false) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
     if (silent) return null;
-    throw new Error("Não autenticado");
+    throw new Error("Você precisa estar logado para acessar o Google Calendar.");
   }
 
   let res: Response;
@@ -23,17 +23,20 @@ async function callCalendarFn(action: string, body: any = {}, silent = false) {
     });
   } catch (e) {
     console.error("Calendar network error:", e);
-    throw new Error("Erro de conexão com o servidor");
+    throw new Error("Erro de conexão com o servidor. Verifique sua internet e tente novamente.");
   }
 
   let data: any;
   try {
     data = await res.json();
   } catch {
-    throw new Error(`Erro ao processar resposta (status ${res.status})`);
+    throw new Error(`Resposta inesperada do servidor (status ${res.status}). Tente novamente.`);
   }
 
-  if (!res.ok) throw new Error(data?.error || "Erro na API");
+  if (!res.ok) {
+    const errorMsg = data?.error || "Erro desconhecido na API do Google Calendar.";
+    throw new Error(errorMsg);
+  }
   return data;
 }
 
@@ -70,7 +73,7 @@ export function useGoogleCalendar() {
   const [loadingEvents, setLoadingEvents] = useState(false);
 
   const checkStatus = useCallback(async () => {
-    if (!user) { setLoading(false); return; }
+    if (!user) { setConnected(false); setLoading(false); return; }
     try {
       const data = await callCalendarFn("status", {}, true);
       setConnected(data?.connected ?? false);
@@ -86,15 +89,17 @@ export function useGoogleCalendar() {
   const connect = useCallback(async () => {
     const redirectUri = `${window.location.origin}/app`;
     const data = await callCalendarFn("get_auth_url", { redirect_uri: redirectUri });
-    if (data.auth_url) {
+    if (data?.auth_url) {
       window.location.href = data.auth_url;
+    } else {
+      throw new Error("Não foi possível gerar a URL de autorização. Tente novamente.");
     }
   }, []);
 
   const exchangeCode = useCallback(async (code: string) => {
     const redirectUri = `${window.location.origin}/app`;
     const data = await callCalendarFn("exchange_code", { code, redirect_uri: redirectUri });
-    if (data.success) {
+    if (data?.success) {
       setConnected(true);
     }
     return data;
