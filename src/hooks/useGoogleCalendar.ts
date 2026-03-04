@@ -4,9 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/test-google-calendar`;
 
-async function callCalendarFn(action: string, body: any = {}) {
+async function callCalendarFn(action: string, body: any = {}, silent = false) {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error("Não autenticado");
+  if (!session) {
+    if (silent) return null;
+    throw new Error("Não autenticado");
+  }
 
   let res: Response;
   try {
@@ -69,8 +72,8 @@ export function useGoogleCalendar() {
   const checkStatus = useCallback(async () => {
     if (!user) { setLoading(false); return; }
     try {
-      const data = await callCalendarFn("status");
-      setConnected(data.connected);
+      const data = await callCalendarFn("status", {}, true);
+      setConnected(data?.connected ?? false);
     } catch {
       setConnected(false);
     } finally {
