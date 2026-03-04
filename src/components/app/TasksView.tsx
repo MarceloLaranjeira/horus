@@ -11,9 +11,9 @@ import { format, isToday, isPast, parseISO } from "date-fns";
 import { motion } from "framer-motion";
 
 const priorityDot: Record<string, string> = {
-  urgent: "bg-destructive",
+  urgent: "bg-[hsl(var(--nectar-orange))]",
   high: "bg-destructive",
-  medium: "bg-[hsl(var(--nectar-orange))]",
+  medium: "bg-[hsl(var(--nectar-gold))]",
   low: "bg-[hsl(var(--nectar-green))]",
 };
 const priorityLabel: Record<string, string> = { urgent: "Urgente", high: "Alta", medium: "Média", low: "Baixa" };
