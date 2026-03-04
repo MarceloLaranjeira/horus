@@ -26,7 +26,7 @@ export const TasksView = ({ subView }: { subView?: string }) => {
 
   const filteredTasks = tasks.filter((t) => {
     if (subView === "tasks-today") return t.due_date && isToday(parseISO(t.due_date));
-    if (subView === "tasks-overdue") return t.due_date && isPast(parseISO(t.due_date)) && t.status !== "done";
+    if (subView === "tasks-overdue") return t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date)) && t.status !== "done";
     if (subView === "tasks-completed") return t.status === "done";
     return true;
   });
