@@ -471,10 +471,91 @@
 
 /* Jarvis grid pattern */
 .jarvis-grid {
-  background-image: 
+  background-image:
     linear-gradient(hsl(var(--cyan) / 0.03) 1px, transparent 1px),
     linear-gradient(90deg, hsl(var(--cyan) / 0.03) 1px, transparent 1px);
   background-size: 40px 40px;
+}
+
+/* ── ERP Layout Utilities ──────────────────────────────────────── */
+
+/* Thin scrollbar for sidebar */
+.erp-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.06) transparent;
+}
+.erp-scrollbar::-webkit-scrollbar {
+  width: 3px;
+}
+.erp-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.erp-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+}
+.erp-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* ERP content area scrollbar */
+.erp-content-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+.erp-content-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.erp-content-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.erp-content-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.10);
+  border-radius: 99px;
+}
+
+/* Module accent colors as CSS vars */
+:root {
+  --erp-central:       79, 142, 247;   /* blue */
+  --erp-trabalho:      34, 197, 94;    /* green */
+  --erp-financeiro:    245, 158, 11;   /* amber */
+  --erp-produtividade: 168, 85, 247;   /* purple */
+  --erp-comunicacao:   6, 182, 212;    /* cyan */
+  --erp-sistema:       148, 163, 184;  /* slate */
+}
+
+/* Subtle hover background for ERP list rows */
+.erp-row {
+  transition: background 0.12s ease;
+}
+.erp-row:hover {
+  background: rgba(255,255,255,0.025);
+}
+
+/* ERP card style */
+.erp-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.erp-card:hover {
+  background: rgba(255,255,255,0.045);
+  border-color: rgba(255,255,255,0.10);
+}
+
+/* Active sidebar item glow (optional enhancement) */
+.erp-nav-active {
+  position: relative;
+}
+.erp-nav-active::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0.06;
+  pointer-events: none;
 }
 
 /* Globe animation */
