@@ -11,6 +11,69 @@ import { useAISettings } from "@/hooks/useAISettings";
 import { HorusConstellation } from "@/components/app/HorusConstellation";
 import type { AppView } from "@/pages/AppDashboard";
 
+/* ── Typewriter effect component ──────────────────────────────────── */
+const TypewriterText = ({ text, speed = 18 }: { text: string; speed?: number }) => {
+  const [shown, setShown] = useState("");
+  const [done, setDone]   = useState(false);
+  useEffect(() => {
+    setShown(""); setDone(false);
+    if (!text) return;
+    let i = 0;
+    const id = setInterval(() => {
+      i++;
+      setShown(text.slice(0, i));
+      if (i >= text.length) { setDone(true); clearInterval(id); }
+    }, speed);
+    return () => clearInterval(id);
+  }, [text, speed]);
+  return (
+    <span>
+      {shown}
+      {!done && (
+        <motion.span
+          className="inline-block w-[2px] h-[1.1em] bg-cyan-400/80 align-middle ml-0.5 rounded-sm"
+          animate={{ opacity: [1, 0, 1] }}
+          transition={{ duration: 0.75, repeat: Infinity }}
+        />
+      )}
+    </span>
+  );
+};
+
+/* ── Audio visualizer bars ────────────────────────────────────────── */
+const BAR_H = [4, 9, 16, 22, 14, 20, 10, 24, 16, 12, 20, 8, 18, 24, 10, 6, 14, 22, 8, 16];
+const AudioBars = ({ active, color = "rgba(0,200,255," }: { active: boolean; color?: string }) => (
+  <div className="flex items-center gap-[2.5px]" style={{ height: 28 }}>
+    {BAR_H.map((maxH, i) => (
+      <motion.div
+        key={i}
+        className="w-[2px] rounded-full"
+        style={{ height: maxH, transformOrigin: "center", background: color + (active ? "0.65)" : "0.18)") }}
+        animate={active ? { scaleY: [0.15, 1, 0.35, 0.8, 0.15], opacity: [0.4, 0.9, 0.5, 0.75, 0.4] } : { scaleY: 0.12, opacity: 0.18 }}
+        transition={{ duration: 0.45 + (i * 0.055) % 0.4, repeat: active ? Infinity : 0, ease: "easeInOut", delay: (i * 0.035) % 0.28 }}
+      />
+    ))}
+  </div>
+);
+
+/* ── Holographic corner bracket ───────────────────────────────────── */
+const HudBracket = ({ pos }: { pos: "tl" | "tr" | "bl" | "br" }) => (
+  <span
+    className="absolute pointer-events-none"
+    style={{
+      width: 10, height: 10,
+      top:    pos.startsWith("t") ? 0 : "auto",
+      bottom: pos.startsWith("b") ? 0 : "auto",
+      left:   pos.endsWith("l")   ? 0 : "auto",
+      right:  pos.endsWith("r")   ? 0 : "auto",
+      borderTop:    pos.startsWith("t") ? "1.5px solid rgba(0,200,255,0.6)" : "none",
+      borderBottom: pos.startsWith("b") ? "1.5px solid rgba(0,200,255,0.6)" : "none",
+      borderLeft:   pos.endsWith("l")   ? "1.5px solid rgba(0,200,255,0.6)" : "none",
+      borderRight:  pos.endsWith("r")   ? "1.5px solid rgba(0,200,255,0.6)" : "none",
+    }}
+  />
+);
+
 type UserProfile = {
   name: string | null;
   bio: string | null;
@@ -897,240 +960,334 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   const assistantName = settings.assistantName || "Horus";
   const lastAiMessage = [...messages].reverse().find(m => m.role === "assistant");
   const lastAiText = lastAiMessage?.content
-    ? lastAiMessage.content.replace(/[*#_`~\[\]()>]/g, "").slice(0, 180)
+    ? lastAiMessage.content.replace(/[*#_`~\[\]()>]/g, "").slice(0, 220)
     : null;
 
-  const statusLabel = isLoading
-    ? "PROCESSANDO"
-    : isListening
-    ? "OUVINDO"
-    : isSpeaking
-    ? "FALANDO"
-    : "PRONTO";
+  const statusLabel = isLoading ? "PROCESSANDO" : isListening ? "OUVINDO" : isSpeaking ? "FALANDO" : "PRONTO";
+
+  const globeSize = typeof window !== "undefined"
+    ? Math.min(360, Math.min(window.innerWidth * 0.68, window.innerHeight * 0.46))
+    : 360;
 
   if (isLoadingHistory) {
     return (
       <div className="flex flex-col h-full items-center justify-center bg-[#020d14]">
-        <HorusConstellation isThinking isSpeaking={false} size={320} />
-        <p className="mt-6 text-xs font-mono tracking-widest text-cyan-400/60 uppercase">Inicializando...</p>
+        <HorusConstellation isThinking isSpeaking={false} size={300} />
+        <p className="mt-6 text-[10px] font-mono tracking-[0.3em] text-cyan-400/50 uppercase">Inicializando sistema...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full relative overflow-hidden bg-[#020d14]">
-      {/* ── Background: deep space radial + subtle grid ─────────────────── */}
+    <div className="flex flex-col h-full relative overflow-hidden select-none" style={{ background: "#020c14" }}>
+
+      {/* ── Deep-space background ───────────────────────────────────────── */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_50%,rgba(0,80,120,0.18)_0%,transparent_70%)]" />
-        <div
-          className="absolute inset-0 opacity-[0.035]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(0,200,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(0,200,255,0.6) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
+        {/* Radial core glow */}
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 75% 55% at 50% 48%, rgba(0,70,110,0.22) 0%, transparent 70%)" }} />
+        {/* Fine grid */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(0,200,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,255,1) 1px,transparent 1px)", backgroundSize: "52px 52px" }} />
+        {/* Horizontal scan line animation */}
+        <motion.div
+          className="absolute left-0 right-0 h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg,transparent,rgba(0,200,255,0.07),transparent)" }}
+          animate={{ top: ["0%", "100%"] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
         />
       </div>
 
-      {/* ── Corner HUD brackets ─────────────────────────────────────────── */}
-      {(["tl", "tr", "bl", "br"] as const).map((c) => (
-        <div
-          key={c}
-          className="absolute z-10 w-6 h-6 pointer-events-none"
-          style={{
-            top: c.startsWith("t") ? 12 : "auto",
-            bottom: c.startsWith("b") ? 12 : "auto",
-            left: c.endsWith("l") ? 12 : "auto",
-            right: c.endsWith("r") ? 12 : "auto",
-            borderTop: c.startsWith("t") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
-            borderBottom: c.startsWith("b") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
-            borderLeft: c.endsWith("l") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
-            borderRight: c.endsWith("r") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
-          }}
-        />
+      {/* ── Screen-corner HUD brackets ──────────────────────────────────── */}
+      {(["tl","tr","bl","br"] as const).map(c => (
+        <div key={c} className="absolute z-10 pointer-events-none" style={{
+          width: 22, height: 22,
+          top:    c.startsWith("t") ? 14 : "auto", bottom: c.startsWith("b") ? 14 : "auto",
+          left:   c.endsWith("l")   ? 14 : "auto", right:  c.endsWith("r")   ? 14 : "auto",
+          borderTop:    c.startsWith("t") ? "1.5px solid rgba(0,200,255,0.40)" : "none",
+          borderBottom: c.startsWith("b") ? "1.5px solid rgba(0,200,255,0.40)" : "none",
+          borderLeft:   c.endsWith("l")   ? "1.5px solid rgba(0,200,255,0.40)" : "none",
+          borderRight:  c.endsWith("r")   ? "1.5px solid rgba(0,200,255,0.40)" : "none",
+        }} />
       ))}
 
-      {/* ── Top HUD bar ─────────────────────────────────────────────────── */}
-      <div className="relative z-10 flex items-center justify-between px-8 pt-5 pb-2 shrink-0">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] font-mono tracking-[0.25em] text-cyan-400/70 uppercase">
-            {assistantName} · Interface Neural
-          </span>
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                "w-1.5 h-1.5 rounded-full transition-all duration-300",
-                isLoading || isSpeaking || isListening
-                  ? "bg-cyan-400 shadow-[0_0_6px_2px_rgba(0,200,255,0.7)]"
-                  : "bg-cyan-400/30"
-              )}
-            />
-            <span className="text-[9px] font-mono tracking-widest text-cyan-400/50 uppercase">
-              {statusLabel}
+      {/* ── Top HUD strip ───────────────────────────────────────────────── */}
+      <div className="relative z-10 shrink-0 flex items-center justify-between px-8 pt-5 pb-1.5">
+        {/* Left: name + status dot */}
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-mono tracking-[0.28em] uppercase" style={{ color: "rgba(0,200,255,0.75)" }}>
+              {assistantName} · Interface Neural
             </span>
+            <div className="flex items-center gap-1.5">
+              <span className={cn("w-1.5 h-1.5 rounded-full transition-all duration-300",
+                isLoading || isSpeaking || isListening
+                  ? "bg-cyan-400 shadow-[0_0_7px_2px_rgba(0,200,255,0.75)]"
+                  : "bg-cyan-400/25"
+              )} />
+              <span className="text-[9px] font-mono tracking-[0.25em] uppercase" style={{ color: "rgba(0,200,255,0.45)" }}>
+                {statusLabel}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Right: action buttons */}
+        <div className="flex items-center gap-2">
           {isSpeaking && (
-            <button
-              onClick={stopSpeaking}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-400/30 bg-red-500/10 text-red-400 text-[10px] font-mono tracking-wider uppercase hover:bg-red-500/20 transition-colors"
-            >
+            <button onClick={stopSpeaking}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded border text-[9px] font-mono tracking-wider uppercase transition-all"
+              style={{ borderColor: "rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.08)", color: "rgba(239,68,68,0.85)" }}>
               <VolumeX className="w-3 h-3" /> Parar
             </button>
           )}
           {!isSpeaking && lastAiText && settings.ttsEnabled && (
-            <button
-              onClick={() => {
+            <button onClick={() => {
                 const a = new Audio();
                 a.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
                 a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
                 pendingAudioRef.current = a;
                 replayLastResponse();
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-400/20 bg-cyan-400/5 text-cyan-400/60 text-[10px] font-mono tracking-wider uppercase hover:bg-cyan-400/10 hover:text-cyan-400/80 transition-colors"
-            >
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded border text-[9px] font-mono tracking-wider uppercase transition-all"
+              style={{ borderColor: "rgba(0,200,255,0.22)", background: "rgba(0,200,255,0.05)", color: "rgba(0,200,255,0.55)" }}>
               <Volume2 className="w-3 h-3" /> Repetir
             </button>
           )}
-          <button
-            onClick={clearChat}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-400/15 bg-transparent text-cyan-400/40 text-[10px] font-mono tracking-wider uppercase hover:border-red-400/30 hover:text-red-400/60 transition-colors"
-          >
+          <button onClick={clearChat}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded border text-[9px] font-mono tracking-wider uppercase transition-all hover:border-red-400/30 hover:text-red-400/60"
+            style={{ borderColor: "rgba(0,200,255,0.12)", background: "transparent", color: "rgba(0,200,255,0.32)" }}>
             <Trash2 className="w-3 h-3" /> Limpar
           </button>
         </div>
       </div>
 
-      {/* ── Central Globe Area ──────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-4">
+      {/* ── Globe + transcription ────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-4 gap-0 overflow-hidden">
+
+        {/* Globe with scale animation */}
         <motion.div
-          animate={
-            isSpeaking
-              ? { scale: [1, 1.03, 1], transition: { repeat: Infinity, duration: 1.8, ease: "easeInOut" } }
-              : isListening
-              ? { scale: [1, 1.015, 1], transition: { repeat: Infinity, duration: 1.2, ease: "easeInOut" } }
-              : { scale: 1 }
-          }
+          animate={isSpeaking
+            ? { scale: [1, 1.035, 1], transition: { repeat: Infinity, duration: 1.7, ease: "easeInOut" } }
+            : isListening
+            ? { scale: [1, 1.012, 1], transition: { repeat: Infinity, duration: 1.1, ease: "easeInOut" } }
+            : { scale: 1 }}
         >
-          <HorusConstellation
-            isThinking={isLoading}
-            isSpeaking={isSpeaking}
-            size={Math.min(380, typeof window !== "undefined" ? Math.min(window.innerWidth * 0.72, window.innerHeight * 0.52) : 380)}
-          />
+          <HorusConstellation isThinking={isLoading} isSpeaking={isSpeaking} size={globeSize} />
         </motion.div>
 
-        {/* Status label below globe */}
-        <motion.div
-          key={statusLabel}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="mt-3 flex items-center gap-2"
-        >
-          {(isLoading || isSpeaking || isListening) && (
-            <Loader2 className="w-3 h-3 text-cyan-400/60 animate-spin" />
-          )}
-          <span className="text-[11px] font-mono tracking-[0.3em] text-cyan-400/60 uppercase">
-            {statusLabel}
-          </span>
-        </motion.div>
+        {/* ── Status + audio bars row ──────────────────────────────────── */}
+        <div className="flex items-center gap-3 mt-1">
+          <AnimateKey id={statusLabel}>
+            <span className="text-[10px] font-mono tracking-[0.28em] uppercase" style={{ color: "rgba(0,200,255,0.55)" }}>
+              {statusLabel}
+            </span>
+          </AnimateKey>
+          <AudioBars active={isSpeaking || isListening} />
+        </div>
 
-        {/* Live transcript while listening */}
-        <AnimatePresence>
-          {liveTranscript && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              className="mt-4 max-w-md text-center px-4"
-            >
-              <p className="text-sm text-cyan-300/80 font-mono italic leading-relaxed">
-                &ldquo;{liveTranscript}&rdquo;
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* ── Holographic Response / Transcript Panel ─────────────────── */}
+        <div className="w-full max-w-lg mt-3 px-2">
+          <AnimatePresence mode="wait">
 
-        {/* Last AI response text (shown when not speaking and no transcript) */}
-        <AnimatePresence>
-          {!liveTranscript && lastAiText && !isLoading && (
-            <motion.div
-              key={lastAiText.slice(0, 20)}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="mt-5 max-w-lg text-center px-6"
-            >
-              <p className="text-xs text-cyan-100/40 font-mono leading-relaxed line-clamp-3">
-                {lastAiText}{lastAiMessage!.content.length > 180 ? "…" : ""}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            {/* LISTENING — user voice input */}
+            {isListening && (
+              <motion.div
+                key="listening-panel"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.25 }}
+                className="relative rounded-xl overflow-hidden"
+                style={{ border: "1px solid rgba(0,200,255,0.22)", background: "rgba(0,200,255,0.04)" }}
+              >
+                <HudBracket pos="tl" /><HudBracket pos="tr" /><HudBracket pos="bl" /><HudBracket pos="br" />
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: "rgba(0,200,255,0.12)" }}>
+                  <div className="flex items-center gap-2">
+                    <motion.span className="w-1.5 h-1.5 rounded-full bg-cyan-400"
+                      animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.7, repeat: Infinity }} />
+                    <span className="text-[9px] font-mono tracking-[0.22em] uppercase" style={{ color: "rgba(0,200,255,0.7)" }}>
+                      Entrada de voz
+                    </span>
+                  </div>
+                  <AudioBars active color="rgba(0,200,255," />
+                </div>
+                {/* Transcript text */}
+                <div className="px-4 py-3 min-h-[48px]">
+                  {liveTranscript ? (
+                    <p className="text-sm font-mono leading-relaxed" style={{ color: "rgba(180,235,255,0.85)" }}>
+                      &ldquo;{liveTranscript}&rdquo;
+                    </p>
+                  ) : (
+                    <p className="text-[11px] font-mono italic" style={{ color: "rgba(0,200,255,0.3)" }}>
+                      Aguardando fala...
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* LOADING — processing */}
+            {isLoading && !isListening && (
+              <motion.div
+                key="loading-panel"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="relative rounded-xl overflow-hidden"
+                style={{ border: "1px solid rgba(0,170,255,0.18)", background: "rgba(0,100,200,0.04)" }}
+              >
+                <HudBracket pos="tl" /><HudBracket pos="tr" /><HudBracket pos="bl" /><HudBracket pos="br" />
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" style={{ color: "rgba(0,200,255,0.6)" }} />
+                  <span className="text-[11px] font-mono tracking-wider" style={{ color: "rgba(0,200,255,0.5)" }}>
+                    Processando solicitação...
+                  </span>
+                  {/* Animated dots */}
+                  <div className="flex gap-1 ml-auto">
+                    {[0,1,2].map(i => (
+                      <motion.span key={i} className="w-1 h-1 rounded-full bg-cyan-400/50"
+                        animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8] }}
+                        transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.22 }} />
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* RESPONSE — AI last answer */}
+            {!isListening && !isLoading && lastAiText && (
+              <motion.div
+                key={lastAiText.slice(0, 28)}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.35 }}
+                className="relative rounded-xl overflow-hidden"
+                style={{ border: `1px solid rgba(0,200,255,${isSpeaking ? 0.35 : 0.18})`, background: `rgba(0,200,255,${isSpeaking ? 0.06 : 0.03})`, boxShadow: isSpeaking ? "0 0 28px rgba(0,200,255,0.08)" : "none", transition: "all 0.4s ease" }}
+              >
+                <HudBracket pos="tl" /><HudBracket pos="tr" /><HudBracket pos="bl" /><HudBracket pos="br" />
+
+                {/* Scan line overlay when speaking */}
+                {isSpeaking && (
+                  <motion.div className="absolute left-0 right-0 h-6 pointer-events-none z-0"
+                    style={{ background: "linear-gradient(0deg,transparent,rgba(0,200,255,0.05),transparent)" }}
+                    animate={{ top: ["-10%", "110%"] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }} />
+                )}
+
+                {/* Panel header */}
+                <div className="relative z-10 flex items-center justify-between px-4 py-2 border-b"
+                  style={{ borderColor: "rgba(0,200,255,0.12)" }}>
+                  <div className="flex items-center gap-2">
+                    {/* Hexagonal "AI" icon */}
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded text-[8px] font-black"
+                      style={{ background: "rgba(0,200,255,0.15)", color: "rgba(0,220,255,0.85)", border: "1px solid rgba(0,200,255,0.3)" }}>
+                      ◈
+                    </span>
+                    <span className="text-[9px] font-mono tracking-[0.22em] uppercase" style={{ color: "rgba(0,200,255,0.7)" }}>
+                      {assistantName}
+                    </span>
+                    {isSpeaking && (
+                      <motion.span className="text-[8px] font-mono px-1.5 py-0.5 rounded"
+                        animate={{ opacity: [0.6, 1, 0.6] }} transition={{ duration: 0.8, repeat: Infinity }}
+                        style={{ background: "rgba(0,200,255,0.12)", color: "rgba(0,220,255,0.8)", border: "1px solid rgba(0,200,255,0.2)" }}>
+                        TRANSMITINDO
+                      </motion.span>
+                    )}
+                  </div>
+                  {/* Character count */}
+                  <span className="text-[8px] font-mono" style={{ color: "rgba(0,200,255,0.28)" }}>
+                    {lastAiMessage!.content.length} CHARS
+                  </span>
+                </div>
+
+                {/* Separator with animated dot */}
+                <div className="relative flex items-center px-4" style={{ height: 1 }}>
+                  <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, rgba(0,200,255,0.25), transparent)" }} />
+                  {isSpeaking && (
+                    <motion.div className="absolute left-4 w-1.5 h-1.5 rounded-full bg-cyan-400"
+                      animate={{ left: ["1rem", "calc(100% - 1.5rem)"] }}
+                      transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }} />
+                  )}
+                </div>
+
+                {/* Response text with typewriter */}
+                <div className="relative z-10 px-4 pt-3 pb-4">
+                  <p className="text-[13px] font-mono leading-relaxed" style={{ color: "rgba(185,235,255,0.80)" }}>
+                    <TypewriterText
+                      key={lastAiText.slice(0, 28)}
+                      text={lastAiText + (lastAiMessage!.content.length > 220 ? "…" : "")}
+                      speed={16}
+                    />
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
       </div>
 
-      {/* ── Bottom Voice Controls ────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col items-center pb-10 pt-4 gap-4 shrink-0">
-        {/* Main mic / stop button */}
+      {/* ── Bottom mic controls ──────────────────────────────────────────── */}
+      <div className="relative z-10 shrink-0 flex flex-col items-center pb-8 pt-3 gap-3">
+
+        {/* Mic button */}
         <div className="relative flex items-center justify-center">
-          {/* Pulse rings when listening */}
           {isListening && (
             <>
-              <motion.span
-                className="absolute rounded-full border border-cyan-400/30"
-                style={{ width: 80, height: 80 }}
-                animate={{ scale: [1, 1.6, 1], opacity: [0.5, 0, 0.5] }}
-                transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
-              />
-              <motion.span
-                className="absolute rounded-full border border-cyan-400/20"
-                style={{ width: 80, height: 80 }}
-                animate={{ scale: [1, 2, 1], opacity: [0.3, 0, 0.3] }}
-                transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut", delay: 0.4 }}
-              />
+              <motion.span className="absolute rounded-full border border-cyan-400/35"
+                style={{ width: 76, height: 76 }}
+                animate={{ scale: [1, 1.65, 1], opacity: [0.5, 0, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }} />
+              <motion.span className="absolute rounded-full border border-cyan-400/20"
+                style={{ width: 76, height: 76 }}
+                animate={{ scale: [1, 2.1, 1], opacity: [0.3, 0, 0.3] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay: 0.38 }} />
             </>
           )}
-
           <button
             onClick={toggleVoice}
             disabled={isLoading}
             className={cn(
-              "relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none",
+              "relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none",
               isListening
-                ? "bg-cyan-500/20 border-2 border-cyan-400/80 shadow-[0_0_28px_6px_rgba(0,200,255,0.35)] text-cyan-300"
+                ? "border-2 border-cyan-400/90 text-cyan-300"
                 : isLoading
-                ? "bg-cyan-400/5 border border-cyan-400/15 text-cyan-400/25 cursor-not-allowed"
-                : "bg-cyan-400/8 border border-cyan-400/30 hover:bg-cyan-400/15 hover:border-cyan-400/60 hover:shadow-[0_0_18px_4px_rgba(0,200,255,0.18)] text-cyan-400/70 hover:text-cyan-300"
+                ? "border border-cyan-400/12 text-cyan-400/22 cursor-not-allowed"
+                : "border border-cyan-400/30 text-cyan-400/65 hover:text-cyan-300 hover:border-cyan-400/65"
             )}
+            style={{
+              background: isListening
+                ? "radial-gradient(circle, rgba(0,200,255,0.18) 0%, rgba(0,200,255,0.06) 100%)"
+                : "rgba(0,200,255,0.04)",
+              boxShadow: isListening ? "0 0 30px 6px rgba(0,200,255,0.30)" : undefined,
+            }}
           >
-            {isListening ? (
-              <MicOff className="w-6 h-6" />
-            ) : isLoading ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
-            ) : (
-              <Mic className="w-6 h-6" />
-            )}
+            {isListening ? <MicOff className="w-5 h-5" />
+              : isLoading ? <Loader2 className="w-5 h-5 animate-spin" />
+              : <Mic className="w-5 h-5" />}
           </button>
         </div>
 
-        <span className="text-[9px] font-mono tracking-[0.3em] text-cyan-400/35 uppercase select-none">
+        <span className="text-[9px] font-mono tracking-[0.3em] uppercase select-none"
+          style={{ color: "rgba(0,200,255,0.30)" }}>
           {isListening ? "Clique para enviar" : isLoading ? "Aguarde..." : "Clique para falar"}
         </span>
       </div>
 
-      {/* Hidden file input (kept for functionality) */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
-        multiple
-        className="hidden"
-        onChange={handleFileAttach}
-      />
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
+        multiple className="hidden" onChange={handleFileAttach} />
     </div>
   );
 };
+
+/* ── Tiny helper: animate on key change ─────────────────────────── */
+const AnimateKey = ({ id, children }: { id: string; children: React.ReactNode }) => (
+  <AnimatePresence mode="wait">
+    <motion.span key={id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+      {children}
+    </motion.span>
+  </AnimatePresence>
+);
