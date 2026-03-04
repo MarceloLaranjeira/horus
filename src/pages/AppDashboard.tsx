@@ -19,6 +19,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { GoogleCalendarOAuthHandler } from "@/components/app/GoogleCalendarOAuthHandler";
 import { ErrorBoundary } from "@/components/app/ErrorBoundary";
 import { ProfileDropdown } from "@/components/app/ProfileDropdown";
+import { CommandPalette } from "@/components/app/CommandPalette";
 
 export type AppView =
   | "dashboard"
@@ -60,6 +61,7 @@ const AppDashboard = () => {
   return (
     <SidebarProvider>
       <GoogleCalendarOAuthHandler />
+      <CommandPalette onNavigate={setActiveView} />
       <div className="flex min-h-screen w-full bg-gradient-dark">
         <AppSidebar activeView={activeView} onViewChange={setActiveView} />
         <div className="flex-1 flex flex-col overflow-hidden">
