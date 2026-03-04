@@ -1,18 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Mic, MicOff, Loader2, CheckCircle2, CheckSquare, DollarSign, Flame, Bell, Calendar, Trash2, VolumeX, Volume2, Check, Paperclip, Image, X } from "lucide-react";
+import { Send, Mic, MicOff, Loader2, CheckSquare, DollarSign, Flame, Bell, Calendar, Trash2, VolumeX, Volume2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAISettings } from "@/hooks/useAISettings";
-import { HorusConstellation, SmallConstellation } from "@/components/app/HorusConstellation";
-import { ChatProgressCards } from "@/components/app/ChatProgressCards";
+import { HorusConstellation } from "@/components/app/HorusConstellation";
 import type { AppView } from "@/pages/AppDashboard";
 
 type UserProfile = {
@@ -186,12 +182,6 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     loadConversation();
   }, [user]);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
-      if (viewport) viewport.scrollTop = viewport.scrollHeight;
-    }
-  }, [messages]);
 
 
   const saveMessage = useCallback(async (role: string, content: string) => {
@@ -905,258 +895,242 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
 
 
   const assistantName = settings.assistantName || "Horus";
-  const lastMessage = messages[messages.length - 1];
-  const showGlobeCenter = messages.length === 0 || (isLoading && lastMessage?.role === "user") || isSpeaking;
+  const lastAiMessage = [...messages].reverse().find(m => m.role === "assistant");
+  const lastAiText = lastAiMessage?.content
+    ? lastAiMessage.content.replace(/[*#_`~\[\]()>]/g, "").slice(0, 180)
+    : null;
+
+  const statusLabel = isLoading
+    ? "PROCESSANDO"
+    : isListening
+    ? "OUVINDO"
+    : isSpeaking
+    ? "FALANDO"
+    : "PRONTO";
 
   if (isLoadingHistory) {
     return (
-      <div className="flex flex-col h-full items-center justify-center jarvis-grid">
-        <HorusConstellation isThinking={true} isSpeaking={false} />
-        <p className="text-sm text-muted-foreground mt-6">Carregando conversa...</p>
+      <div className="flex flex-col h-full items-center justify-center bg-[#020d14]">
+        <HorusConstellation isThinking isSpeaking={false} size={320} />
+        <p className="mt-6 text-xs font-mono tracking-widest text-cyan-400/60 uppercase">Inicializando...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full jarvis-grid relative">
-      {/* Ambient background effects */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/3 blur-[100px]" />
+    <div className="flex flex-col h-full relative overflow-hidden bg-[#020d14]">
+      {/* ── Background: deep space radial + subtle grid ─────────────────── */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_50%,rgba(0,80,120,0.18)_0%,transparent_70%)]" />
+        <div
+          className="absolute inset-0 opacity-[0.035]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(0,200,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(0,200,255,0.6) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+          }}
+        />
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col relative z-10 overflow-hidden">
-        {/* Globe + status area */}
-        <AnimatePresence mode="wait">
-          {showGlobeCenter ? (
-            <motion.div
-              key="globe-center"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              className="flex flex-col items-center justify-center py-8 shrink-0"
-            >
-              <HorusConstellation isThinking={isLoading} isSpeaking={isSpeaking} />
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-sm text-muted-foreground mt-6"
-              >
-                {isLoading ? "Processando..." : isListening ? "Ouvindo..." : isSpeaking ? "Falando..." : `${assistantName} · Pronto`}
-              </motion.p>
-              {liveTranscript && (
-                <motion.p
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-sm text-primary/80 mt-2 italic max-w-md text-center"
-                >
-                  "{liveTranscript}"
-                </motion.p>
-              )}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="globe-mini"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center gap-4 px-6 py-3 border-b border-border/30 bg-card/30 backdrop-blur-sm shrink-0"
-            >
-              <SmallConstellation isThinking={isLoading || isSpeaking} />
-              <div className="flex-1">
-                <h2 className="font-semibold text-sm text-gradient-cyan">{assistantName}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {isLoading ? "Processando..." : isListening ? "Ouvindo..." : isSpeaking ? "Falando..." : settings.model.split("/")[1] || settings.model}
-                </p>
-              </div>
-              {liveTranscript && (
-                <p className="text-xs text-primary/70 italic truncate max-w-[200px]">"{liveTranscript}"</p>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={clearChat}
-                className="shrink-0 text-muted-foreground hover:text-destructive h-8 w-8"
-                title="Excluir chat"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* ── Corner HUD brackets ─────────────────────────────────────────── */}
+      {(["tl", "tr", "bl", "br"] as const).map((c) => (
+        <div
+          key={c}
+          className="absolute z-10 w-6 h-6 pointer-events-none"
+          style={{
+            top: c.startsWith("t") ? 12 : "auto",
+            bottom: c.startsWith("b") ? 12 : "auto",
+            left: c.endsWith("l") ? 12 : "auto",
+            right: c.endsWith("r") ? 12 : "auto",
+            borderTop: c.startsWith("t") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
+            borderBottom: c.startsWith("b") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
+            borderLeft: c.endsWith("l") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
+            borderRight: c.endsWith("r") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
+          }}
+        />
+      ))}
 
-        {/* Progress cards - only shown when user asks about tasks/progress */}
-        <AnimatePresence>
-          {onNavigate && showProgressCards && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ChatProgressCards onNavigate={onNavigate} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="flex-1 flex overflow-hidden">
-          {/* Chat messages */}
-          <ScrollArea className="flex-1 px-6 py-4" ref={scrollRef}>
-            <div className="max-w-3xl mx-auto space-y-4">
-              <AnimatePresence initial={false}>
-                {messages.map((msg, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}
-                  >
-                    {msg.role === "assistant" && <SmallConstellation isThinking={false} />}
-                    <div className="max-w-[80%] space-y-2">
-                      <div className={cn(
-                        "rounded-2xl px-4 py-3 text-sm font-sans",
-                        msg.role === "user"
-                          ? "bg-primary/15 border border-primary/30 text-foreground rounded-br-md"
-                          : "bg-card/80 border border-border/50 rounded-bl-md backdrop-blur-sm"
-                      )}>
-                        {msg.role === "assistant" ? (
-                          <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-primary prose-headings:text-primary [&_*]:font-[inherit]">
-                            <ReactMarkdown>{msg.content}</ReactMarkdown>
-                          </div>
-                        ) : msg.content}
-                      </div>
-                      {/* Replay / Stop buttons for assistant messages */}
-                      {msg.role === "assistant" && settings.ttsEnabled && (
-                        <div className="flex gap-1">
-                          {isSpeaking && lastAssistantTextRef.current === msg.content ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={stopSpeaking}
-                              className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <VolumeX className="w-3.5 h-3.5 mr-1" /> Parar
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                // Pre-unlock audio in user gesture for mobile
-                                const a = new Audio();
-                                a.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-                                a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
-                                pendingAudioRef.current = a;
-                                playTTS(msg.content);
-                              }}
-                              className="h-7 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            >
-                              <Volume2 className="w-3.5 h-3.5 mr-1" /> Ouvir
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                      {msg.actions && msg.actions.length > 0 && (
-                        <ChatActionCards actions={msg.actions} />
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              {isLoading && lastMessage?.role === "user" && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3 justify-start">
-                  <SmallConstellation isThinking={true} />
-                  <div className="bg-card/80 border border-border/50 rounded-2xl rounded-bl-md px-4 py-3 backdrop-blur-sm">
-                    <div className="flex gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-primary animate-bounce" />
-                      <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0.15s]" />
-                      <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0.3s]" />
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          </ScrollArea>
-
-        </div>
-      </div>
-
-      {/* Input bar */}
-      <div className="px-6 py-4 border-t border-border/30 bg-card/20 backdrop-blur-sm relative z-10">
-        {/* Attached files preview */}
-        {attachedFiles.length > 0 && (
-          <div className="max-w-3xl mx-auto mb-2 flex flex-wrap gap-2">
-            {attachedFiles.map((file, i) => (
-              <div key={i} className="flex items-center gap-1.5 bg-secondary/70 rounded-lg px-2.5 py-1.5 text-xs border border-border/50">
-                {file.type.startsWith("image/") ? <Image className="w-3.5 h-3.5 text-primary" /> : <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />}
-                <span className="truncate max-w-[120px]">{file.name}</span>
-                <button onClick={() => removeFile(i)} className="text-muted-foreground hover:text-destructive transition-colors">
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="max-w-3xl mx-auto flex items-end gap-2">
-          <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx" multiple className="hidden" onChange={handleFileAttach} />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            className="shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 h-11 w-11 rounded-xl"
-          >
-            <Paperclip className="w-5 h-5" />
-          </Button>
-          <div className="flex-1 relative">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={`Fale com o ${assistantName}...`}
-              className="min-h-[44px] max-h-[120px] resize-none bg-secondary/50 border-border/50 focus:border-primary/50 focus:shadow-[0_0_15px_-5px_hsl(var(--cyan)/0.3)] transition-shadow pr-2"
-              rows={1}
-            />
-          </div>
-          <div className="relative shrink-0">
-            {isListening && (
-              <>
-                <motion.span
-                  className="absolute inset-0 rounded-xl bg-destructive/20"
-                  animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                />
-                <motion.span
-                  className="absolute inset-0 rounded-xl bg-destructive/15"
-                  animate={{ scale: [1, 1.8, 1], opacity: [0.3, 0, 0.3] }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
-                />
-              </>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleVoice}
+      {/* ── Top HUD bar ─────────────────────────────────────────────────── */}
+      <div className="relative z-10 flex items-center justify-between px-8 pt-5 pb-2 shrink-0">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[10px] font-mono tracking-[0.25em] text-cyan-400/70 uppercase">
+            {assistantName} · Interface Neural
+          </span>
+          <div className="flex items-center gap-2">
+            <span
               className={cn(
-                "relative z-10 transition-all h-11 w-11 rounded-xl",
-                isListening
-                  ? "text-destructive bg-destructive/10 shadow-[0_0_20px_-3px_hsl(0_84%_60%/0.5)]"
-                  : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                "w-1.5 h-1.5 rounded-full transition-all duration-300",
+                isLoading || isSpeaking || isListening
+                  ? "bg-cyan-400 shadow-[0_0_6px_2px_rgba(0,200,255,0.7)]"
+                  : "bg-cyan-400/30"
               )}
-            >
-              {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-            </Button>
+            />
+            <span className="text-[9px] font-mono tracking-widest text-cyan-400/50 uppercase">
+              {statusLabel}
+            </span>
           </div>
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={(!input.trim() && attachedFiles.length === 0) || isLoading}
-            className="shrink-0 glow-cyan bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-11 rounded-xl"
+        </div>
+
+        <div className="flex items-center gap-3">
+          {isSpeaking && (
+            <button
+              onClick={stopSpeaking}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-400/30 bg-red-500/10 text-red-400 text-[10px] font-mono tracking-wider uppercase hover:bg-red-500/20 transition-colors"
+            >
+              <VolumeX className="w-3 h-3" /> Parar
+            </button>
+          )}
+          {!isSpeaking && lastAiText && settings.ttsEnabled && (
+            <button
+              onClick={() => {
+                const a = new Audio();
+                a.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+                a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+                pendingAudioRef.current = a;
+                replayLastResponse();
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-400/20 bg-cyan-400/5 text-cyan-400/60 text-[10px] font-mono tracking-wider uppercase hover:bg-cyan-400/10 hover:text-cyan-400/80 transition-colors"
+            >
+              <Volume2 className="w-3 h-3" /> Repetir
+            </button>
+          )}
+          <button
+            onClick={clearChat}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-400/15 bg-transparent text-cyan-400/40 text-[10px] font-mono tracking-wider uppercase hover:border-red-400/30 hover:text-red-400/60 transition-colors"
           >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          </Button>
+            <Trash2 className="w-3 h-3" /> Limpar
+          </button>
         </div>
       </div>
+
+      {/* ── Central Globe Area ──────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-4">
+        <motion.div
+          animate={
+            isSpeaking
+              ? { scale: [1, 1.03, 1], transition: { repeat: Infinity, duration: 1.8, ease: "easeInOut" } }
+              : isListening
+              ? { scale: [1, 1.015, 1], transition: { repeat: Infinity, duration: 1.2, ease: "easeInOut" } }
+              : { scale: 1 }
+          }
+        >
+          <HorusConstellation
+            isThinking={isLoading}
+            isSpeaking={isSpeaking}
+            size={Math.min(380, typeof window !== "undefined" ? Math.min(window.innerWidth * 0.72, window.innerHeight * 0.52) : 380)}
+          />
+        </motion.div>
+
+        {/* Status label below globe */}
+        <motion.div
+          key={statusLabel}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mt-3 flex items-center gap-2"
+        >
+          {(isLoading || isSpeaking || isListening) && (
+            <Loader2 className="w-3 h-3 text-cyan-400/60 animate-spin" />
+          )}
+          <span className="text-[11px] font-mono tracking-[0.3em] text-cyan-400/60 uppercase">
+            {statusLabel}
+          </span>
+        </motion.div>
+
+        {/* Live transcript while listening */}
+        <AnimatePresence>
+          {liveTranscript && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className="mt-4 max-w-md text-center px-4"
+            >
+              <p className="text-sm text-cyan-300/80 font-mono italic leading-relaxed">
+                &ldquo;{liveTranscript}&rdquo;
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Last AI response text (shown when not speaking and no transcript) */}
+        <AnimatePresence>
+          {!liveTranscript && lastAiText && !isLoading && (
+            <motion.div
+              key={lastAiText.slice(0, 20)}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="mt-5 max-w-lg text-center px-6"
+            >
+              <p className="text-xs text-cyan-100/40 font-mono leading-relaxed line-clamp-3">
+                {lastAiText}{lastAiMessage!.content.length > 180 ? "…" : ""}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── Bottom Voice Controls ────────────────────────────────────────── */}
+      <div className="relative z-10 flex flex-col items-center pb-10 pt-4 gap-4 shrink-0">
+        {/* Main mic / stop button */}
+        <div className="relative flex items-center justify-center">
+          {/* Pulse rings when listening */}
+          {isListening && (
+            <>
+              <motion.span
+                className="absolute rounded-full border border-cyan-400/30"
+                style={{ width: 80, height: 80 }}
+                animate={{ scale: [1, 1.6, 1], opacity: [0.5, 0, 0.5] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
+              />
+              <motion.span
+                className="absolute rounded-full border border-cyan-400/20"
+                style={{ width: 80, height: 80 }}
+                animate={{ scale: [1, 2, 1], opacity: [0.3, 0, 0.3] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut", delay: 0.4 }}
+              />
+            </>
+          )}
+
+          <button
+            onClick={toggleVoice}
+            disabled={isLoading}
+            className={cn(
+              "relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none",
+              isListening
+                ? "bg-cyan-500/20 border-2 border-cyan-400/80 shadow-[0_0_28px_6px_rgba(0,200,255,0.35)] text-cyan-300"
+                : isLoading
+                ? "bg-cyan-400/5 border border-cyan-400/15 text-cyan-400/25 cursor-not-allowed"
+                : "bg-cyan-400/8 border border-cyan-400/30 hover:bg-cyan-400/15 hover:border-cyan-400/60 hover:shadow-[0_0_18px_4px_rgba(0,200,255,0.18)] text-cyan-400/70 hover:text-cyan-300"
+            )}
+          >
+            {isListening ? (
+              <MicOff className="w-6 h-6" />
+            ) : isLoading ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <Mic className="w-6 h-6" />
+            )}
+          </button>
+        </div>
+
+        <span className="text-[9px] font-mono tracking-[0.3em] text-cyan-400/35 uppercase select-none">
+          {isListening ? "Clique para enviar" : isLoading ? "Aguarde..." : "Clique para falar"}
+        </span>
+      </div>
+
+      {/* Hidden file input (kept for functionality) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
+        multiple
+        className="hidden"
+        onChange={handleFileAttach}
+      />
     </div>
   );
 };
