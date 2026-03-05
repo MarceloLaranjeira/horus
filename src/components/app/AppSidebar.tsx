@@ -1,11 +1,25 @@
-import { useAuth } from "@/hooks/useAuth";
+﻿import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useTasks } from "@/hooks/useTasks";
 import { useReminders } from "@/hooks/useReminders";
 import {
-  MessageSquare, CheckSquare, DollarSign, Bell, FolderKanban,
-  Flame, LayoutDashboard, Settings, LogOut, Brain, StickyNote,
-  CalendarDays, Mail, MessageCircle, Bot, ChevronLeft, ChevronRight,
+  MessageSquare,
+  CheckSquare,
+  DollarSign,
+  Bell,
+  FolderKanban,
+  Flame,
+  LayoutDashboard,
+  Settings,
+  LogOut,
+  Brain,
+  StickyNote,
+  CalendarDays,
+  Mail,
+  MessageCircle,
+  Bot,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isPast, isToday, parseISO } from "date-fns";
@@ -22,7 +36,7 @@ interface ModuleGroup {
   id: string;
   label: string;
   color: string;
-  bg: string;
+  activeBg: string;
   items: ModuleItem[];
 }
 
@@ -32,6 +46,16 @@ interface AppSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
 }
+
+const panelSurface = {
+  border: "hsl(var(--sidebar-border) / 0.75)",
+  text: "hsl(var(--sidebar-foreground))",
+  mutedText: "hsl(var(--sidebar-foreground) / 0.72)",
+  faintText: "hsl(var(--sidebar-foreground) / 0.48)",
+  softerText: "hsl(var(--sidebar-foreground) / 0.36)",
+  hover: "hsl(var(--sidebar-accent) / 0.58)",
+  tooltip: "hsl(var(--popover))",
+};
 
 export const AppSidebar = ({
   activeView,
@@ -44,30 +68,30 @@ export const AppSidebar = ({
   const { data: tasks = [] } = useTasks();
   const { reminders } = useReminders();
 
-  const pendingTasks = tasks.filter((t) => t.status !== "done").length;
+  const pendingTasks = tasks.filter((task) => task.status !== "done").length;
   const overdueReminders = reminders.filter(
-    (r) =>
-      !r.completed &&
-      isPast(parseISO(r.due_date)) &&
-      !isToday(parseISO(r.due_date))
+    (reminder) =>
+      !reminder.completed &&
+      isPast(parseISO(reminder.due_date)) &&
+      !isToday(parseISO(reminder.due_date))
   ).length;
 
   const groups: ModuleGroup[] = [
     {
       id: "central",
       label: "Central",
-      color: "#4F8EF7",
-      bg: "rgba(79,142,247,0.10)",
+      color: "#3B82F6",
+      activeBg: "rgba(59, 130, 246, 0.16)",
       items: [
         { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
         { id: "chat", icon: MessageSquare, label: "Horus IA" },
       ],
     },
     {
-      id: "trabalho",
+      id: "work",
       label: "Trabalho",
       color: "#22C55E",
-      bg: "rgba(34,197,94,0.10)",
+      activeBg: "rgba(34, 197, 94, 0.16)",
       items: [
         {
           id: "tasks",
@@ -80,22 +104,22 @@ export const AppSidebar = ({
       ],
     },
     {
-      id: "financeiro",
+      id: "finance",
       label: "Financeiro",
       color: "#F59E0B",
-      bg: "rgba(245,158,11,0.10)",
+      activeBg: "rgba(245, 158, 11, 0.16)",
       items: [
-        { id: "finances", icon: DollarSign, label: "Finanças" },
-        { id: "analysis", icon: Brain, label: "Análise" },
+        { id: "finances", icon: DollarSign, label: "Financas" },
+        { id: "analysis", icon: Brain, label: "Analise" },
       ],
     },
     {
-      id: "produtividade",
+      id: "productivity",
       label: "Produtividade",
-      color: "#A855F7",
-      bg: "rgba(168,85,247,0.10)",
+      color: "#8B5CF6",
+      activeBg: "rgba(139, 92, 246, 0.16)",
       items: [
-        { id: "habits", icon: Flame, label: "Hábitos" },
+        { id: "habits", icon: Flame, label: "Habitos" },
         {
           id: "reminders",
           icon: Bell,
@@ -105,10 +129,10 @@ export const AppSidebar = ({
       ],
     },
     {
-      id: "comunicacao",
-      label: "Comunicação",
+      id: "comms",
+      label: "Comunicacao",
       color: "#06B6D4",
-      bg: "rgba(6,182,212,0.10)",
+      activeBg: "rgba(6, 182, 212, 0.16)",
       items: [
         { id: "agenda", icon: CalendarDays, label: "Agenda" },
         { id: "gmail", icon: Mail, label: "Gmail" },
@@ -117,110 +141,98 @@ export const AppSidebar = ({
       ],
     },
     {
-      id: "sistema",
+      id: "system",
       label: "Sistema",
-      color: "#94A3B8",
-      bg: "rgba(148,163,184,0.08)",
-      items: [{ id: "settings", icon: Settings, label: "Configurações" }],
+      color: "#64748B",
+      activeBg: "rgba(100, 116, 139, 0.18)",
+      items: [{ id: "settings", icon: Settings, label: "Configuracoes" }],
     },
   ];
 
-  const isActive = (id: AppView) =>
-    activeView === id || activeView.startsWith(id + "-");
-
-  const getActiveGroup = () =>
-    groups.find((g) => g.items.some((i) => isActive(i.id)));
+  const isActive = (id: AppView) => activeView === id || activeView.startsWith(`${id}-`);
 
   return (
-    <aside
+    <aside data-sidebar="sidebar"
       className={cn(
-        "flex flex-col h-screen shrink-0 overflow-hidden transition-all duration-300 ease-in-out",
-        "border-r",
-        collapsed ? "w-16" : "w-60"
+        "flex h-screen shrink-0 flex-col overflow-hidden border-r transition-all duration-300 ease-in-out",
+        collapsed ? "w-16" : "w-64"
       )}
       style={{
-        background: "linear-gradient(180deg, #0D1117 0%, #0A0E18 100%)",
-        borderColor: "rgba(255,255,255,0.06)",
+        borderColor: panelSurface.border,
+        background:
+          "linear-gradient(180deg, hsl(var(--sidebar) / 0.97) 0%, hsl(var(--sidebar) / 0.93) 100%)",
+        color: panelSurface.text,
+        backdropFilter: "blur(18px)",
       }}
     >
-      {/* ── Logo / Brand ─────────────────────────────────────────────── */}
       <div
         className={cn(
-          "flex items-center shrink-0 border-b h-14",
+          "flex h-14 shrink-0 items-center border-b",
           collapsed ? "justify-center px-0" : "gap-3 px-4"
         )}
-        style={{ borderColor: "rgba(255,255,255,0.06)" }}
+        style={{ borderColor: panelSurface.border }}
       >
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-white font-black text-sm"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-black text-white"
           style={{
-            background: "linear-gradient(135deg, #4F8EF7 0%, #7C3AED 100%)",
-            boxShadow: "0 0 20px rgba(79,142,247,0.35)",
+            background: "linear-gradient(135deg, #3B82F6 0%, #0EA5E9 100%)",
+            boxShadow: "0 10px 24px rgba(14, 165, 233, 0.35)",
           }}
         >
           H
         </div>
         {!collapsed && (
-          <div className="flex-1 min-w-0">
-            <p className="text-white font-bold text-sm tracking-wide leading-none">
-              HORUS
-            </p>
-            <p
-              className="text-[9px] tracking-[0.18em] mt-0.5 font-medium"
-              style={{ color: "rgba(255,255,255,0.28)" }}
-            >
-              ERP PESSOAL
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold leading-none tracking-wide">HORUS</p>
+            <p className="mt-1 text-[10px] font-medium tracking-[0.16em]" style={{ color: panelSurface.faintText }}>
+              SAAS ENGINE
             </p>
           </div>
         )}
       </div>
 
-      {/* ── Navigation ───────────────────────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-0.5 erp-scrollbar">
+      <nav className="erp-scrollbar flex-1 space-y-1 overflow-y-auto overflow-x-hidden py-2">
         {groups.map((group) => (
           <div key={group.id}>
-            {/* Group label */}
             {!collapsed ? (
-              <div className="flex items-center gap-2 px-4 pt-3 pb-1">
-                <span
-                  className="text-[9px] font-bold tracking-[0.18em] uppercase"
-                  style={{ color: group.color + "80" }}
-                >
+              <div className="flex items-center gap-2 px-4 pb-1 pt-3">
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: `${group.color}B8` }}>
                   {group.label}
                 </span>
-                <div
-                  className="flex-1 h-px"
-                  style={{ background: group.color + "18" }}
-                />
+                <div className="h-px flex-1" style={{ background: `${group.color}2E` }} />
               </div>
             ) : (
-              <div
-                className="mx-auto my-2 h-px w-8"
-                style={{ background: "rgba(255,255,255,0.06)" }}
-              />
+              <div className="mx-auto my-2 h-px w-8" style={{ background: panelSurface.border }} />
             )}
 
-            {/* Items */}
             {group.items.map((item) => {
               const active = isActive(item.id);
+
               return (
                 <button
                   key={item.id}
                   onClick={() => onViewChange(item.id)}
                   title={collapsed ? item.label : undefined}
                   className={cn(
-                    "relative w-full flex items-center transition-all duration-150 group",
-                    "text-left outline-none focus-visible:ring-1 focus-visible:ring-white/20",
-                    collapsed
-                      ? "justify-center h-10 px-0"
-                      : "gap-3 h-9 px-4",
-                    active ? "text-white" : "text-white/40 hover:text-white/70"
+                    "group relative flex w-full items-center text-left outline-none transition-all duration-150",
+                    "focus-visible:ring-1 focus-visible:ring-primary/40",
+                    collapsed ? "h-10 justify-center px-0" : "h-9 gap-3 px-4"
                   )}
                   style={{
-                    background: active ? group.bg : undefined,
+                    color: active ? panelSurface.text : panelSurface.mutedText,
+                    background: active ? `linear-gradient(90deg, ${group.activeBg}, transparent)` : "transparent",
+                  }}
+                  onMouseEnter={(event) => {
+                    if (!active) {
+                      event.currentTarget.style.background = panelSurface.hover;
+                    }
+                  }}
+                  onMouseLeave={(event) => {
+                    if (!active) {
+                      event.currentTarget.style.background = "transparent";
+                    }
                   }}
                 >
-                  {/* Left accent bar */}
                   {active && (
                     <span
                       className="absolute left-0 inset-y-1 w-[3px] rounded-r-full"
@@ -228,27 +240,20 @@ export const AppSidebar = ({
                     />
                   )}
 
-                  {/* Icon */}
                   <item.icon
-                    className="w-[15px] h-[15px] shrink-0"
-                    style={{ color: active ? group.color : undefined }}
+                    className="h-[15px] w-[15px] shrink-0"
+                    style={{ color: active ? group.color : panelSurface.mutedText }}
                   />
 
-                  {/* Label */}
-                  {!collapsed && (
-                    <span className="flex-1 text-[13px] font-medium leading-none">
-                      {item.label}
-                    </span>
-                  )}
+                  {!collapsed && <span className="flex-1 text-[13px] font-medium leading-none">{item.label}</span>}
 
-                  {/* Badge */}
                   {item.badge !== undefined && (
                     <span
                       className={cn(
-                        "flex items-center justify-center rounded-full font-bold text-white",
+                        "flex items-center justify-center rounded-full text-white",
                         collapsed
-                          ? "absolute top-1 right-1.5 w-4 h-4 text-[8px]"
-                          : "h-[18px] min-w-[18px] px-1 text-[10px]"
+                          ? "absolute right-1.5 top-1 h-4 w-4 text-[8px] font-bold"
+                          : "h-[18px] min-w-[18px] px-1 text-[10px] font-semibold"
                       )}
                       style={{ background: "#EF4444" }}
                     >
@@ -256,17 +261,19 @@ export const AppSidebar = ({
                     </span>
                   )}
 
-                  {/* Tooltip for collapsed mode */}
                   {collapsed && (
                     <span
-                      className="absolute left-full ml-3 px-2.5 py-1.5 rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity duration-150 font-medium"
-                      style={{ background: "#1E2533", boxShadow: "0 4px 12px rgba(0,0,0,0.4)" }}
+                      className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                      style={{
+                        background: panelSurface.tooltip,
+                        color: "hsl(var(--popover-foreground))",
+                        border: `1px solid ${panelSurface.border}`,
+                        boxShadow: "0 10px 26px rgba(0, 0, 0, 0.18)",
+                      }}
                     >
                       {item.label}
                       {item.badge !== undefined && (
-                        <span className="ml-1.5 text-[10px] text-red-400">
-                          {item.badge}
-                        </span>
+                        <span className="ml-1.5 text-[10px] text-red-500">{item.badge}</span>
                       )}
                     </span>
                   )}
@@ -277,38 +284,25 @@ export const AppSidebar = ({
         ))}
       </nav>
 
-      {/* ── Footer ───────────────────────────────────────────────────── */}
-      <div
-        className="shrink-0 border-t"
-        style={{ borderColor: "rgba(255,255,255,0.06)" }}
-      >
-        {/* User row */}
-        <div
-          className={cn(
-            "flex items-center py-3",
-            collapsed ? "justify-center px-0" : "gap-2.5 px-4"
-          )}
-        >
+      <div className="shrink-0 border-t" style={{ borderColor: panelSurface.border }}>
+        <div className={cn("flex items-center py-3", collapsed ? "justify-center px-0" : "gap-2.5 px-4")}>
           <div
-            className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center text-xs font-bold"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
             style={{
-              background: "rgba(79,142,247,0.18)",
-              color: "#4F8EF7",
+              background: "hsl(var(--sidebar-primary) / 0.17)",
+              color: "hsl(var(--sidebar-primary))",
             }}
           >
             {user?.email?.charAt(0).toUpperCase() ?? "U"}
           </div>
           {!collapsed && (
             <>
-              <div className="flex-1 min-w-0">
-                <p className="text-white/60 text-[11px] font-medium truncate leading-none">
-                  {user?.email?.split("@")[0] ?? "Usuário"}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[11px] font-medium leading-none" style={{ color: panelSurface.mutedText }}>
+                  {user?.email?.split("@")[0] ?? "Usuario"}
                 </p>
-                <p
-                  className="text-[9px] mt-0.5"
-                  style={{ color: "rgba(255,255,255,0.22)" }}
-                >
-                  Conta pessoal
+                <p className="mt-0.5 text-[9px]" style={{ color: panelSurface.softerText }}>
+                  Plano pessoal
                 </p>
               </div>
               <button
@@ -316,31 +310,41 @@ export const AppSidebar = ({
                   await signOut();
                   navigate("/");
                 }}
-                className="p-1.5 rounded-lg text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                className="rounded-lg p-1.5 transition-all"
+                style={{ color: panelSurface.softerText }}
                 title="Sair"
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.background = "rgba(239, 68, 68, 0.12)";
+                  event.currentTarget.style.color = "#EF4444";
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.background = "transparent";
+                  event.currentTarget.style.color = panelSurface.softerText;
+                }}
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="h-3.5 w-3.5" />
               </button>
             </>
           )}
         </div>
 
-        {/* Collapse toggle */}
         <button
           onClick={onToggle}
-          className={cn(
-            "w-full flex items-center justify-center py-2 border-t transition-all",
-            "text-white/20 hover:text-white/50 hover:bg-white/3"
-          )}
-          style={{ borderColor: "rgba(255,255,255,0.05)" }}
+          className="flex w-full items-center justify-center border-t py-2 transition-all"
+          style={{ borderColor: panelSurface.border, color: panelSurface.softerText }}
+          onMouseEnter={(event) => {
+            event.currentTarget.style.background = panelSurface.hover;
+            event.currentTarget.style.color = panelSurface.text;
+          }}
+          onMouseLeave={(event) => {
+            event.currentTarget.style.background = "transparent";
+            event.currentTarget.style.color = panelSurface.softerText;
+          }}
         >
-          {collapsed ? (
-            <ChevronRight className="w-3.5 h-3.5" />
-          ) : (
-            <ChevronLeft className="w-3.5 h-3.5" />
-          )}
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
         </button>
       </div>
     </aside>
   );
 };
+
