@@ -21,6 +21,9 @@ type UserProfile = {
 };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const STT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gemini-stt`;
+const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tts`;
+const ELEVENLABS_TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
 
 type Message = {
   role: "user" | "assistant";
@@ -33,6 +36,8 @@ type ActionResult = {
   title: string;
   success: boolean;
 };
+
+// --- Action Cards ---
 const ChatActionCards = ({ actions }: { actions: ActionResult[] }) => {
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
 
@@ -45,14 +50,14 @@ const ChatActionCards = ({ actions }: { actions: ActionResult[] }) => {
   };
 
   const actionConfig: Record<string, { icon: React.ElementType; color: string; bg: string; border: string; barColor: string }> = {
-    task: { icon: CheckSquare, color: "text-[hsl(var(--nectar-green))]", bg: "bg-[hsl(var(--nectar-green))]/5", border: "border-[hsl(var(--nectar-green))]/20", barColor: "hsl(var(--nectar-green))" },
-    habit: { icon: Flame, color: "text-[hsl(var(--nectar-orange))]", bg: "bg-[hsl(var(--nectar-orange))]/5", border: "border-[hsl(var(--nectar-orange))]/20", barColor: "hsl(var(--nectar-orange))" },
-    finance: { icon: DollarSign, color: "text-primary", bg: "bg-primary/5", border: "border-primary/20", barColor: "hsl(var(--primary))" },
-    reminder: { icon: Bell, color: "text-[hsl(var(--nectar-orange))]", bg: "bg-[hsl(var(--nectar-orange))]/5", border: "border-[hsl(var(--nectar-orange))]/20", barColor: "hsl(var(--nectar-orange))" },
+    task:    { icon: CheckSquare, color: "text-[hsl(var(--nectar-green))]",  bg: "bg-[hsl(var(--nectar-green))]/5",  border: "border-[hsl(var(--nectar-green))]/20",  barColor: "hsl(var(--nectar-green))" },
+    habit:   { icon: Flame,       color: "text-[hsl(var(--nectar-orange))]", bg: "bg-[hsl(var(--nectar-orange))]/5", border: "border-[hsl(var(--nectar-orange))]/20", barColor: "hsl(var(--nectar-orange))" },
+    finance: { icon: DollarSign,  color: "text-primary",                     bg: "bg-primary/5",                     border: "border-primary/20",                     barColor: "hsl(var(--primary))" },
+    reminder:{ icon: Bell,        color: "text-[hsl(var(--nectar-orange))]", bg: "bg-[hsl(var(--nectar-orange))]/5", border: "border-[hsl(var(--nectar-orange))]/20", barColor: "hsl(var(--nectar-orange))" },
     project: { icon: CheckSquare, color: "text-[hsl(var(--nectar-purple))]", bg: "bg-[hsl(var(--nectar-purple))]/5", border: "border-[hsl(var(--nectar-purple))]/20", barColor: "hsl(var(--nectar-purple))" },
-    email: { icon: Send, color: "text-destructive", bg: "bg-destructive/5", border: "border-destructive/20", barColor: "hsl(var(--destructive))" },
-    calendar: { icon: Calendar, color: "text-[hsl(var(--cyan))]", bg: "bg-[hsl(var(--cyan))]/5", border: "border-[hsl(var(--cyan))]/20", barColor: "hsl(var(--cyan))" },
-    note: { icon: CheckSquare, color: "text-[hsl(var(--nectar-purple))]", bg: "bg-[hsl(var(--nectar-purple))]/5", border: "border-[hsl(var(--nectar-purple))]/20", barColor: "hsl(var(--nectar-purple))" },
+    email:   { icon: Send,        color: "text-destructive",                 bg: "bg-destructive/5",                 border: "border-destructive/20",                 barColor: "hsl(var(--destructive))" },
+    calendar:{ icon: Calendar,    color: "text-[hsl(var(--cyan))]",          bg: "bg-[hsl(var(--cyan))]/5",          border: "border-[hsl(var(--cyan))]/20",          barColor: "hsl(var(--cyan))" },
+    note:    { icon: CheckSquare, color: "text-[hsl(var(--nectar-purple))]", bg: "bg-[hsl(var(--nectar-purple))]/5", border: "border-[hsl(var(--nectar-purple))]/20", barColor: "hsl(var(--nectar-purple))" },
   };
 
   return (
@@ -84,9 +89,7 @@ const ChatActionCards = ({ actions }: { actions: ActionResult[] }) => {
             </div>
             <div className={cn(
               "w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
-              checked
-                ? "bg-[hsl(var(--nectar-green))] border-[hsl(var(--nectar-green))]"
-                : "border-border/60 hover:border-primary"
+              checked ? "bg-[hsl(var(--nectar-green))] border-[hsl(var(--nectar-green))]" : "border-border/60 hover:border-primary"
             )}>
               {checked && <Check className="w-3.5 h-3.5 text-white" />}
             </div>
@@ -97,33 +100,46 @@ const ChatActionCards = ({ actions }: { actions: ActionResult[] }) => {
   );
 };
 
+// --- Hook: responsive globe size ---
+function useGlobeSize() {
+  const [size, setSize] = useState(() => {
+    if (typeof window === "undefined") return 320;
+    return Math.min(340, Math.min(window.innerWidth * 0.68, window.innerHeight * 0.48));
+  });
+  useEffect(() => {
+    const update = () => setSize(Math.min(340, Math.min(window.innerWidth * 0.68, window.innerHeight * 0.48)));
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return size;
+}
 
-
+// --- Main ChatView ---
 export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  
   const [liveTranscript, setLiveTranscript] = useState("");
   const [showProgressCards, setShowProgressCards] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<any>(null);
-  const transcriptRef = useRef("");
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastAssistantTextRef = useRef<string>("");
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const pendingAudioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { settings } = useAISettings();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const globeSize = useGlobeSize();
 
-  // Load user profile for AI context
+  // Load user profile
   useEffect(() => {
     if (!user) return;
     supabase
@@ -131,14 +147,13 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       .select("name, bio, company, role, industry, services")
       .eq("user_id", user.id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (data) setUserProfile(data as UserProfile);
-      });
+      .then(({ data }) => { if (data) setUserProfile(data as UserProfile); });
   }, [user]);
 
+  // Load conversation history
   useEffect(() => {
     if (!user) return;
-    const loadConversation = async () => {
+    const load = async () => {
       setIsLoadingHistory(true);
       try {
         const { data: convos } = await supabase
@@ -167,11 +182,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           .eq("conversation_id", convId)
           .order("created_at", { ascending: true });
 
-        if (msgs && msgs.length > 0) {
-          setMessages(msgs.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })));
-        } else {
-          setMessages([]);
-        }
+        setMessages(msgs?.length ? msgs.map(m => ({ role: m.role as "user" | "assistant", content: m.content })) : []);
       } catch (e) {
         console.error("Error loading conversation:", e);
         setMessages([]);
@@ -179,19 +190,12 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         setIsLoadingHistory(false);
       }
     };
-    loadConversation();
+    load();
   }, [user]);
-
-
 
   const saveMessage = useCallback(async (role: string, content: string) => {
     if (!user || !conversationId) return;
-    await supabase.from("chat_messages").insert({
-      conversation_id: conversationId,
-      user_id: user.id,
-      role,
-      content,
-    });
+    await supabase.from("chat_messages").insert({ conversation_id: conversationId, user_id: user.id, role, content });
     await supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
   }, [user, conversationId]);
 
@@ -201,25 +205,23 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     const calendarUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/test-google-calendar`;
     const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token;
 
+    const findByTitleOrId = async (table: string, titleField: string, titleArg?: string, idArg?: string): Promise<any> => {
+      if (idArg) {
+        const { data } = await supabase.from(table as any).select("*").eq("id", idArg).eq("user_id", user!.id).maybeSingle();
+        return data as any;
+      }
+      if (titleArg) {
+        const { data } = await supabase.from(table as any).select("*").eq("user_id", user!.id).ilike(titleField, `%${titleArg}%`).limit(1).maybeSingle();
+        return data as any;
+      }
+      return null;
+    };
+
     for (const call of toolCalls) {
       try {
         const args = JSON.parse(call.function.arguments);
         const name = call.function.name;
 
-        // Helper: find record by title (partial match) or ID
-        const findByTitleOrId = async (table: string, titleField: string, titleArg?: string, idArg?: string): Promise<any> => {
-          if (idArg) {
-            const { data } = await supabase.from(table as any).select("*").eq("id", idArg).eq("user_id", user!.id).maybeSingle();
-            return data as any;
-          }
-          if (titleArg) {
-            const { data } = await supabase.from(table as any).select("*").eq("user_id", user!.id).ilike(titleField, `%${titleArg}%`).limit(1).maybeSingle();
-            return data as any;
-          }
-          return null;
-        };
-
-        // === TASKS ===
         if (name === "create_task" && user) {
           const { error } = await supabase.from("tasks").insert({ title: args.title, description: args.description || null, priority: args.priority || "medium", due_date: args.due_date || null, user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["tasks"] }); results.push({ type: "task", title: args.title, success: true }); }
@@ -250,9 +252,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
             const summary = data.map((t: any) => `• ${t.title} [${t.status}/${t.priority}]${t.due_date ? ` — ${t.due_date}` : ""}`).join("\n");
             results.push({ type: "task", title: `${data.length} tarefa(s):\n${summary}`, success: true });
           } else { results.push({ type: "task", title: "Nenhuma tarefa encontrada", success: true }); }
-        }
-        // === HABITS ===
-        else if (name === "create_habit" && user) {
+        } else if (name === "create_habit" && user) {
           const { error } = await supabase.from("habits").insert({ name: args.name, icon: args.icon || "🎯", target_days_per_week: args.target_days_per_week || 7, user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["habits"] }); results.push({ type: "habit", title: args.name, success: true }); }
         } else if (name === "update_habit" && user) {
@@ -272,9 +272,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
             const { error } = await supabase.from("habits").delete().eq("id", record.id);
             if (!error) { queryClient.invalidateQueries({ queryKey: ["habits"] }); results.push({ type: "habit", title: `Hábito "${record.name}" excluído`, success: true }); }
           } else { results.push({ type: "habit", title: "Hábito não encontrado", success: false }); }
-        }
-        // === FINANCES ===
-        else if (name === "add_finance" && user) {
+        } else if (name === "add_finance" && user) {
           const { error } = await supabase.from("finances").insert({ description: args.description, amount: args.amount, type: args.type, user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["finances"] }); results.push({ type: "finance", title: args.description, success: true }); }
         } else if (name === "delete_finance" && user) {
@@ -283,9 +281,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
             const { error } = await supabase.from("finances").delete().eq("id", record.id);
             if (!error) { queryClient.invalidateQueries({ queryKey: ["finances"] }); results.push({ type: "finance", title: `Transação "${record.description}" excluída`, success: true }); }
           } else { results.push({ type: "finance", title: "Transação não encontrada", success: false }); }
-        }
-        // === REMINDERS ===
-        else if (name === "create_reminder" && user) {
+        } else if (name === "create_reminder" && user) {
           const { error } = await supabase.from("reminders").insert({ title: args.title, description: args.description || null, due_date: args.due_date, user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["reminders"] }); results.push({ type: "reminder", title: args.title, success: true }); }
         } else if (name === "update_reminder" && user) {
@@ -305,9 +301,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
             const { error } = await supabase.from("reminders").delete().eq("id", record.id);
             if (!error) { queryClient.invalidateQueries({ queryKey: ["reminders"] }); results.push({ type: "reminder", title: `Lembrete "${record.title}" excluído`, success: true }); }
           } else { results.push({ type: "reminder", title: "Lembrete não encontrado", success: false }); }
-        }
-        // === PROJECTS ===
-        else if (name === "create_project" && user) {
+        } else if (name === "create_project" && user) {
           const { error } = await supabase.from("projects").insert({ title: args.title, description: args.description || null, status: args.status || "backlog", color: args.color || "#6366f1", user_id: user.id });
           if (!error) { queryClient.invalidateQueries({ queryKey: ["projects"] }); results.push({ type: "project", title: args.title, success: true }); }
         } else if (name === "update_project" && user) {
@@ -327,9 +321,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
             const { error } = await supabase.from("projects").delete().eq("id", record.id);
             if (!error) { queryClient.invalidateQueries({ queryKey: ["projects"] }); results.push({ type: "project", title: `Projeto "${record.title}" excluído`, success: true }); }
           } else { results.push({ type: "project", title: "Projeto não encontrado", success: false }); }
-        }
-        // === NOTES ===
-        else if (name === "create_note" && user) {
+        } else if (name === "create_note" && user) {
           const { error } = await supabase.from("notes" as any).insert({ title: args.title, content: args.content || "", user_id: user.id } as any);
           if (!error) { queryClient.invalidateQueries({ queryKey: ["notes"] }); results.push({ type: "note", title: args.title, success: true }); }
         } else if (name === "update_note" && user) {
@@ -347,9 +339,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
             const { error } = await supabase.from("notes" as any).delete().eq("id", record.id);
             if (!error) { queryClient.invalidateQueries({ queryKey: ["notes"] }); results.push({ type: "note", title: `Nota "${record.title}" excluída`, success: true }); }
           } else { results.push({ type: "note", title: "Nota não encontrada", success: false }); }
-        }
-        // === CALENDAR ===
-        else if (name === "list_calendar_events") {
+        } else if (name === "list_calendar_events") {
           const token = await getToken();
           const days = args.days || 7;
           const timeMax = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
@@ -360,14 +350,9 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           });
           const data = await res.json();
           if (data.success && data.events) {
-            const summary = data.events.map((e: any) => {
-              const start = e.start?.dateTime || e.start?.date || "";
-              return `• ${e.summary} — ${start}`;
-            }).join("\n");
+            const summary = data.events.map((e: any) => `• ${e.summary} — ${e.start?.dateTime || e.start?.date || ""}`).join("\n");
             results.push({ type: "calendar", title: `${data.events.length} evento(s):\n${summary}`, success: true });
-          } else {
-            results.push({ type: "calendar", title: data.error || "Erro ao listar eventos", success: false });
-          }
+          } else { results.push({ type: "calendar", title: data.error || "Erro ao listar eventos", success: false }); }
         } else if (name === "create_calendar_event") {
           const token = await getToken();
           const res = await fetch(calendarUrl, {
@@ -378,9 +363,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           const data = await res.json();
           if (data.success) {
             results.push({ type: "calendar", title: `Evento "${args.summary}" criado!`, success: true });
-          } else {
-            results.push({ type: "calendar", title: data.error || "Erro ao criar evento", success: false });
-          }
+          } else { results.push({ type: "calendar", title: data.error || "Erro ao criar evento", success: false }); }
         } else if (name === "list_emails") {
           const res = await fetch(gmailUrl, {
             method: "POST",
@@ -391,9 +374,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           if (data.success && data.emails) {
             const summary = data.emails.map((e: any) => `• ${e.subject} — de: ${e.from}${e.isUnread ? " 🔵" : ""}`).join("\n");
             results.push({ type: "email", title: `${data.emails.length} emails encontrados:\n${summary}`, success: true });
-          } else {
-            results.push({ type: "email", title: data.error || "Erro ao listar emails", success: false });
-          }
+          } else { results.push({ type: "email", title: data.error || "Erro ao listar emails", success: false }); }
         } else if (name === "read_email") {
           const res = await fetch(gmailUrl, {
             method: "POST",
@@ -403,9 +384,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           const data = await res.json();
           if (data.success && data.email) {
             results.push({ type: "email", title: `Lido: "${data.email.subject}" de ${data.email.from}`, success: true });
-          } else {
-            results.push({ type: "email", title: data.error || "Erro ao ler email", success: false });
-          }
+          } else { results.push({ type: "email", title: data.error || "Erro ao ler email", success: false }); }
         } else if (name === "send_email") {
           const res = await fetch(gmailUrl, {
             method: "POST",
@@ -415,51 +394,245 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           const data = await res.json();
           if (data.success) {
             results.push({ type: "email", title: `Email enviado para ${args.to}`, success: true });
-          } else {
-            results.push({ type: "email", title: data.error || "Erro ao enviar email", success: false });
-          }
+          } else { results.push({ type: "email", title: data.error || "Erro ao enviar email", success: false }); }
         }
       } catch (e) { console.error("Action error:", e); }
     }
     return results;
   };
 
-  const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setAttachedFiles(prev => [...prev, ...files].slice(0, 5));
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const removeFile = (index: number) => {
-    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  // Pre-unlock audio element ref for mobile TTS (must be created in user gesture)
-  const pendingAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  const sendMessage = async (text: string) => {
-    // Immediately unlock audio in user gesture context for mobile TTS
-    if (settings.ttsEnabled) {
-      const audio = new Audio();
-      audio.preload = "auto";
-      // Play silent audio to unlock autoplay on iOS/Android
-      audio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-      audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
-      pendingAudioRef.current = audio;
-      console.log("[TTS] Audio element pre-unlocked in user gesture");
+  // --- TTS ---
+  const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
     }
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  }, []);
 
-    // Build message with file info
-    let finalText = text.trim();
-    if (attachedFiles.length > 0) {
-      const fileNames = attachedFiles.map(f => f.name).join(", ");
-      finalText += `\n\n[Arquivos anexados: ${fileNames}]`;
-      if (!finalText.replace(/\[Arquivos anexados:.*\]/, "").trim()) {
-        finalText = `Criei uma tarefa a partir dos seguintes arquivos: ${fileNames}. Por favor, crie uma tarefa com base nos nomes dos arquivos.`;
+  const playTTS = useCallback(async (text: string) => {
+    if (!settings.ttsEnabled) return;
+    stopSpeaking();
+    setIsSpeaking(true);
+    lastAssistantTextRef.current = text;
+
+    const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000).trim();
+    if (!cleanText) { setIsSpeaking(false); return; }
+
+    const provider = settings.ttsProvider || "openai";
+    const voiceId = settings.ttsVoiceId || "alloy";
+
+    // Reuse pre-unlocked audio element or create new one
+    const audio = pendingAudioRef.current || new Audio();
+    pendingAudioRef.current = null;
+    audio.preload = "auto";
+    audioRef.current = audio;
+
+    const playBlob = (blob: Blob) => {
+      const url = URL.createObjectURL(blob);
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = url;
+      audio.onended = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
+      audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
+      audio.load();
+      audio.play().catch(() => {
+        URL.revokeObjectURL(url);
+        // Fallback to browser speech synthesis
+        if ("speechSynthesis" in window) {
+          const utt = new SpeechSynthesisUtterance(cleanText.substring(0, 500));
+          utt.lang = settings.voiceLang || "pt-BR";
+          utt.onend = () => setIsSpeaking(false);
+          utt.onerror = () => setIsSpeaking(false);
+          window.speechSynthesis.speak(utt);
+        } else {
+          setIsSpeaking(false);
+        }
+      });
+    };
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+      const endpoint = provider === "elevenlabs" ? ELEVENLABS_TTS_URL : TTS_URL;
+      const body = provider === "elevenlabs"
+        ? { text: cleanText, voiceId, speed: settings.ttsSpeed }
+        : { text: cleanText, voiceId, provider, speed: settings.ttsSpeed };
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        setIsSpeaking(false);
+        const err = await response.json().catch(() => ({}));
+        if (provider === "elevenlabs" && (response.status === 401 || String(err.error).includes("401"))) {
+          toast({ title: "Cota ElevenLabs esgotada", description: "Mude para OpenAI nas configurações da IA.", variant: "destructive" });
+        } else {
+          toast({ title: `Erro TTS (${provider})`, description: err.error || `Status ${response.status}`, variant: "destructive" });
+        }
+        return;
+      }
+
+      playBlob(await response.blob());
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        // Timeout fallback
+        if ("speechSynthesis" in window) {
+          const utt = new SpeechSynthesisUtterance(cleanText.substring(0, 500));
+          utt.lang = settings.voiceLang || "pt-BR";
+          utt.onend = () => setIsSpeaking(false);
+          utt.onerror = () => setIsSpeaking(false);
+          window.speechSynthesis.speak(utt);
+        } else {
+          setIsSpeaking(false);
+        }
+      } else {
+        console.error("TTS error:", err);
+        setIsSpeaking(false);
       }
     }
+  }, [settings, stopSpeaking, toast]);
+
+  const replayLastResponse = () => {
+    if (lastAssistantTextRef.current) {
+      const a = new Audio();
+      a.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+      pendingAudioRef.current = a;
+      playTTS(lastAssistantTextRef.current);
+    }
+  };
+
+  // --- Gemini STT via MediaRecorder ---
+  const startGeminiRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+
+      // Pick best supported mime type
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+        ? "audio/mp4"
+        : "audio/ogg";
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        setIsListening(false);
+
+        const chunks = audioChunksRef.current;
+        if (chunks.length === 0) return;
+
+        const blob = new Blob(chunks, { type: mimeType });
+        if (blob.size < 1000) {
+          // Too small to be valid audio
+          setLiveTranscript("");
+          return;
+        }
+
+        setIsTranscribing(true);
+        setLiveTranscript("Transcrevendo...");
+
+        try {
+          // Convert blob to base64
+          const arrayBuffer = await blob.arrayBuffer();
+          const uint8 = new Uint8Array(arrayBuffer);
+          let binary = "";
+          uint8.forEach(b => { binary += String.fromCharCode(b); });
+          const base64 = btoa(binary);
+
+          const response = await fetch(STT_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ audio: base64, mimeType, lang: settings.voiceLang || "pt-BR" }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`STT error ${response.status}`);
+          }
+
+          const { text } = await response.json();
+          setLiveTranscript("");
+          setIsTranscribing(false);
+
+          if (text && text.trim()) {
+            sendMessage(text.trim());
+          }
+        } catch (e) {
+          console.error("Gemini STT error:", e);
+          setLiveTranscript("");
+          setIsTranscribing(false);
+          toast({ title: "Erro na transcrição", description: "Tente novamente.", variant: "destructive" });
+        }
+      };
+
+      recorder.start(250); // collect data every 250ms
+      setIsListening(true);
+      setLiveTranscript("");
+    } catch (err: any) {
+      console.error("Mic error:", err);
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
+      } else {
+        toast({ title: "Erro ao acessar microfone", description: err.message, variant: "destructive" });
+      }
+    }
+  };
+
+  const stopGeminiRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
+  };
+
+  const toggleVoice = () => {
+    if (isListening) {
+      stopGeminiRecording();
+      return;
+    }
+    if (isLoading || isTranscribing) return;
+    stopSpeaking();
+
+    // Pre-unlock audio for TTS response
+    if (settings.ttsEnabled) {
+      const a = new Audio();
+      a.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+      pendingAudioRef.current = a;
+    }
+
+    startGeminiRecording();
+  };
+
+  // --- Send Message ---
+  const sendMessage = async (text: string) => {
+    const finalText = text.trim();
     if (!finalText || isLoading) return;
-    setAttachedFiles([]);
+
     const userMsg: Message = { role: "user", content: finalText };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
@@ -467,15 +640,12 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     setLiveTranscript("");
     setIsLoading(true);
 
-    await saveMessage("user", text);
+    await saveMessage("user", finalText);
 
-    // Check if user is asking about tasks/progress
     const progressKeywords = /\b(tarefa|tarefas|task|tasks|progresso|evolução|andamento|status|hábito|hábitos|habit|finanças|finance|lembrete|lembretes|reminder|projeto|projetos|project|resumo do dia|como estou|meu dia|pendente|pendentes|concluíd)/i;
-    if (progressKeywords.test(text)) {
-      setShowProgressCards(true);
-    }
+    if (progressKeywords.test(finalText)) setShowProgressCards(true);
 
-    const apiMessages = updatedMessages.slice(-50).map((m) => ({ role: m.role, content: m.content }));
+    const apiMessages = updatedMessages.slice(-50).map(m => ({ role: m.role, content: m.content }));
 
     try {
       // Action extraction
@@ -504,7 +674,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           temperature: settings.temperature,
           mood: settings.mood,
           userProfile,
-          executedActions: actionResults.length > 0 ? actionResults.map((a) => `${a.type}: "${a.title}" criado com sucesso`) : undefined,
+          executedActions: actionResults.length > 0 ? actionResults.map(a => `${a.type}: "${a.title}" criado com sucesso`) : undefined,
         }),
       });
 
@@ -517,7 +687,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       let assistantSoFar = "";
       const upsertAssistant = (chunk: string) => {
         assistantSoFar += chunk;
-        setMessages((prev) => {
+        setMessages(prev => {
           const last = prev[prev.length - 1];
           if (last?.role === "assistant" && prev.length > updatedMessages.length) {
             return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar, actions: actionResults.length > 0 ? actionResults : undefined } : m);
@@ -530,42 +700,23 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       const decoder = new TextDecoder();
       let textBuffer = "";
       let streamDone = false;
+
       while (!streamDone) {
         const { done, value } = await reader.read();
         if (done) break;
         textBuffer += decoder.decode(value, { stream: true });
         let newlineIndex: number;
         while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
+          let line = textBuffer.slice(0, newlineIndex).trim();
           textBuffer = textBuffer.slice(newlineIndex + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
+          if (!line || line.startsWith(":") || !line.startsWith("data: ")) continue;
           const jsonStr = line.slice(6).trim();
           if (jsonStr === "[DONE]") { streamDone = true; break; }
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            const content = parsed.choices?.[0]?.delta?.content;
             if (content) upsertAssistant(content);
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
-        }
-      }
-      if (textBuffer.trim()) {
-        for (let raw of textBuffer.split("\n")) {
-          if (!raw) continue;
-          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-          if (raw.startsWith(":") || raw.trim() === "") continue;
-          if (!raw.startsWith("data: ")) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) upsertAssistant(content);
-          } catch { /* ignore */ }
+          } catch { /* ignore partial json */ }
         }
       }
 
@@ -581,303 +732,9 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     }
   };
 
-  const handleSend = () => sendMessage(input.trim());
-
-  const stopSpeaking = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-    setIsSpeaking(false);
-  }, []);
-
-  const playTTS = async (text: string) => {
-    if (!settings.ttsEnabled) return;
-    stopSpeaking(); // Stop any current speech first
-    setIsSpeaking(true);
-    lastAssistantTextRef.current = text;
-
-    // Detect iOS/Safari for special handling
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-    const isIOSSafari = isIOS && isSafari;
-    console.log("[TTS] isIOSSafari:", isIOSSafari);
-
-    // Reuse pre-unlocked audio element from user gesture, or create new one
-    const hasPending = !!pendingAudioRef.current;
-    const audio = pendingAudioRef.current || new Audio();
-    pendingAudioRef.current = null;
-    audio.preload = "auto";
-    audioRef.current = audio;
-    console.log("[TTS] Using", hasPending ? "pre-unlocked" : "new", "audio element");
-
-    // On mobile, if we don't have a pre-unlocked element, try to unlock now
-    // by playing a silent sound (may not work without gesture, but worth trying)
-    if (!hasPending) {
-      audio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-      try { await audio.play(); audio.pause(); audio.currentTime = 0; } catch { /* expected outside gesture */ }
-    }
-
-    try {
-      const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000);
-      if (!cleanText.trim()) { setIsSpeaking(false); audioRef.current = null; return; }
-
-      const provider = settings.ttsProvider || "elevenlabs";
-      const voiceId = settings.ttsVoiceId;
-      console.log("[TTS] Provider:", provider, "| VoiceId:", voiceId, "| Text length:", cleanText.length);
-
-      const playAudioBlob = (blob: Blob) => {
-        const url = URL.createObjectURL(blob);
-        audio.pause();
-        audio.currentTime = 0;
-        audio.src = url;
-        audio.onended = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
-        audio.onerror = (e) => { console.error("[TTS] Audio error:", e); setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
-        audio.load();
-        audio.play().catch((err) => {
-          console.warn("[TTS] Play blocked, falling back to speechSynthesis:", err);
-          URL.revokeObjectURL(url);
-          // Fallback: use native speechSynthesis
-          if ("speechSynthesis" in window) {
-            const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 500));
-            utterance.lang = settings.voiceLang || "pt-BR";
-            utterance.onend = () => { setIsSpeaking(false); };
-            utterance.onerror = () => { setIsSpeaking(false); };
-            window.speechSynthesis.speak(utterance);
-          } else {
-            setIsSpeaking(false);
-          }
-        });
-      };
-
-      if (provider === "elevenlabs") {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundo timeout
-          
-          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-            body: JSON.stringify({ text: cleanText, voiceId, speed: settings.ttsSpeed }),
-            signal: controller.signal,
-          });
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) {
-            setIsSpeaking(false);
-            try {
-              const err = await response.json().catch(() => ({}));
-              if (response.status === 401 || (err.error && err.error.includes("401"))) {
-                toast({ title: "Cota do ElevenLabs esgotada", description: "Troque o provedor de voz para OpenAI ou Gemini nas configurações da IA.", variant: "destructive" });
-              }
-            } catch { /* ignore */ }
-            return;
-          }
-          playAudioBlob(await response.blob());
-        } catch (err: any) {
-          if (err.name === "AbortError") {
-            console.warn("[TTS] ElevenLabs timeout, falling back to speechSynthesis");
-            if ("speechSynthesis" in window) {
-              const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 500));
-              utterance.lang = settings.voiceLang || "pt-BR";
-              utterance.onend = () => { setIsSpeaking(false); };
-              utterance.onerror = () => { setIsSpeaking(false); };
-              window.speechSynthesis.speak(utterance);
-            } else {
-              setIsSpeaking(false);
-            }
-          } else {
-            throw err;
-          }
-        }
-      } else if (provider === "openai" || provider === "gemini") {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000);
-          
-          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tts`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-            body: JSON.stringify({ text: cleanText, voiceId, provider, speed: settings.ttsSpeed }),
-            signal: controller.signal,
-          });
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) {
-            setIsSpeaking(false);
-            const err = await response.json().catch(() => ({}));
-            toast({ title: `Erro TTS ${provider}`, description: err.error || `Status ${response.status}`, variant: "destructive" });
-            return;
-          }
-          playAudioBlob(await response.blob());
-        } catch (err: any) {
-          if (err.name === "AbortError") {
-            console.warn(`[TTS] ${provider} timeout, falling back to speechSynthesis`);
-            if ("speechSynthesis" in window) {
-              const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 500));
-              utterance.lang = settings.voiceLang || "pt-BR";
-              utterance.onend = () => { setIsSpeaking(false); };
-              utterance.onerror = () => { setIsSpeaking(false); };
-              window.speechSynthesis.speak(utterance);
-            } else {
-              setIsSpeaking(false);
-            }
-          } else {
-            setIsSpeaking(false);
-            toast({ title: `Erro TTS ${provider}`, description: err.message || "Erro desconhecido", variant: "destructive" });
-          }
-        }
-      }
-    } catch (e) {
-      console.error("TTS error:", e);
-      setIsSpeaking(false);
-    }
-  };
-
-  const replayLastResponse = () => {
-    if (lastAssistantTextRef.current) {
-      playTTS(lastAssistantTextRef.current);
-    }
-  };
-
-  const isListeningRef = useRef(false);
-
-  const startRecognition = () => {
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionAPI) {
-      toast({ title: "Voz não suportada neste navegador.", variant: "destructive" });
-      return;
-    }
-
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-    isListeningRef.current = true;
-    setIsListening(true);
-    setLiveTranscript("");
-    transcriptRef.current = "";
-
-    const recognition = new SpeechRecognitionAPI();
-    recognition.lang = settings.voiceLang || "pt-BR";
-    recognition.interimResults = true;
-    recognition.continuous = !isMobile;
-    recognition.maxAlternatives = 1;
-
-    recognition.onresult = (event: any) => {
-      let full = "";
-      for (let i = 0; i < event.results.length; i++) {
-        full += event.results[i][0].transcript;
-      }
-      transcriptRef.current = full;
-      setLiveTranscript(full);
-      console.log("[STT] Transcript:", full);
-    };
-
-    recognition.onerror = (e: any) => {
-      console.log("[STT] Error:", e.error, "| isListening:", isListeningRef.current);
-
-      // Em mobile, não reiniciar automaticamente fora de gesto do usuário
-      if (!isMobile && (e.error === "no-speech" || e.error === "aborted") && isListeningRef.current) {
-        setTimeout(() => {
-          if (isListeningRef.current && recognitionRef.current) {
-            try { recognitionRef.current.start(); } catch { /* ignore */ }
-          }
-        }, 300);
-        return;
-      }
-
-      isListeningRef.current = false;
-      setIsListening(false);
-      setLiveTranscript("");
-      transcriptRef.current = "";
-      recognitionRef.current = null;
-
-      if (e.error === "not-allowed") {
-        toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
-      }
-    };
-
-    recognition.onend = () => {
-      console.log("[STT] onend | isListening:", isListeningRef.current);
-
-      // Em mobile, finaliza a captura sem tentar restart automático
-      if (isMobile) {
-        const finalText = transcriptRef.current.trim();
-        isListeningRef.current = false;
-        setIsListening(false);
-        setLiveTranscript("");
-        transcriptRef.current = "";
-        recognitionRef.current = null;
-
-        if (finalText) sendMessage(finalText);
-        return;
-      }
-
-      if (isListeningRef.current && recognitionRef.current) {
-        setTimeout(() => {
-          if (isListeningRef.current && recognitionRef.current) {
-            try { recognitionRef.current.start(); } catch {
-              isListeningRef.current = false;
-              setIsListening(false);
-            }
-          }
-        }, 200);
-      }
-    };
-
-    recognitionRef.current = recognition;
-    try {
-      recognition.start();
-      console.log("[STT] Recognition started successfully");
-    } catch (err) {
-      console.error("[STT] Start error:", err);
-      isListeningRef.current = false;
-      setIsListening(false);
-      toast({ title: "Erro ao iniciar microfone", variant: "destructive" });
-    }
-  };
-
-  const toggleVoice = () => {
-    if (isListening) {
-      isListeningRef.current = false;
-      setIsListening(false);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
-      }
-      const finalText = transcriptRef.current.trim();
-      if (finalText) {
-        setLiveTranscript("");
-        sendMessage(finalText);
-      } else {
-        setLiveTranscript("");
-      }
-      transcriptRef.current = "";
-      return;
-    }
-    stopSpeaking();
-
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-    // CRITICAL: On mobile, request mic permission SYNCHRONOUSLY within user gesture
-    // then start recognition in the .then() callback to preserve gesture context
-    if (isMobile && navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then((stream) => {
-          stream.getTracks().forEach(t => t.stop());
-          console.log("[STT] Mobile: mic permission granted via getUserMedia");
-          startRecognition();
-        })
-        .catch((err) => {
-          console.error("[STT] getUserMedia denied:", err);
-          toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
-        });
-    } else {
-      startRecognition();
-    }
+  const handleSend = () => {
+    const text = input.trim();
+    if (text) sendMessage(text);
   };
 
   const clearChat = async () => {
@@ -892,16 +749,15 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-
-
   const assistantName = settings.assistantName || "Horus";
   const lastAiMessage = [...messages].reverse().find(m => m.role === "assistant");
   const lastAiText = lastAiMessage?.content
     ? lastAiMessage.content.replace(/[*#_`~\[\]()>]/g, "").slice(0, 180)
     : null;
 
-  const statusLabel = isLoading
-    ? "PROCESSANDO"
+  const isBusy = isLoading || isTranscribing;
+  const statusLabel = isBusy
+    ? (isTranscribing ? "TRANSCREVENDO" : "PROCESSANDO")
     : isListening
     ? "OUVINDO"
     : isSpeaking
@@ -911,7 +767,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   if (isLoadingHistory) {
     return (
       <div className="flex flex-col h-full items-center justify-center bg-[#020d14]">
-        <HorusConstellation isThinking isSpeaking={false} size={320} />
+        <HorusConstellation isThinking isSpeaking={false} size={globeSize} />
         <p className="mt-6 text-xs font-mono tracking-widest text-cyan-400/60 uppercase">Inicializando...</p>
       </div>
     );
@@ -919,92 +775,83 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
 
   return (
     <div className="flex flex-col h-full relative overflow-hidden bg-[#020d14]">
-      {/* ── Background: deep space radial + subtle grid ─────────────────── */}
+      {/* Background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_50%,rgba(0,80,120,0.18)_0%,transparent_70%)]" />
         <div
           className="absolute inset-0 opacity-[0.035]"
           style={{
-            backgroundImage:
-              "linear-gradient(rgba(0,200,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(0,200,255,0.6) 1px, transparent 1px)",
+            backgroundImage: "linear-gradient(rgba(0,200,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(0,200,255,0.6) 1px, transparent 1px)",
             backgroundSize: "48px 48px",
           }}
         />
       </div>
 
-      {/* ── Corner HUD brackets ─────────────────────────────────────────── */}
-      {(["tl", "tr", "bl", "br"] as const).map((c) => (
+      {/* Corner HUD brackets */}
+      {(["tl", "tr", "bl", "br"] as const).map(c => (
         <div
           key={c}
-          className="absolute z-10 w-6 h-6 pointer-events-none"
+          className="absolute z-10 w-5 h-5 pointer-events-none"
           style={{
-            top: c.startsWith("t") ? 12 : "auto",
-            bottom: c.startsWith("b") ? 12 : "auto",
-            left: c.endsWith("l") ? 12 : "auto",
-            right: c.endsWith("r") ? 12 : "auto",
-            borderTop: c.startsWith("t") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
-            borderBottom: c.startsWith("b") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
-            borderLeft: c.endsWith("l") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
-            borderRight: c.endsWith("r") ? "1.5px solid rgba(0,200,255,0.35)" : "none",
+            top: c.startsWith("t") ? 10 : "auto",
+            bottom: c.startsWith("b") ? 10 : "auto",
+            left: c.endsWith("l") ? 10 : "auto",
+            right: c.endsWith("r") ? 10 : "auto",
+            borderTop: c.startsWith("t") ? "1.5px solid rgba(0,200,255,0.3)" : "none",
+            borderBottom: c.startsWith("b") ? "1.5px solid rgba(0,200,255,0.3)" : "none",
+            borderLeft: c.endsWith("l") ? "1.5px solid rgba(0,200,255,0.3)" : "none",
+            borderRight: c.endsWith("r") ? "1.5px solid rgba(0,200,255,0.3)" : "none",
           }}
         />
       ))}
 
-      {/* ── Top HUD bar ─────────────────────────────────────────────────── */}
-      <div className="relative z-10 flex items-center justify-between px-8 pt-5 pb-2 shrink-0">
+      {/* Top HUD bar */}
+      <div className="relative z-10 flex items-center justify-between px-4 sm:px-8 pt-4 pb-2 shrink-0">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] font-mono tracking-[0.25em] text-cyan-400/70 uppercase">
+          <span className="text-[9px] sm:text-[10px] font-mono tracking-[0.2em] sm:tracking-[0.25em] text-cyan-400/70 uppercase">
             {assistantName} · Interface Neural
           </span>
           <div className="flex items-center gap-2">
             <span
               className={cn(
                 "w-1.5 h-1.5 rounded-full transition-all duration-300",
-                isLoading || isSpeaking || isListening
+                isBusy || isSpeaking || isListening
                   ? "bg-cyan-400 shadow-[0_0_6px_2px_rgba(0,200,255,0.7)]"
                   : "bg-cyan-400/30"
               )}
             />
-            <span className="text-[9px] font-mono tracking-widest text-cyan-400/50 uppercase">
-              {statusLabel}
-            </span>
+            <span className="text-[9px] font-mono tracking-widest text-cyan-400/50 uppercase">{statusLabel}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {isSpeaking && (
             <button
               onClick={stopSpeaking}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-400/30 bg-red-500/10 text-red-400 text-[10px] font-mono tracking-wider uppercase hover:bg-red-500/20 transition-colors"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-red-400/30 bg-red-500/10 text-red-400 text-[9px] sm:text-[10px] font-mono tracking-wider uppercase hover:bg-red-500/20 transition-colors"
             >
-              <VolumeX className="w-3 h-3" /> Parar
+              <VolumeX className="w-3 h-3" /> <span className="hidden sm:inline">Parar</span>
             </button>
           )}
           {!isSpeaking && lastAiText && settings.ttsEnabled && (
             <button
-              onClick={() => {
-                const a = new Audio();
-                a.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-                a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
-                pendingAudioRef.current = a;
-                replayLastResponse();
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-400/20 bg-cyan-400/5 text-cyan-400/60 text-[10px] font-mono tracking-wider uppercase hover:bg-cyan-400/10 hover:text-cyan-400/80 transition-colors"
+              onClick={replayLastResponse}
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-cyan-400/20 bg-cyan-400/5 text-cyan-400/60 text-[9px] sm:text-[10px] font-mono tracking-wider uppercase hover:bg-cyan-400/10 hover:text-cyan-400/80 transition-colors"
             >
-              <Volume2 className="w-3 h-3" /> Repetir
+              <Volume2 className="w-3 h-3" /> <span className="hidden sm:inline">Repetir</span>
             </button>
           )}
           <button
             onClick={clearChat}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-400/15 bg-transparent text-cyan-400/40 text-[10px] font-mono tracking-wider uppercase hover:border-red-400/30 hover:text-red-400/60 transition-colors"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-cyan-400/15 bg-transparent text-cyan-400/40 text-[9px] sm:text-[10px] font-mono tracking-wider uppercase hover:border-red-400/30 hover:text-red-400/60 transition-colors"
           >
-            <Trash2 className="w-3 h-3" /> Limpar
+            <Trash2 className="w-3 h-3" /> <span className="hidden sm:inline">Limpar</span>
           </button>
         </div>
       </div>
 
-      {/* ── Central Globe Area ──────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-4">
+      {/* Central Globe Area */}
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-4 min-h-0">
         <motion.div
           animate={
             isSpeaking
@@ -1014,58 +861,51 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
               : { scale: 1 }
           }
         >
-          <HorusConstellation
-            isThinking={isLoading}
-            isSpeaking={isSpeaking}
-            size={Math.min(380, typeof window !== "undefined" ? Math.min(window.innerWidth * 0.72, window.innerHeight * 0.52) : 380)}
-          />
+          <HorusConstellation isThinking={isBusy} isSpeaking={isSpeaking} size={globeSize} />
         </motion.div>
 
-        {/* Status label below globe */}
         <motion.div
           key={statusLabel}
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="mt-3 flex items-center gap-2"
+          className="mt-2 sm:mt-3 flex items-center gap-2"
         >
-          {(isLoading || isSpeaking || isListening) && (
+          {(isBusy || isSpeaking || isListening) && (
             <Loader2 className="w-3 h-3 text-cyan-400/60 animate-spin" />
           )}
-          <span className="text-[11px] font-mono tracking-[0.3em] text-cyan-400/60 uppercase">
-            {statusLabel}
-          </span>
+          <span className="text-[10px] sm:text-[11px] font-mono tracking-[0.3em] text-cyan-400/60 uppercase">{statusLabel}</span>
         </motion.div>
 
-        {/* Live transcript while listening */}
+        {/* Live transcript */}
         <AnimatePresence>
           {liveTranscript && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              className="mt-4 max-w-md text-center px-4"
+              className="mt-3 sm:mt-4 max-w-xs sm:max-w-md text-center px-4"
             >
-              <p className="text-sm text-cyan-300/80 font-mono italic leading-relaxed">
+              <p className="text-xs sm:text-sm text-cyan-300/80 font-mono italic leading-relaxed">
                 &ldquo;{liveTranscript}&rdquo;
               </p>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Last AI response text (shown when not speaking and no transcript) */}
+        {/* Last AI response preview */}
         <AnimatePresence>
-          {!liveTranscript && lastAiText && !isLoading && (
+          {!liveTranscript && lastAiText && !isBusy && (
             <motion.div
               key={lastAiText.slice(0, 20)}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
-              className="mt-5 max-w-lg text-center px-6"
+              className="mt-4 sm:mt-5 max-w-xs sm:max-w-lg text-center px-4 sm:px-6"
             >
-              <p className="text-xs text-cyan-100/40 font-mono leading-relaxed line-clamp-3">
+              <p className="text-[11px] sm:text-xs text-cyan-100/40 font-mono leading-relaxed line-clamp-3">
                 {lastAiText}{lastAiMessage!.content.length > 180 ? "…" : ""}
               </p>
             </motion.div>
@@ -1073,11 +913,30 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         </AnimatePresence>
       </div>
 
-      {/* ── Bottom Voice Controls ────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col items-center pb-10 pt-4 gap-4 shrink-0">
-        {/* Main mic / stop button */}
+      {/* Bottom: text input + mic button */}
+      <div className="relative z-10 flex flex-col items-center pb-6 sm:pb-10 pt-3 sm:pt-4 gap-3 sm:gap-4 shrink-0 px-4">
+        {/* Text input bar */}
+        <div className="w-full max-w-md sm:max-w-xl flex items-center gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isLoading || isListening || isTranscribing}
+            placeholder="Digite ou use o microfone..."
+            className="flex-1 bg-cyan-400/5 border border-cyan-400/20 rounded-xl px-4 py-2.5 text-sm text-cyan-100/80 placeholder:text-cyan-400/25 font-mono focus:outline-none focus:border-cyan-400/50 focus:bg-cyan-400/8 transition-all disabled:opacity-40"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || isLoading || isListening || isTranscribing}
+            className="w-10 h-10 rounded-xl bg-cyan-400/10 border border-cyan-400/25 flex items-center justify-center text-cyan-400/60 hover:bg-cyan-400/20 hover:text-cyan-300 hover:border-cyan-400/50 transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Mic button */}
         <div className="relative flex items-center justify-center">
-          {/* Pulse rings when listening */}
           {isListening && (
             <>
               <motion.span
@@ -1094,22 +953,21 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
               />
             </>
           )}
-
           <button
             onClick={toggleVoice}
-            disabled={isLoading}
+            disabled={isBusy}
             className={cn(
               "relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none",
               isListening
                 ? "bg-cyan-500/20 border-2 border-cyan-400/80 shadow-[0_0_28px_6px_rgba(0,200,255,0.35)] text-cyan-300"
-                : isLoading
+                : isBusy
                 ? "bg-cyan-400/5 border border-cyan-400/15 text-cyan-400/25 cursor-not-allowed"
                 : "bg-cyan-400/8 border border-cyan-400/30 hover:bg-cyan-400/15 hover:border-cyan-400/60 hover:shadow-[0_0_18px_4px_rgba(0,200,255,0.18)] text-cyan-400/70 hover:text-cyan-300"
             )}
           >
             {isListening ? (
               <MicOff className="w-6 h-6" />
-            ) : isLoading ? (
+            ) : isBusy ? (
               <Loader2 className="w-6 h-6 animate-spin" />
             ) : (
               <Mic className="w-6 h-6" />
@@ -1118,19 +976,9 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         </div>
 
         <span className="text-[9px] font-mono tracking-[0.3em] text-cyan-400/35 uppercase select-none">
-          {isListening ? "Clique para enviar" : isLoading ? "Aguarde..." : "Clique para falar"}
+          {isListening ? "Clique para enviar" : isBusy ? "Aguarde..." : "Clique para falar"}
         </span>
       </div>
-
-      {/* Hidden file input (kept for functionality) */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
-        multiple
-        className="hidden"
-        onChange={handleFileAttach}
-      />
     </div>
   );
 };
