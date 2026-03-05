@@ -544,35 +544,78 @@ serve(async (req) => {
       }
 
       if (ttsProvider === "gemini") {
-        // Use Gemini's multimodal generation with audio output
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              { role: "system", content: `Você é um assistente de voz. Repita exatamente o texto fornecido de forma natural e expressiva. Use a voz ${ttsVoiceId}.` },
-              { role: "user", content: ttsText },
-            ],
-          }),
-        });
+        const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+        if (!GEMINI_API_KEY) {
+          return new Response(JSON.stringify({ error: "GEMINI_API_KEY não configurada." }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
 
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error("Gemini TTS error:", response.status, errText);
-          return new Response(JSON.stringify({ error: "Erro ao gerar áudio Gemini" }), {
+        const base64ToUint8Array = (base64: string): Uint8Array => {
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          return bytes;
+        };
+
+        const pcm16ToWav = (pcmData: Uint8Array, sampleRate: number): Uint8Array => {
+          const evenLength = pcmData.length - (pcmData.length % 2);
+          const pcmBytes = pcmData.subarray(0, evenLength);
+          const header = new ArrayBuffer(44);
+          const view = new DataView(header);
+          const writeStr = (offset: number, value: string) => { for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i)); };
+          const channels = 1, bitsPerSample = 16;
+          const byteRate = sampleRate * channels * (bitsPerSample / 8);
+          const blockAlign = channels * (bitsPerSample / 8);
+          writeStr(0, "RIFF"); view.setUint32(4, 36 + pcmBytes.length, true); writeStr(8, "WAVE");
+          writeStr(12, "fmt "); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+          view.setUint16(22, channels, true); view.setUint32(24, sampleRate, true);
+          view.setUint32(28, byteRate, true); view.setUint16(32, blockAlign, true);
+          view.setUint16(34, bitsPerSample, true); writeStr(36, "data"); view.setUint32(40, pcmBytes.length, true);
+          const wav = new Uint8Array(44 + pcmBytes.length);
+          wav.set(new Uint8Array(header), 0); wav.set(pcmBytes, 44);
+          return wav;
+        };
+
+        const geminiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: ttsText.substring(0, 4000) }] }],
+              generationConfig: {
+                responseModalities: ["AUDIO"],
+                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: ttsVoiceId || "Kore" } } },
+              },
+            }),
+          }
+        );
+
+        if (!geminiResponse.ok) {
+          const errText = await geminiResponse.text();
+          console.error("Gemini TTS error:", geminiResponse.status, errText);
+          return new Response(JSON.stringify({ error: `Erro Gemini TTS: ${geminiResponse.status}` }), {
+            status: geminiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const data = await geminiResponse.json();
+        const audioPart = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+        if (!audioPart?.data) {
+          return new Response(JSON.stringify({ error: "Gemini não retornou áudio" }), {
             status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
 
-        // Gemini doesn't have native TTS via API yet, return text for browser speech synthesis
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content || ttsText;
-        return new Response(JSON.stringify({ text: content, useBrowserTTS: true, voice: ttsVoiceId }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const mimeType = String(audioPart.mimeType || "");
+        const rateMatch = mimeType.match(/rate=(\d+)/i);
+        const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000;
+        const pcmBytes = base64ToUint8Array(audioPart.data);
+        const wavBytes = pcm16ToWav(pcmBytes, sampleRate);
+
+        return new Response(wavBytes.buffer as ArrayBuffer, {
+          headers: { ...corsHeaders, "Content-Type": "audio/wav" },
         });
       }
 
