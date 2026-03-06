@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -394,78 +394,6 @@ export type Database = {
         }
         Relationships: []
       }
-      saas_onboarding_leads: {
-        Row: {
-          asaas_customer_id: string | null
-          asaas_payment_id: string | null
-          billing_method: string
-          billing_type: string
-          checkout_url: string | null
-          company: string | null
-          cpf_cnpj: string | null
-          created_at: string
-          email: string
-          error_message: string | null
-          full_name: string
-          id: string
-          phone: string | null
-          plan_amount: number
-          plan_id: string
-          status: string
-          team_size: string | null
-          updated_at: string
-          use_case: string | null
-          user_id: string | null
-          utm: Json
-        }
-        Insert: {
-          asaas_customer_id?: string | null
-          asaas_payment_id?: string | null
-          billing_method: string
-          billing_type: string
-          checkout_url?: string | null
-          company?: string | null
-          cpf_cnpj?: string | null
-          created_at?: string
-          email: string
-          error_message?: string | null
-          full_name: string
-          id?: string
-          phone?: string | null
-          plan_amount: number
-          plan_id: string
-          status?: string
-          team_size?: string | null
-          updated_at?: string
-          use_case?: string | null
-          user_id?: string | null
-          utm?: Json
-        }
-        Update: {
-          asaas_customer_id?: string | null
-          asaas_payment_id?: string | null
-          billing_method?: string
-          billing_type?: string
-          checkout_url?: string | null
-          company?: string | null
-          cpf_cnpj?: string | null
-          created_at?: string
-          email?: string
-          error_message?: string | null
-          full_name?: string
-          id?: string
-          phone?: string | null
-          plan_amount?: number
-          plan_id?: string
-          status?: string
-          team_size?: string | null
-          updated_at?: string
-          use_case?: string | null
-          user_id?: string | null
-          utm?: Json
-        }
-        Relationships: []
-      }
       tasks: {
         Row: {
           completed_at: string | null
@@ -758,4 +686,3 @@ export const Constants = {
     },
   },
 } as const
-

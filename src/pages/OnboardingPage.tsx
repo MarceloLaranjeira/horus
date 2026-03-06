@@ -66,7 +66,8 @@ const isValidPlan = (value: string | null): value is PlanId => {
 
 const OnboardingPage = () => {
   const [searchParams] = useSearchParams();
-  const initialPlan = isValidPlan(searchParams.get("plan")) ? searchParams.get("plan") : "pro";
+  const planParam = searchParams.get("plan");
+  const initialPlan: PlanId = isValidPlan(planParam) ? planParam : "pro";
 
   const [form, setForm] = useState<OnboardingFormState>({
     fullName: "",
