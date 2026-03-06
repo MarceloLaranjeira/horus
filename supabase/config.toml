@@ -1,4 +1,4 @@
-project_id = "vrjtyagndpindhzzbunm"
+project_id = "quovgdpfnjvdonndwfkg"
 
 [functions.chat]
 verify_jwt = false
@@ -13,5 +13,8 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.tts]
+verify_jwt = false
+
+[functions.asaas-checkout]
 verify_jwt = false
 
