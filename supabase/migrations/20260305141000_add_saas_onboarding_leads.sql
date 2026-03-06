@@ -1,4 +1,4 @@
-﻿CREATE TABLE IF NOT EXISTS public.saas_onboarding_leads (
+CREATE TABLE IF NOT EXISTS public.saas_onboarding_leads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   full_name TEXT NOT NULL,
