@@ -10,12 +10,20 @@ interface AsaasPaymentPayload {
   customer?: string;
   status?: string;
   externalReference?: string;
+  subscription?: string;
+}
+
+interface AsaasSubscriptionPayload {
+  id?: string;
+  customer?: string;
+  externalReference?: string;
 }
 
 interface AsaasWebhookPayload {
   id?: string;
   event?: string;
   payment?: AsaasPaymentPayload;
+  subscription?: AsaasSubscriptionPayload;
 }
 
 const responseJson = (status: number, payload: Record<string, unknown>) =>
@@ -42,6 +50,12 @@ const parseWebhookState = (eventName: string) => {
   }
   if (eventName === "PAYMENT_DELETED") {
     return { status: "cancelled", paymentStatus: "deleted" };
+  }
+  if (eventName === "SUBSCRIPTION_CREATED") {
+    return { status: "payment_pending", paymentStatus: "subscription_created" };
+  }
+  if (eventName === "SUBSCRIPTION_DELETED" || eventName === "SUBSCRIPTION_INACTIVATED") {
+    return { status: "cancelled", paymentStatus: "subscription_cancelled" };
   }
 
   return { status: null, paymentStatus: eventName.toLowerCase() };
@@ -84,11 +98,12 @@ Deno.serve(async (req) => {
 
     const eventName = payload.event ?? "UNKNOWN_EVENT";
     const paymentId = payload.payment?.id ?? null;
-    const customerId = payload.payment?.customer ?? null;
-    const leadId = payload.payment?.externalReference ?? null;
+    const subscriptionId = payload.payment?.subscription ?? payload.subscription?.id ?? null;
+    const customerId = payload.payment?.customer ?? payload.subscription?.customer ?? null;
+    const leadId = payload.payment?.externalReference ?? payload.subscription?.externalReference ?? null;
 
-    if (!paymentId) {
-      return responseJson(400, { error: "Missing payment id" });
+    if (!paymentId && !subscriptionId && !leadId) {
+      return responseJson(400, { error: "Webhook sem referencia para vincular lead" });
     }
 
     const stableEventId = payload.id ?? `evt_${await sha256(rawBody)}`;
@@ -131,34 +146,66 @@ Deno.serve(async (req) => {
       updateData.status = mapped.status;
     }
 
+    if (paymentId) {
+      updateData.asaas_payment_id = paymentId;
+    }
+
+    if (subscriptionId) {
+      updateData.asaas_subscription_id = subscriptionId;
+    }
+
     if (mapped.status === "paid") {
       updateData.paid_at = nowIso;
       updateData.payment_received_at = nowIso;
     }
 
-    let leadUpdate = supabaseAdmin
-      .from("saas_onboarding_leads")
-      .update(updateData)
-      .eq("asaas_payment_id", paymentId);
+    const updateBy = async (
+      field: "id" | "asaas_payment_id" | "asaas_subscription_id" | "asaas_customer_id",
+      value: string | null,
+    ) => {
+      if (!value) {
+        return false;
+      }
 
-    if (leadId) {
-      leadUpdate = supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from("saas_onboarding_leads")
         .update(updateData)
-        .eq("id", leadId);
+        .eq(field, value)
+        .select("id")
+        .limit(1);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return (data?.length ?? 0) > 0;
+    };
+
+    let updated = false;
+
+    if (!updated) {
+      updated = await updateBy("id", leadId);
     }
 
-    const { error: leadUpdateError } = await leadUpdate;
+    if (!updated) {
+      updated = await updateBy("asaas_payment_id", paymentId);
+    }
 
-    if (leadUpdateError) {
-      throw new Error(leadUpdateError.message);
+    if (!updated) {
+      updated = await updateBy("asaas_subscription_id", subscriptionId);
+    }
+
+    if (!updated) {
+      updated = await updateBy("asaas_customer_id", customerId);
     }
 
     return responseJson(200, {
       ok: true,
       event: eventName,
       paymentId,
+      subscriptionId,
       statusApplied: mapped.status,
+      leadUpdated: updated,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected webhook error";

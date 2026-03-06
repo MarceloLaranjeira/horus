@@ -1,4 +1,4 @@
-﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,8 +6,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-type PlanId = "starter" | "pro" | "scale";
+type PlanId = "horus" | "starter" | "pro" | "scale";
 type BillingMethod = "pix" | "boleto" | "cartao";
+type AccessMode = "login" | "sales_page" | "checkout";
 
 interface OnboardingRequest {
   name: string;
@@ -19,6 +20,8 @@ interface OnboardingRequest {
   useCase?: string;
   plan: PlanId;
   billingMethod: BillingMethod;
+  accessMode?: AccessMode;
+  accessEmail?: string;
   utm?: Record<string, string>;
 }
 
@@ -35,6 +38,10 @@ interface AsaasPayment {
   invoiceUrl?: string;
 }
 
+interface AsaasSubscription {
+  id: string;
+}
+
 const billingTypeByMethod: Record<BillingMethod, string> = {
   pix: "PIX",
   boleto: "BOLETO",
@@ -43,10 +50,16 @@ const billingTypeByMethod: Record<BillingMethod, string> = {
 
 const sanitizeDigits = (value: string | undefined): string => (value ?? "").replace(/\D/g, "");
 
+const parseNumber = (value: string | undefined, fallback: string): number => {
+  const normalized = (value ?? fallback).replace(",", ".").trim();
+  return Number(normalized);
+};
+
 const parsePlanAmounts = (): Record<PlanId, number> => ({
-  starter: Number(Deno.env.get("ASAAS_PRICE_STARTER") ?? "197"),
-  pro: Number(Deno.env.get("ASAAS_PRICE_PRO") ?? "397"),
-  scale: Number(Deno.env.get("ASAAS_PRICE_SCALE") ?? "997"),
+  horus: parseNumber(Deno.env.get("ASAAS_PRICE_MONTHLY"), "39.90"),
+  starter: parseNumber(Deno.env.get("ASAAS_PRICE_STARTER"), "197"),
+  pro: parseNumber(Deno.env.get("ASAAS_PRICE_PRO"), "397"),
+  scale: parseNumber(Deno.env.get("ASAAS_PRICE_SCALE"), "997"),
 });
 
 const getAsaasBaseUrl = (): string => {
@@ -60,10 +73,14 @@ const jsonResponse = (status: number, payload: unknown) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const isPlanId = (value: string): value is PlanId => value === "starter" || value === "pro" || value === "scale";
+const isPlanId = (value: string): value is PlanId =>
+  value === "horus" || value === "starter" || value === "pro" || value === "scale";
 
 const isBillingMethod = (value: string): value is BillingMethod =>
   value === "pix" || value === "boleto" || value === "cartao";
+
+const isAccessMode = (value: string): value is AccessMode =>
+  value === "login" || value === "sales_page" || value === "checkout";
 
 const asaasRequest = async <T>(
   token: string,
@@ -90,6 +107,31 @@ const asaasRequest = async <T>(
   }
 
   return payload as T;
+};
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const fetchSubscriptionPayment = async (
+  token: string,
+  subscriptionId: string,
+): Promise<AsaasPayment> => {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const payments = await asaasRequest<AsaasListResponse<AsaasPayment>>(
+      token,
+      `/payments?subscription=${subscriptionId}&limit=1&offset=0`,
+      { method: "GET" },
+    );
+
+    const firstPayment = payments.data[0];
+
+    if (firstPayment?.id && firstPayment.invoiceUrl) {
+      return firstPayment;
+    }
+
+    await wait(1200);
+  }
+
+  throw new Error("Assinatura criada, mas sem URL de checkout para o primeiro pagamento.");
 };
 
 Deno.serve(async (req) => {
@@ -124,6 +166,8 @@ Deno.serve(async (req) => {
     const useCase = (body.useCase ?? "").trim();
     const planInput = (body.plan ?? "").toString();
     const billingMethodInput = (body.billingMethod ?? "").toString();
+    const accessModeInput = (body.accessMode ?? "checkout").toString();
+    const accessEmail = (body.accessEmail ?? email).trim().toLowerCase();
 
     if (!name || !email) {
       return jsonResponse(400, { error: "Nome e email sao obrigatorios." });
@@ -135,6 +179,14 @@ Deno.serve(async (req) => {
 
     if (!isBillingMethod(billingMethodInput)) {
       return jsonResponse(400, { error: "Forma de pagamento invalida." });
+    }
+
+    if (!isAccessMode(accessModeInput)) {
+      return jsonResponse(400, { error: "Modalidade de acesso invalida." });
+    }
+
+    if (!accessEmail) {
+      return jsonResponse(400, { error: "Email de acesso e obrigatorio." });
     }
 
     const planAmounts = parsePlanAmounts();
@@ -186,6 +238,8 @@ Deno.serve(async (req) => {
         plan_amount: amount,
         billing_method: billingMethodInput,
         billing_type: billingType,
+        access_mode: accessModeInput,
+        access_email: accessEmail,
         utm: body.utm ?? {},
       })
       .select("id")
@@ -226,32 +280,33 @@ Deno.serve(async (req) => {
           })
         ).id;
 
-    const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const nextDueDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    const payment = await asaasRequest<AsaasPayment>(ASAAS_ACCESS_TOKEN, "/payments", {
+    const subscription = await asaasRequest<AsaasSubscription>(ASAAS_ACCESS_TOKEN, "/subscriptions", {
       method: "POST",
       body: JSON.stringify({
         customer: customerId,
         billingType,
         value: amount,
-        dueDate,
-        description: `Plano Horus ${planInput.toUpperCase()} - onboarding self-service`,
+        nextDueDate,
+        cycle: "MONTHLY",
+        description: `Assinatura mensal Horus (${planInput.toUpperCase()})`,
         externalReference: leadId,
-        sendNotification: true,
+        sendPaymentByPostalService: false,
       }),
     });
 
-    if (!payment.invoiceUrl) {
-      throw new Error("Pagamento criado, mas sem URL de checkout.");
-    }
+    const firstPayment = await fetchSubscriptionPayment(ASAAS_ACCESS_TOKEN, subscription.id);
 
     const { error: updateError } = await supabaseAdmin
       .from("saas_onboarding_leads")
       .update({
         status: "checkout_created",
-        checkout_url: payment.invoiceUrl,
+        payment_status: "subscription_created",
+        checkout_url: firstPayment.invoiceUrl,
         asaas_customer_id: customerId,
-        asaas_payment_id: payment.id,
+        asaas_subscription_id: subscription.id,
+        asaas_payment_id: firstPayment.id,
         error_message: null,
       })
       .eq("id", leadId);
@@ -263,8 +318,9 @@ Deno.serve(async (req) => {
     return jsonResponse(200, {
       leadId,
       customerId,
-      paymentId: payment.id,
-      checkoutUrl: payment.invoiceUrl,
+      subscriptionId: subscription.id,
+      paymentId: firstPayment.id,
+      checkoutUrl: firstPayment.invoiceUrl,
       plan: planInput,
       amount,
       billingType,
