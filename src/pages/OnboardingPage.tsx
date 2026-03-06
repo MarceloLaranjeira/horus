@@ -5,7 +5,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Fingerprint,
-  Globe,
   Loader2,
   ShieldCheck,
   UserRoundCheck,
@@ -446,3 +445,4 @@ const OnboardingPage = () => {
 };
 
 export default OnboardingPage;
+
