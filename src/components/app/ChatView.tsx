@@ -11,6 +11,69 @@ import { useAISettings } from "@/hooks/useAISettings";
 import { HorusConstellation } from "@/components/app/HorusConstellation";
 import type { AppView } from "@/pages/AppDashboard";
 
+/* ── Typewriter effect component ──────────────────────────────────── */
+const TypewriterText = ({ text, speed = 18 }: { text: string; speed?: number }) => {
+  const [shown, setShown] = useState("");
+  const [done, setDone]   = useState(false);
+  useEffect(() => {
+    setShown(""); setDone(false);
+    if (!text) return;
+    let i = 0;
+    const id = setInterval(() => {
+      i++;
+      setShown(text.slice(0, i));
+      if (i >= text.length) { setDone(true); clearInterval(id); }
+    }, speed);
+    return () => clearInterval(id);
+  }, [text, speed]);
+  return (
+    <span>
+      {shown}
+      {!done && (
+        <motion.span
+          className="inline-block w-[2px] h-[1.1em] bg-cyan-400/80 align-middle ml-0.5 rounded-sm"
+          animate={{ opacity: [1, 0, 1] }}
+          transition={{ duration: 0.75, repeat: Infinity }}
+        />
+      )}
+    </span>
+  );
+};
+
+/* ── Audio visualizer bars ────────────────────────────────────────── */
+const BAR_H = [4, 9, 16, 22, 14, 20, 10, 24, 16, 12, 20, 8, 18, 24, 10, 6, 14, 22, 8, 16];
+const AudioBars = ({ active, color = "rgba(0,200,255," }: { active: boolean; color?: string }) => (
+  <div className="flex items-center gap-[2.5px]" style={{ height: 28 }}>
+    {BAR_H.map((maxH, i) => (
+      <motion.div
+        key={i}
+        className="w-[2px] rounded-full"
+        style={{ height: maxH, transformOrigin: "center", background: color + (active ? "0.65)" : "0.18)") }}
+        animate={active ? { scaleY: [0.15, 1, 0.35, 0.8, 0.15], opacity: [0.4, 0.9, 0.5, 0.75, 0.4] } : { scaleY: 0.12, opacity: 0.18 }}
+        transition={{ duration: 0.45 + (i * 0.055) % 0.4, repeat: active ? Infinity : 0, ease: "easeInOut", delay: (i * 0.035) % 0.28 }}
+      />
+    ))}
+  </div>
+);
+
+/* ── Holographic corner bracket ───────────────────────────────────── */
+const HudBracket = ({ pos }: { pos: "tl" | "tr" | "bl" | "br" }) => (
+  <span
+    className="absolute pointer-events-none"
+    style={{
+      width: 10, height: 10,
+      top:    pos.startsWith("t") ? 0 : "auto",
+      bottom: pos.startsWith("b") ? 0 : "auto",
+      left:   pos.endsWith("l")   ? 0 : "auto",
+      right:  pos.endsWith("r")   ? 0 : "auto",
+      borderTop:    pos.startsWith("t") ? "1.5px solid rgba(0,200,255,0.6)" : "none",
+      borderBottom: pos.startsWith("b") ? "1.5px solid rgba(0,200,255,0.6)" : "none",
+      borderLeft:   pos.endsWith("l")   ? "1.5px solid rgba(0,200,255,0.6)" : "none",
+      borderRight:  pos.endsWith("r")   ? "1.5px solid rgba(0,200,255,0.6)" : "none",
+    }}
+  />
+);
+
 type UserProfile = {
   name: string | null;
   bio: string | null;
@@ -138,6 +201,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   const { settings } = useAISettings();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const globeSize = useGlobeSize();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load user profile
   useEffect(() => {
@@ -178,571 +242,181 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
 
         const { data: msgs } = await supabase
           .from("chat_messages")
-          .select("role, content")
+          .select("role, content, actions")
           .eq("conversation_id", convId)
           .order("created_at", { ascending: true });
 
-        setMessages(msgs?.length ? msgs.map(m => ({ role: m.role as "user" | "assistant", content: m.content })) : []);
-      } catch (e) {
-        console.error("Error loading conversation:", e);
-        setMessages([]);
-      } finally {
-        setIsLoadingHistory(false);
-      }
+        if (msgs) setMessages(msgs.map(m => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          actions: m.actions as ActionResult[] | undefined
+        })));
+      } catch (e) { console.error(e); }
+      finally { setIsLoadingHistory(false); }
     };
     load();
   }, [user]);
 
-  const saveMessage = useCallback(async (role: string, content: string) => {
-    if (!user || !conversationId) return;
-    await supabase.from("chat_messages").insert({ conversation_id: conversationId, user_id: user.id, role, content });
-    await supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
-  }, [user, conversationId]);
-
-  const executeActions = async (toolCalls: any[]): Promise<ActionResult[]> => {
-    const results: ActionResult[] = [];
-    const gmailUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail`;
-    const calendarUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/test-google-calendar`;
-    const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token;
-
-    const findByTitleOrId = async (table: string, titleField: string, titleArg?: string, idArg?: string): Promise<any> => {
-      if (idArg) {
-        const { data } = await supabase.from(table as any).select("*").eq("id", idArg).eq("user_id", user!.id).maybeSingle();
-        return data as any;
-      }
-      if (titleArg) {
-        const { data } = await supabase.from(table as any).select("*").eq("user_id", user!.id).ilike(titleField, `%${titleArg}%`).limit(1).maybeSingle();
-        return data as any;
-      }
-      return null;
+  // Audio cleanup
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      if (pendingAudioRef.current) { pendingAudioRef.current.pause(); pendingAudioRef.current = null; }
     };
-
-    for (const call of toolCalls) {
-      try {
-        const args = JSON.parse(call.function.arguments);
-        const name = call.function.name;
-
-        if (name === "create_task" && user) {
-          const { error } = await supabase.from("tasks").insert({ title: args.title, description: args.description || null, priority: args.priority || "medium", due_date: args.due_date || null, user_id: user.id });
-          if (!error) { queryClient.invalidateQueries({ queryKey: ["tasks"] }); results.push({ type: "task", title: args.title, success: true }); }
-        } else if (name === "update_task" && user) {
-          const record = await findByTitleOrId("tasks", "title", args.task_title, args.task_id);
-          if (record) {
-            const updates: any = {};
-            if (args.new_title) updates.title = args.new_title;
-            if (args.description !== undefined) updates.description = args.description;
-            if (args.priority) updates.priority = args.priority;
-            if (args.status) { updates.status = args.status; if (args.status === "done") updates.completed_at = new Date().toISOString(); }
-            if (args.due_date) updates.due_date = args.due_date;
-            const { error } = await supabase.from("tasks").update(updates).eq("id", record.id);
-            if (!error) { queryClient.invalidateQueries({ queryKey: ["tasks"] }); results.push({ type: "task", title: `Tarefa "${record.title}" atualizada`, success: true }); }
-          } else { results.push({ type: "task", title: "Tarefa não encontrada", success: false }); }
-        } else if (name === "delete_task" && user) {
-          const record = await findByTitleOrId("tasks", "title", args.task_title, args.task_id);
-          if (record) {
-            const { error } = await supabase.from("tasks").delete().eq("id", record.id);
-            if (!error) { queryClient.invalidateQueries({ queryKey: ["tasks"] }); results.push({ type: "task", title: `Tarefa "${record.title}" excluída`, success: true }); }
-          } else { results.push({ type: "task", title: "Tarefa não encontrada", success: false }); }
-        } else if (name === "list_tasks" && user) {
-          let query = supabase.from("tasks").select("title, status, priority, due_date").eq("user_id", user.id);
-          if (args.status) query = query.eq("status", args.status);
-          if (args.priority) query = query.eq("priority", args.priority);
-          const { data } = await query.order("created_at", { ascending: false }).limit(args.limit || 10);
-          if (data && data.length > 0) {
-            const summary = data.map((t: any) => `• ${t.title} [${t.status}/${t.priority}]${t.due_date ? ` — ${t.due_date}` : ""}`).join("\n");
-            results.push({ type: "task", title: `${data.length} tarefa(s):\n${summary}`, success: true });
-          } else { results.push({ type: "task", title: "Nenhuma tarefa encontrada", success: true }); }
-        } else if (name === "create_habit" && user) {
-          const { error } = await supabase.from("habits").insert({ name: args.name, icon: args.icon || "🎯", target_days_per_week: args.target_days_per_week || 7, user_id: user.id });
-          if (!error) { queryClient.invalidateQueries({ queryKey: ["habits"] }); results.push({ type: "habit", title: args.name, success: true }); }
-        } else if (name === "update_habit" && user) {
-          const record = await findByTitleOrId("habits", "name", args.habit_name, args.habit_id);
-          if (record) {
-            const updates: any = {};
-            if (args.new_name) updates.name = args.new_name;
-            if (args.icon) updates.icon = args.icon;
-            if (args.target_days_per_week !== undefined) updates.target_days_per_week = args.target_days_per_week;
-            if (args.active !== undefined) updates.active = args.active;
-            const { error } = await supabase.from("habits").update(updates).eq("id", record.id);
-            if (!error) { queryClient.invalidateQueries({ queryKey: ["habits"] }); results.push({ type: "habit", title: `Hábito "${record.name}" atualizado`, success: true }); }
-          } else { results.push({ type: "habit", title: "Hábito não encontrado", success: false }); }
-        } else if (name === "delete_habit" && user) {
-          const record = await findByTitleOrId("habits", "name", args.habit_name, args.habit_id);
-          if (record) {
-            const { error } = await supabase.from("habits").delete().eq("id", record.id);
-            if (!error) { queryClient.invalidateQueries({ queryKey: ["habits"] }); results.push({ type: "habit", title: `Hábito "${record.name}" excluído`, success: true }); }
-          } else { results.push({ type: "habit", title: "Hábito não encontrado", success: false }); }
-        } else if (name === "add_finance" && user) {
-          const { error } = await supabase.from("finances").insert({ description: args.description, amount: args.amount, type: args.type, user_id: user.id });
-          if (!error) { queryClient.invalidateQueries({ queryKey: ["finances"] }); results.push({ type: "finance", title: args.description, success: true }); }
-        } else if (name === "delete_finance" && user) {
-          const record = await findByTitleOrId("finances", "description", args.finance_description, args.finance_id);
-          if (record) {
-            const { error } = await supabase.from("finances").delete().eq("id", record.id);
-            if (!error) { queryClient.invalidateQueries({ queryKey: ["finances"] }); results.push({ type: "finance", title: `Transação "${record.description}" excluída`, success: true }); }
-          } else { results.push({ type: "finance", title: "Transação não encontrada", success: false }); }
-        } else if (name === "create_reminder" && user) {
-          const { error } = await supabase.from("reminders").insert({ title: args.title, description: args.description || null, due_date: args.due_date, user_id: user.id });
-          if (!error) { queryClient.invalidateQueries({ queryKey: ["reminders"] }); results.push({ type: "reminder", title: args.title, success: true }); }
-        } else if (name === "update_reminder" && user) {
-          const record = await findByTitleOrId("reminders", "title", args.reminder_title, args.reminder_id);
-          if (record) {
-            const updates: any = {};
-            if (args.new_title) updates.title = args.new_title;
-            if (args.description !== undefined) updates.description = args.description;
-            if (args.due_date) updates.due_date = args.due_date;
-            if (args.completed !== undefined) updates.completed = args.completed;
-            const { error } = await supabase.from("reminders").update(updates).eq("id", record.id);
-            if (!error) { queryClient.invalidateQueries({ queryKey: ["reminders"] }); results.push({ type: "reminder", title: `Lembrete "${record.title}" atualizado`, success: true }); }
-          } else { results.push({ type: "reminder", title: "Lembrete não encontrado", success: false }); }
-        } else if (name === "delete_reminder" && user) {
-          const record = await findByTitleOrId("reminders", "title", args.reminder_title, args.reminder_id);
-          if (record) {
-            const { error } = await supabase.from("reminders").delete().eq("id", record.id);
-            if (!error) { queryClient.invalidateQueries({ queryKey: ["reminders"] }); results.push({ type: "reminder", title: `Lembrete "${record.title}" excluído`, success: true }); }
-          } else { results.push({ type: "reminder", title: "Lembrete não encontrado", success: false }); }
-        } else if (name === "create_project" && user) {
-          const { error } = await supabase.from("projects").insert({ title: args.title, description: args.description || null, status: args.status || "backlog", color: args.color || "#6366f1", user_id: user.id });
-          if (!error) { queryClient.invalidateQueries({ queryKey: ["projects"] }); results.push({ type: "project", title: args.title, success: true }); }
-        } else if (name === "update_project" && user) {
-          const record = await findByTitleOrId("projects", "title", args.project_title, args.project_id);
-          if (record) {
-            const updates: any = {};
-            if (args.new_title) updates.title = args.new_title;
-            if (args.description !== undefined) updates.description = args.description;
-            if (args.status) updates.status = args.status;
-            if (args.color) updates.color = args.color;
-            const { error } = await supabase.from("projects").update(updates).eq("id", record.id);
-            if (!error) { queryClient.invalidateQueries({ queryKey: ["projects"] }); results.push({ type: "project", title: `Projeto "${record.title}" atualizado`, success: true }); }
-          } else { results.push({ type: "project", title: "Projeto não encontrado", success: false }); }
-        } else if (name === "delete_project" && user) {
-          const record = await findByTitleOrId("projects", "title", args.project_title, args.project_id);
-          if (record) {
-            const { error } = await supabase.from("projects").delete().eq("id", record.id);
-            if (!error) { queryClient.invalidateQueries({ queryKey: ["projects"] }); results.push({ type: "project", title: `Projeto "${record.title}" excluído`, success: true }); }
-          } else { results.push({ type: "project", title: "Projeto não encontrado", success: false }); }
-        } else if (name === "create_note" && user) {
-          const { error } = await supabase.from("notes" as any).insert({ title: args.title, content: args.content || "", user_id: user.id } as any);
-          if (!error) { queryClient.invalidateQueries({ queryKey: ["notes"] }); results.push({ type: "note", title: args.title, success: true }); }
-        } else if (name === "update_note" && user) {
-          const record = await findByTitleOrId("notes", "title", args.note_title, args.note_id);
-          if (record) {
-            const updates: any = {};
-            if (args.new_title) updates.title = args.new_title;
-            if (args.content !== undefined) updates.content = args.content;
-            const { error } = await supabase.from("notes" as any).update(updates as any).eq("id", record.id);
-            if (!error) { queryClient.invalidateQueries({ queryKey: ["notes"] }); results.push({ type: "note", title: `Nota "${record.title}" atualizada`, success: true }); }
-          } else { results.push({ type: "note", title: "Nota não encontrada", success: false }); }
-        } else if (name === "delete_note" && user) {
-          const record = await findByTitleOrId("notes", "title", args.note_title, args.note_id);
-          if (record) {
-            const { error } = await supabase.from("notes" as any).delete().eq("id", record.id);
-            if (!error) { queryClient.invalidateQueries({ queryKey: ["notes"] }); results.push({ type: "note", title: `Nota "${record.title}" excluída`, success: true }); }
-          } else { results.push({ type: "note", title: "Nota não encontrada", success: false }); }
-        } else if (name === "list_calendar_events") {
-          const token = await getToken();
-          const days = args.days || 7;
-          const timeMax = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-          const res = await fetch(calendarUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ action: "list_events", timeMax, maxResults: args.maxResults || 10 }),
-          });
-          const data = await res.json();
-          if (data.success && data.events) {
-            const summary = data.events.map((e: any) => `• ${e.summary} — ${e.start?.dateTime || e.start?.date || ""}`).join("\n");
-            results.push({ type: "calendar", title: `${data.events.length} evento(s):\n${summary}`, success: true });
-          } else { results.push({ type: "calendar", title: data.error || "Erro ao listar eventos", success: false }); }
-        } else if (name === "create_calendar_event") {
-          const token = await getToken();
-          const res = await fetch(calendarUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ action: "create_event", summary: args.summary, description: args.description, start: args.start, end: args.end, location: args.location }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            results.push({ type: "calendar", title: `Evento "${args.summary}" criado!`, success: true });
-          } else { results.push({ type: "calendar", title: data.error || "Erro ao criar evento", success: false }); }
-        } else if (name === "list_emails") {
-          const res = await fetch(gmailUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${await getToken()}` },
-            body: JSON.stringify({ action: "list_emails", query: args.query || "in:inbox", maxResults: args.maxResults || 5 }),
-          });
-          const data = await res.json();
-          if (data.success && data.emails) {
-            const summary = data.emails.map((e: any) => `• ${e.subject} — de: ${e.from}${e.isUnread ? " 🔵" : ""}`).join("\n");
-            results.push({ type: "email", title: `${data.emails.length} emails encontrados:\n${summary}`, success: true });
-          } else { results.push({ type: "email", title: data.error || "Erro ao listar emails", success: false }); }
-        } else if (name === "read_email") {
-          const res = await fetch(gmailUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${await getToken()}` },
-            body: JSON.stringify({ action: "read_email", messageId: args.messageId }),
-          });
-          const data = await res.json();
-          if (data.success && data.email) {
-            results.push({ type: "email", title: `Lido: "${data.email.subject}" de ${data.email.from}`, success: true });
-          } else { results.push({ type: "email", title: data.error || "Erro ao ler email", success: false }); }
-        } else if (name === "send_email") {
-          const res = await fetch(gmailUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${await getToken()}` },
-            body: JSON.stringify({ action: "send_email", to: args.to, subject: args.subject, body: args.body }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            results.push({ type: "email", title: `Email enviado para ${args.to}`, success: true });
-          } else { results.push({ type: "email", title: data.error || "Erro ao enviar email", success: false }); }
-        }
-      } catch (e) { console.error("Action error:", e); }
-    }
-    return results;
-  };
-
-  // --- TTS ---
-  const stopSpeaking = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-    setIsSpeaking(false);
   }, []);
 
-  const playTTS = useCallback(async (text: string) => {
-    if (!settings.ttsEnabled) return;
-    stopSpeaking();
-    setIsSpeaking(true);
-    lastAssistantTextRef.current = text;
+  const handleSend = async (textOverride?: string) => {
+    const text = textOverride || input;
+    if (!text.trim() || !user || !conversationId) return;
 
-    const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000).trim();
-    if (!cleanText) { setIsSpeaking(false); return; }
-
-    const provider = settings.ttsProvider || "openai";
-    const voiceId = settings.ttsVoiceId || "alloy";
-
-    // Reuse pre-unlocked audio element or create new one
-    const audio = pendingAudioRef.current || new Audio();
-    pendingAudioRef.current = null;
-    audio.preload = "auto";
-    audioRef.current = audio;
-
-    const playBlob = (blob: Blob) => {
-      const url = URL.createObjectURL(blob);
-      audio.pause();
-      audio.currentTime = 0;
-      audio.src = url;
-      audio.onended = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
-      audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
-      audio.load();
-      audio.play().catch(() => {
-        URL.revokeObjectURL(url);
-        // Fallback to browser speech synthesis
-        if ("speechSynthesis" in window) {
-          const utt = new SpeechSynthesisUtterance(cleanText.substring(0, 500));
-          utt.lang = settings.voiceLang || "pt-BR";
-          utt.onend = () => setIsSpeaking(false);
-          utt.onerror = () => setIsSpeaking(false);
-          window.speechSynthesis.speak(utt);
-        } else {
-          setIsSpeaking(false);
-        }
-      });
-    };
+    const userMsg: Message = { role: "user", content: text };
+    setMessages(prev => [...prev, userMsg]);
+    setInput("");
+    setIsLoading(true);
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000);
-
-      const endpoint = provider === "elevenlabs" ? ELEVENLABS_TTS_URL : TTS_URL;
-      const body = provider === "elevenlabs"
-        ? { text: cleanText, voiceId, speed: settings.ttsSpeed }
-        : { text: cleanText, voiceId, provider, speed: settings.ttsSpeed };
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
+      const { data, error } = await supabase.functions.invoke("chat", {
+        body: {
+          message: text,
+          conversationId,
+          userId: user.id,
+          profile: userProfile,
+          settings: {
+            assistantName: settings.assistantName,
+            voiceEnabled: settings.voiceEnabled,
+            voiceProvider: settings.voiceProvider,
+            voiceId: settings.voiceId
+          }
+        }
       });
-      clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        setIsSpeaking(false);
-        const err = await response.json().catch(() => ({}));
-        if (provider === "elevenlabs" && (response.status === 401 || String(err.error).includes("401"))) {
-          toast({ title: "Cota ElevenLabs esgotada", description: "Mude para OpenAI nas configurações da IA.", variant: "destructive" });
-        } else {
-          toast({ title: `Erro TTS (${provider})`, description: err.error || `Status ${response.status}`, variant: "destructive" });
-        }
-        return;
+      if (error) throw error;
+
+      const assistantMsg: Message = {
+        role: "assistant",
+        content: data.response,
+        actions: data.actions
+      };
+      setMessages(prev => [...prev, assistantMsg]);
+      lastAssistantTextRef.current = data.response;
+
+      if (settings.voiceEnabled) {
+        speak(data.response);
       }
 
-      playBlob(await response.blob());
-    } catch (err: any) {
-      if (err.name === "AbortError") {
-        // Timeout fallback
-        if ("speechSynthesis" in window) {
-          const utt = new SpeechSynthesisUtterance(cleanText.substring(0, 500));
-          utt.lang = settings.voiceLang || "pt-BR";
-          utt.onend = () => setIsSpeaking(false);
-          utt.onerror = () => setIsSpeaking(false);
-          window.speechSynthesis.speak(utt);
-        } else {
-          setIsSpeaking(false);
-        }
-      } else {
-        console.error("TTS error:", err);
-        setIsSpeaking(false);
-      }
-    }
-  }, [settings, stopSpeaking, toast]);
-
-  const replayLastResponse = () => {
-    if (lastAssistantTextRef.current) {
-      const a = new Audio();
-      a.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
-      pendingAudioRef.current = a;
-      playTTS(lastAssistantTextRef.current);
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["habits"] });
+      queryClient.invalidateQueries({ queryKey: ["finances"] });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erro", description: "Falha ao enviar mensagem", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // --- Gemini STT via MediaRecorder ---
-  const startGeminiRecording = async () => {
+  const speak = async (text: string) => {
+    if (!text || !settings.voiceEnabled) return;
+    setIsSpeaking(true);
+
+    try {
+      const url = settings.voiceProvider === "elevenlabs" ? ELEVENLABS_TTS_URL : TTS_URL;
+      const { data, error } = await supabase.functions.invoke(url.split("/").pop()!, {
+        body: {
+          text: text.replace(/[*#_`~\[\]()>]/g, ""),
+          voiceId: settings.voiceId
+        }
+      });
+
+      if (error) throw error;
+
+      const audio = new Audio(`data:audio/mpeg;base64,${data.audio}`);
+      audioRef.current = audio;
+      audio.onended = () => setIsSpeaking(false);
+      audio.play();
+    } catch (e) {
+      console.error(e);
+      setIsSpeaking(false);
+    }
+  };
+
+  const toggleVoice = async () => {
+    if (isListening) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioChunksRef.current = [];
-
-      // Pick best supported mime type
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : MediaRecorder.isTypeSupported("audio/webm")
-        ? "audio/webm"
-        : MediaRecorder.isTypeSupported("audio/mp4")
-        ? "audio/mp4"
-        : "audio/ogg";
-
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
       recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        transcribe(audioBlob);
         stream.getTracks().forEach(t => t.stop());
-        setIsListening(false);
-
-        const chunks = audioChunksRef.current;
-        if (chunks.length === 0) return;
-
-        const blob = new Blob(chunks, { type: mimeType });
-        if (blob.size < 1000) {
-          // Too small to be valid audio
-          setLiveTranscript("");
-          return;
-        }
-
-        setIsTranscribing(true);
-        setLiveTranscript("Transcrevendo...");
-
-        try {
-          // Convert blob to base64
-          const arrayBuffer = await blob.arrayBuffer();
-          const uint8 = new Uint8Array(arrayBuffer);
-          let binary = "";
-          uint8.forEach(b => { binary += String.fromCharCode(b); });
-          const base64 = btoa(binary);
-
-          const response = await fetch(STT_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({ audio: base64, mimeType, lang: settings.voiceLang || "pt-BR" }),
-          });
-
-          if (!response.ok) {
-            throw new Error(`STT error ${response.status}`);
-          }
-
-          const { text } = await response.json();
-          setLiveTranscript("");
-          setIsTranscribing(false);
-
-          if (text && text.trim()) {
-            sendMessage(text.trim());
-          }
-        } catch (e) {
-          console.error("Gemini STT error:", e);
-          setLiveTranscript("");
-          setIsTranscribing(false);
-          toast({ title: "Erro na transcrição", description: "Tente novamente.", variant: "destructive" });
-        }
       };
 
-      recorder.start(250); // collect data every 250ms
+      recorder.start();
       setIsListening(true);
-      setLiveTranscript("");
-    } catch (err: any) {
-      console.error("Mic error:", err);
-      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        toast({ title: "Permissão do microfone negada", description: "Ative nas configurações do navegador.", variant: "destructive" });
-      } else {
-        toast({ title: "Erro ao acessar microfone", description: err.message, variant: "destructive" });
-      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erro", description: "Não foi possível acessar o microfone", variant: "destructive" });
     }
   };
 
-  const stopGeminiRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isListening) {
       mediaRecorderRef.current.stop();
-      mediaRecorderRef.current = null;
+      setIsListening(false);
     }
   };
 
-  const toggleVoice = () => {
-    if (isListening) {
-      stopGeminiRecording();
-      return;
-    }
-    if (isLoading || isTranscribing) return;
-    stopSpeaking();
-
-    // Pre-unlock audio for TTS response
-    if (settings.ttsEnabled) {
-      const a = new Audio();
-      a.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
-      pendingAudioRef.current = a;
-    }
-
-    startGeminiRecording();
-  };
-
-  // --- Send Message ---
-  const sendMessage = async (text: string) => {
-    const finalText = text.trim();
-    if (!finalText || isLoading) return;
-
-    const userMsg: Message = { role: "user", content: finalText };
-    const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
-    setInput("");
-    setLiveTranscript("");
-    setIsLoading(true);
-
-    await saveMessage("user", finalText);
-
-    const progressKeywords = /\b(tarefa|tarefas|task|tasks|progresso|evolução|andamento|status|hábito|hábitos|habit|finanças|finance|lembrete|lembretes|reminder|projeto|projetos|project|resumo do dia|como estou|meu dia|pendente|pendentes|concluíd)/i;
-    if (progressKeywords.test(finalText)) setShowProgressCards(true);
-
-    const apiMessages = updatedMessages.slice(-50).map(m => ({ role: m.role, content: m.content }));
-
+  const transcribe = async (blob: Blob) => {
+    setIsTranscribing(true);
     try {
-      // Action extraction
-      const actionResp = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        body: JSON.stringify({ messages: apiMessages, mode: "actions", model: settings.model, assistantName: settings.assistantName, customPrompt: settings.customPrompt, temperature: settings.temperature, mood: settings.mood, userProfile }),
-      });
-      let actionResults: ActionResult[] = [];
-      if (actionResp.ok) {
-        const actionData = await actionResp.json();
-        const toolCalls = actionData.choices?.[0]?.message?.tool_calls;
-        if (toolCalls?.length) actionResults = await executeActions(toolCalls);
-      }
-
-      // Streaming chat
-      const resp = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        body: JSON.stringify({
-          messages: apiMessages,
-          mode: "chat",
-          model: settings.model,
-          assistantName: settings.assistantName,
-          customPrompt: settings.customPrompt,
-          temperature: settings.temperature,
-          mood: settings.mood,
-          userProfile,
-          executedActions: actionResults.length > 0 ? actionResults.map(a => `${a.type}: "${a.title}" criado com sucesso`) : undefined,
-        }),
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: "Erro desconhecido" }));
-        throw new Error(err.error || `Erro ${resp.status}`);
-      }
-      if (!resp.body) throw new Error("Stream não disponível");
-
-      let assistantSoFar = "";
-      const upsertAssistant = (chunk: string) => {
-        assistantSoFar += chunk;
-        setMessages(prev => {
-          const last = prev[prev.length - 1];
-          if (last?.role === "assistant" && prev.length > updatedMessages.length) {
-            return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar, actions: actionResults.length > 0 ? actionResults : undefined } : m);
-          }
-          return [...prev, { role: "assistant", content: assistantSoFar, actions: actionResults.length > 0 ? actionResults : undefined }];
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        const base64 = (reader.result as string).split(",")[1];
+        const { data, error } = await supabase.functions.invoke("gemini-stt", {
+          body: { audio: base64 }
         });
-      };
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-      let streamDone = false;
-
-      while (!streamDone) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex).trim();
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-          if (!line || line.startsWith(":") || !line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") { streamDone = true; break; }
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) upsertAssistant(content);
-          } catch { /* ignore partial json */ }
+        if (error) throw error;
+        if (data.text) {
+          setLiveTranscript(data.text);
+          handleSend(data.text);
         }
-      }
-
-      if (assistantSoFar) {
-        await saveMessage("assistant", assistantSoFar);
-        playTTS(assistantSoFar);
-      }
-    } catch (e: any) {
-      console.error("Chat error:", e);
-      toast({ title: "Erro no chat", description: e.message, variant: "destructive" });
+      };
+    } catch (e) {
+      console.error(e);
     } finally {
-      setIsLoading(false);
+      setIsTranscribing(false);
     }
-  };
-
-  const handleSend = () => {
-    const text = input.trim();
-    if (text) sendMessage(text);
   };
 
   const clearChat = async () => {
-    if (!user || !conversationId) return;
-    await supabase.from("chat_messages").delete().eq("conversation_id", conversationId);
-    setMessages([]);
-    setShowProgressCards(false);
-    toast({ title: "Chat limpo com sucesso!" });
+    if (!conversationId || !user) return;
+    try {
+      await supabase.from("chat_messages").delete().eq("conversation_id", conversationId);
+      setMessages([]);
+      toast({ title: "Chat limpo", description: "Histórico de mensagens removido" });
+    } catch (e) { console.error(e); }
+  };
+
+  const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    toast({ title: "Arquivos selecionados", description: `${files.length} arquivo(s) prontos para processamento (funcionalidade em breve)` });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -752,7 +426,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   const assistantName = settings.assistantName || "Horus";
   const lastAiMessage = [...messages].reverse().find(m => m.role === "assistant");
   const lastAiText = lastAiMessage?.content
-    ? lastAiMessage.content.replace(/[*#_`~\[\]()>]/g, "").slice(0, 180)
+    ? lastAiMessage.content.replace(/[*#_`~\[\]()>]/g, "").slice(0, 220)
     : null;
 
   const isBusy = isLoading || isTranscribing;
@@ -774,211 +448,186 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   }
 
   return (
-    <div className="flex flex-col h-full relative overflow-hidden bg-[#020d14]">
-      {/* Background */}
+    <div className="flex flex-col h-full relative overflow-hidden select-none" style={{ background: "#020c14" }}>
+
+      {/* ── Deep-space background ───────────────────────────────────────── */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_50%,rgba(0,80,120,0.18)_0%,transparent_70%)]" />
-        <div
-          className="absolute inset-0 opacity-[0.035]"
-          style={{
-            backgroundImage: "linear-gradient(rgba(0,200,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(0,200,255,0.6) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
+        {/* Radial core glow */}
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 75% 55% at 50% 48%, rgba(0,70,110,0.22) 0%, transparent 70%)" }} />
+        {/* Fine grid */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(0,200,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,255,1) 1px,transparent 1px)", backgroundSize: "52px 52px" }} />
+        {/* Horizontal scan line animation */}
+        <motion.div
+          className="absolute left-0 right-0 h-[1px] bg-cyan-400/20 z-0"
+          animate={{ top: ["0%", "100%", "0%"] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
         />
       </div>
 
-      {/* Corner HUD brackets */}
-      {(["tl", "tr", "bl", "br"] as const).map(c => (
-        <div
-          key={c}
-          className="absolute z-10 w-5 h-5 pointer-events-none"
-          style={{
-            top: c.startsWith("t") ? 10 : "auto",
-            bottom: c.startsWith("b") ? 10 : "auto",
-            left: c.endsWith("l") ? 10 : "auto",
-            right: c.endsWith("r") ? 10 : "auto",
-            borderTop: c.startsWith("t") ? "1.5px solid rgba(0,200,255,0.3)" : "none",
-            borderBottom: c.startsWith("b") ? "1.5px solid rgba(0,200,255,0.3)" : "none",
-            borderLeft: c.endsWith("l") ? "1.5px solid rgba(0,200,255,0.3)" : "none",
-            borderRight: c.endsWith("r") ? "1.5px solid rgba(0,200,255,0.3)" : "none",
-          }}
-        />
-      ))}
-
-      {/* Top HUD bar */}
-      <div className="relative z-10 flex items-center justify-between px-4 sm:px-8 pt-4 pb-2 shrink-0">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[9px] sm:text-[10px] font-mono tracking-[0.2em] sm:tracking-[0.25em] text-cyan-400/70 uppercase">
-            {assistantName} · Interface Neural
-          </span>
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                "w-1.5 h-1.5 rounded-full transition-all duration-300",
-                isBusy || isSpeaking || isListening
-                  ? "bg-cyan-400 shadow-[0_0_6px_2px_rgba(0,200,255,0.7)]"
-                  : "bg-cyan-400/30"
-              )}
-            />
-            <span className="text-[9px] font-mono tracking-widest text-cyan-400/50 uppercase">{statusLabel}</span>
+      {/* ── Top bar: status & actions ───────────────────────────────────── */}
+      <div className="relative z-10 flex items-center justify-between px-6 py-5 border-b border-cyan-400/10 bg-black/20 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className={cn("w-2 h-2 rounded-full", isBusy ? "bg-amber-400 animate-pulse" : "bg-cyan-400")} />
+            <div className={cn("absolute inset-0 rounded-full blur-[4px]", isBusy ? "bg-amber-400/60" : "bg-cyan-400/60")} />
           </div>
+          <span className="text-[10px] font-mono tracking-[0.2em] text-cyan-400/70 uppercase">{assistantName} // ONLINE</span>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          {isSpeaking && (
+        <div className="flex items-center gap-2">
+          {lastAiText && (
             <button
-              onClick={stopSpeaking}
-              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-red-400/30 bg-red-500/10 text-red-400 text-[9px] sm:text-[10px] font-mono tracking-wider uppercase hover:bg-red-500/20 transition-colors"
-            >
-              <VolumeX className="w-3 h-3" /> <span className="hidden sm:inline">Parar</span>
+              onClick={() => speak(lastAiMessage!.content)}
+              disabled={isSpeaking || isBusy}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded border text-[9px] font-mono tracking-wider uppercase transition-all"
+              style={{ borderColor: "rgba(0,200,255,0.22)", background: "rgba(0,200,255,0.05)", color: "rgba(0,200,255,0.55)" }}>
+              <Volume2 className="w-3 h-3" /> Repetir
             </button>
           )}
-          {!isSpeaking && lastAiText && settings.ttsEnabled && (
-            <button
-              onClick={replayLastResponse}
-              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-cyan-400/20 bg-cyan-400/5 text-cyan-400/60 text-[9px] sm:text-[10px] font-mono tracking-wider uppercase hover:bg-cyan-400/10 hover:text-cyan-400/80 transition-colors"
-            >
-              <Volume2 className="w-3 h-3" /> <span className="hidden sm:inline">Repetir</span>
-            </button>
-          )}
-          <button
-            onClick={clearChat}
-            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-cyan-400/15 bg-transparent text-cyan-400/40 text-[9px] sm:text-[10px] font-mono tracking-wider uppercase hover:border-red-400/30 hover:text-red-400/60 transition-colors"
-          >
-            <Trash2 className="w-3 h-3" /> <span className="hidden sm:inline">Limpar</span>
+          <button onClick={clearChat}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded border text-[9px] font-mono tracking-wider uppercase transition-all hover:border-red-400/30 hover:text-red-400/60"
+            style={{ borderColor: "rgba(0,200,255,0.12)", background: "transparent", color: "rgba(0,200,255,0.32)" }}>
+            <Trash2 className="w-3 h-3" /> Limpar
           </button>
         </div>
       </div>
 
-      {/* Central Globe Area */}
-      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-4 min-h-0">
+      {/* ── Globe + transcription ────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-4 gap-0 overflow-hidden">
+
+        {/* Globe with scale animation */}
         <motion.div
-          animate={
-            isSpeaking
-              ? { scale: [1, 1.03, 1], transition: { repeat: Infinity, duration: 1.8, ease: "easeInOut" } }
-              : isListening
-              ? { scale: [1, 1.015, 1], transition: { repeat: Infinity, duration: 1.2, ease: "easeInOut" } }
-              : { scale: 1 }
-          }
+          animate={isSpeaking
+            ? { scale: [1, 1.035, 1], transition: { repeat: Infinity, duration: 1.7, ease: "easeInOut" } }
+            : isListening
+            ? { scale: [1, 1.012, 1], transition: { repeat: Infinity, duration: 1.1, ease: "easeInOut" } }
+            : { scale: 1 }}
         >
           <HorusConstellation isThinking={isBusy} isSpeaking={isSpeaking} size={globeSize} />
         </motion.div>
 
-        <motion.div
-          key={statusLabel}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="mt-2 sm:mt-3 flex items-center gap-2"
-        >
-          {(isBusy || isSpeaking || isListening) && (
-            <Loader2 className="w-3 h-3 text-cyan-400/60 animate-spin" />
-          )}
-          <span className="text-[10px] sm:text-[11px] font-mono tracking-[0.3em] text-cyan-400/60 uppercase">{statusLabel}</span>
-        </motion.div>
+        {/* ── Status + audio bars row ──────────────────────────────────── */}
+        <div className="flex items-center gap-3 mt-1">
+          <AnimateKey id={statusLabel}>
+            <span className="text-[10px] font-mono tracking-[0.28em] uppercase" style={{ color: "rgba(0,200,255,0.55)" }}>
+              {statusLabel}
+            </span>
+          </AnimateKey>
+          <AudioBars active={isSpeaking || isListening} />
+        </div>
 
-        {/* Live transcript */}
-        <AnimatePresence>
-          {liveTranscript && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              className="mt-3 sm:mt-4 max-w-xs sm:max-w-md text-center px-4"
-            >
-              <p className="text-xs sm:text-sm text-cyan-300/80 font-mono italic leading-relaxed">
-                &ldquo;{liveTranscript}&rdquo;
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* ── Real-time text display ─────────────────────────────────────── */}
+        <div className="mt-8 w-full max-w-xl text-center min-h-[100px] flex flex-col items-center justify-start px-4">
+          <AnimatePresence mode="wait">
+            {isListening && (
+              <motion.p
+                key="listening"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="text-cyan-400/40 font-mono text-xs italic tracking-wider">
+                Capturando áudio...
+              </motion.p>
+            )}
 
-        {/* Last AI response preview */}
-        <AnimatePresence>
-          {!liveTranscript && lastAiText && !isBusy && (
-            <motion.div
-              key={lastAiText.slice(0, 20)}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="mt-4 sm:mt-5 max-w-xs sm:max-w-lg text-center px-4 sm:px-6"
-            >
-              <p className="text-[11px] sm:text-xs text-cyan-100/40 font-mono leading-relaxed line-clamp-3">
-                {lastAiText}{lastAiMessage!.content.length > 180 ? "…" : ""}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            {!isListening && isTranscribing && (
+              <motion.p
+                key="transcribing"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="text-cyan-400/60 font-mono text-xs animate-pulse tracking-widest uppercase">
+                Processando linguagem...
+              </motion.p>
+            )}
+
+            {!isBusy && !isListening && lastAiMessage && (
+              <motion.div
+                key={lastAiMessage.content}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
+                <div className="text-cyan-100/90 font-light text-lg sm:text-xl leading-relaxed tracking-tight">
+                  <TypewriterText text={lastAiMessage.content} />
+                </div>
+                {lastAiMessage.actions && lastAiMessage.actions.length > 0 && (
+                  <div className="w-full max-w-sm mx-auto">
+                    <ChatActionCards actions={lastAiMessage.actions} />
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {!isBusy && !isListening && !lastAiMessage && (
+              <motion.div
+                key="welcome"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="text-cyan-400/30 font-mono text-[11px] tracking-[0.4em] uppercase"
+              >
+                Sistema aguardando comando
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
       </div>
 
-      {/* Bottom: text input + mic button */}
-      <div className="relative z-10 flex flex-col items-center pb-6 sm:pb-10 pt-3 sm:pt-4 gap-3 sm:gap-4 shrink-0 px-4">
-        {/* Text input bar */}
-        <div className="w-full max-w-md sm:max-w-xl flex items-center gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading || isListening || isTranscribing}
-            placeholder="Digite ou use o microfone..."
-            className="flex-1 bg-cyan-400/5 border border-cyan-400/20 rounded-xl px-4 py-2.5 text-sm text-cyan-100/80 placeholder:text-cyan-400/25 font-mono focus:outline-none focus:border-cyan-400/50 focus:bg-cyan-400/8 transition-all disabled:opacity-40"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading || isListening || isTranscribing}
-            className="w-10 h-10 rounded-xl bg-cyan-400/10 border border-cyan-400/25 flex items-center justify-center text-cyan-400/60 hover:bg-cyan-400/20 hover:text-cyan-300 hover:border-cyan-400/50 transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
+      {/* ── Bottom mic controls ──────────────────────────────────────────── */}
+      <div className="relative z-10 shrink-0 flex flex-col items-center pb-8 pt-3 gap-3">
 
         {/* Mic button */}
         <div className="relative flex items-center justify-center">
           {isListening && (
             <>
-              <motion.span
-                className="absolute rounded-full border border-cyan-400/30"
-                style={{ width: 80, height: 80 }}
-                animate={{ scale: [1, 1.6, 1], opacity: [0.5, 0, 0.5] }}
-                transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
-              />
-              <motion.span
-                className="absolute rounded-full border border-cyan-400/20"
-                style={{ width: 80, height: 80 }}
-                animate={{ scale: [1, 2, 1], opacity: [0.3, 0, 0.3] }}
-                transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut", delay: 0.4 }}
-              />
+              <motion.span className="absolute rounded-full border border-cyan-400/35"
+                style={{ width: 76, height: 76 }}
+                animate={{ scale: [1, 1.65, 1], opacity: [0.5, 0, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }} />
+              <motion.span className="absolute rounded-full border border-cyan-400/20"
+                style={{ width: 76, height: 76 }}
+                animate={{ scale: [1, 2.1, 1], opacity: [0.3, 0, 0.3] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay: 0.38 }} />
             </>
           )}
           <button
             onClick={toggleVoice}
             disabled={isBusy}
             className={cn(
-              "relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none",
+              "relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none",
               isListening
-                ? "bg-cyan-500/20 border-2 border-cyan-400/80 shadow-[0_0_28px_6px_rgba(0,200,255,0.35)] text-cyan-300"
+                ? "border-2 border-cyan-400/90 text-cyan-300"
                 : isBusy
-                ? "bg-cyan-400/5 border border-cyan-400/15 text-cyan-400/25 cursor-not-allowed"
-                : "bg-cyan-400/8 border border-cyan-400/30 hover:bg-cyan-400/15 hover:border-cyan-400/60 hover:shadow-[0_0_18px_4px_rgba(0,200,255,0.18)] text-cyan-400/70 hover:text-cyan-300"
+                ? "border border-cyan-400/12 text-cyan-400/22 cursor-not-allowed"
+                : "border border-cyan-400/30 text-cyan-400/65 hover:text-cyan-300 hover:border-cyan-400/65"
             )}
+            style={{
+              background: isListening
+                ? "radial-gradient(circle, rgba(0,200,255,0.18) 0%, rgba(0,200,255,0.06) 100%)"
+                : "rgba(0,200,255,0.04)",
+              boxShadow: isListening ? "0 0 30px 6px rgba(0,200,255,0.30)" : undefined,
+            }}
           >
-            {isListening ? (
-              <MicOff className="w-6 h-6" />
-            ) : isBusy ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
-            ) : (
-              <Mic className="w-6 h-6" />
-            )}
+            {isListening ? <MicOff className="w-5 h-5" />
+              : isBusy ? <Loader2 className="w-5 h-5 animate-spin" />
+              : <Mic className="w-5 h-5" />}
           </button>
         </div>
 
-        <span className="text-[9px] font-mono tracking-[0.3em] text-cyan-400/35 uppercase select-none">
+        <span className="text-[9px] font-mono tracking-[0.3em] uppercase select-none"
+          style={{ color: "rgba(0,200,255,0.30)" }}>
           {isListening ? "Clique para enviar" : isBusy ? "Aguarde..." : "Clique para falar"}
         </span>
       </div>
+
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
+        multiple className="hidden" onChange={handleFileAttach} />
     </div>
   );
 };
+
+/* ── Tiny helper: animate on key change ─────────────────────────── */
+const AnimateKey = ({ id, children }: { id: string; children: React.ReactNode }) => (
+  <AnimatePresence mode="wait">
+    <motion.span key={id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+      {children}
+    </motion.span>
+  </AnimatePresence>
+);
