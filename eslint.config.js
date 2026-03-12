@@ -1,4 +1,4 @@
-﻿import js from "@eslint/js";
+import js from "@eslint/js";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
@@ -25,6 +25,12 @@ export default tseslint.config(
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-require-imports": "off",
       "no-useless-escape": "off",
+    },
+  },
+  {
+    files: ["src/components/ui/*.tsx", "src/hooks/*.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
     },
   },
 );
