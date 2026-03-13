@@ -2,9 +2,25 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Apply saved theme on load
-const savedTheme = localStorage.getItem("horus-theme") || "dark";
-if (savedTheme === "light" || (savedTheme === "system" && window.matchMedia("(prefers-color-scheme: light)").matches)) {
+const readStorage = (key: string, fallback: string) => {
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const prefersLightTheme = () => {
+  try {
+    return window.matchMedia("(prefers-color-scheme: light)").matches;
+  } catch {
+    return false;
+  }
+};
+
+// Apply saved theme on load with mobile/webview-safe fallbacks.
+const savedTheme = readStorage("horus-theme", "dark");
+if (savedTheme === "light" || (savedTheme === "system" && prefersLightTheme())) {
   document.documentElement.classList.remove("dark");
   document.documentElement.classList.add("light");
 } else {
@@ -12,8 +28,8 @@ if (savedTheme === "light" || (savedTheme === "system" && window.matchMedia("(pr
   document.documentElement.classList.add("dark");
 }
 
-// Apply saved visual theme
-const savedVisualTheme = localStorage.getItem("horus-visual-theme") || "nectar";
+// Apply saved visual theme.
+const savedVisualTheme = readStorage("horus-visual-theme", "nectar");
 document.documentElement.setAttribute("data-theme", savedVisualTheme);
 
 createRoot(document.getElementById("root")!).render(<App />);
