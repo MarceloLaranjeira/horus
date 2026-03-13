@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { registerSW } from "virtual:pwa-register";
 import App from "./App.tsx";
 import "./index.css";
 
@@ -31,5 +32,20 @@ if (savedTheme === "light" || (savedTheme === "system" && prefersLightTheme())) 
 // Apply saved visual theme.
 const savedVisualTheme = readStorage("horus-visual-theme", "nectar");
 document.documentElement.setAttribute("data-theme", savedVisualTheme);
+
+if ("serviceWorker" in navigator) {
+  const updateSW = registerSW({
+    immediate: true,
+    onNeedRefresh() {
+      updateSW(true);
+    },
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return;
+      window.setInterval(() => {
+        registration.update().catch(() => undefined);
+      }, 60 * 60 * 1000);
+    },
+  });
+}
 
 createRoot(document.getElementById("root")!).render(<App />);

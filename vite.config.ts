@@ -17,12 +17,12 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      // Recovery mode for broken mobile caches/PWA clients.
-      // The generated SW unregisters itself and clears caches on activation.
-      selfDestroying: true,
       registerType: "autoUpdate",
       includeAssets: ["favicon.png", "icon-192.png", "icon-512.png", "apple-touch-icon.png"],
       workbox: {
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallbackDenylist: [/^\/~oauth/],
         runtimeCaching: [
