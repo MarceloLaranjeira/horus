@@ -269,11 +269,19 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     load();
   }, [user]);
 
-  // Audio cleanup
+  // Audio + mic stream cleanup on unmount
   useEffect(() => {
     return () => {
       if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
       if (pendingAudioRef.current) { pendingAudioRef.current.pause(); pendingAudioRef.current = null; }
+      // Always release the mic stream so iOS doesn't show the orange dot indefinitely
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach(t => t.stop());
+        activeStreamRef.current = null;
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
     };
   }, []);
 
@@ -360,10 +368,32 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     }
   };
 
+  // Track the active media stream so we can always release it
+  const activeStreamRef = useRef<MediaStream | null>(null);
+
+  const releaseStream = () => {
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach(t => t.stop());
+      activeStreamRef.current = null;
+    }
+  };
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      activeStreamRef.current = stream;
+
+      // iOS Safari supports audio/mp4; webm is only available on desktop Chrome/Firefox
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+        ? "audio/mp4"
+        : "";
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
 
@@ -371,46 +401,64 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+      recorder.onstop = () => {
+        // Use the actual mimeType the recorder used, not a hardcoded one
+        const actualMime = recorder.mimeType || mimeType || "audio/mp4";
+        const audioBlob = new Blob(audioChunksRef.current, { type: actualMime });
+        releaseStream();
         transcribe(audioBlob);
-        stream.getTracks().forEach(t => t.stop());
       };
 
       recorder.start();
       setIsListening(true);
     } catch (e) {
       console.error(e);
+      releaseStream();
       toast({ title: "Erro", description: "Não foi possível acessar o microfone", variant: "destructive" });
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isListening) {
-      mediaRecorderRef.current.stop();
+    const recorder = mediaRecorderRef.current;
+    if (recorder && isListening) {
+      // On iOS, calling stop() while state is 'inactive' throws — guard it
+      if (recorder.state !== "inactive") {
+        recorder.stop();
+      } else {
+        releaseStream();
+      }
       setIsListening(false);
     }
   };
 
+  // Wrap FileReader in a Promise so try/catch and finally work correctly
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        resolve(result.split(",")[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
   const transcribe = async (blob: Blob) => {
     setIsTranscribing(true);
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(",")[1];
-        const { data, error } = await supabase.functions.invoke("gemini-stt", {
-          body: { audio: base64 }
-        });
+      const base64 = await blobToBase64(blob);
+      const { data, error } = await supabase.functions.invoke("gemini-stt", {
+        body: { audio: base64, mimeType: blob.type }
+      });
 
-        if (error) throw error;
-        if (data.text) {
-          setLiveTranscript(data.text);
-          handleSend(data.text);
-        }
-      };
+      if (error) throw error;
+      if (data?.text) {
+        setLiveTranscript(data.text);
+        handleSend(data.text);
+      }
     } catch (e) {
       console.error(e);
+      toast({ title: "Erro", description: "Falha ao transcrever áudio", variant: "destructive" });
     } finally {
       setIsTranscribing(false);
     }
