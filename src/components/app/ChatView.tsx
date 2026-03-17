@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Send, Mic, MicOff, Loader2, CheckSquare, DollarSign, Flame, Bell, Calendar, Trash2, VolumeX, Volume2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,9 @@ import { HorusConstellation } from "@/components/app/HorusConstellation";
 import type { AppView } from "@/pages/AppDashboard";
 
 /* ── Typewriter effect component ──────────────────────────────────── */
-const TypewriterText = ({ text, speed = 18 }: { text: string; speed?: number }) => {
+// Batch size: render N chars per tick to avoid 55 re-renders/sec on mobile
+const TYPEWRITER_BATCH = typeof window !== "undefined" && window.innerWidth < 768 ? 6 : 3;
+const TypewriterText = ({ text, speed = 25 }: { text: string; speed?: number }) => {
   const [shown, setShown] = useState("");
   const [done, setDone]   = useState(false);
   useEffect(() => {
@@ -20,7 +22,7 @@ const TypewriterText = ({ text, speed = 18 }: { text: string; speed?: number }) 
     if (!text) return;
     let i = 0;
     const id = setInterval(() => {
-      i++;
+      i = Math.min(i + TYPEWRITER_BATCH, text.length);
       setShown(text.slice(0, i));
       if (i >= text.length) { setDone(true); clearInterval(id); }
     }, speed);
@@ -41,7 +43,11 @@ const TypewriterText = ({ text, speed = 18 }: { text: string; speed?: number }) 
 };
 
 /* ── Audio visualizer bars ────────────────────────────────────────── */
-const BAR_H = [4, 9, 16, 22, 14, 20, 10, 24, 16, 12, 20, 8, 18, 24, 10, 6, 14, 22, 8, 16];
+const BAR_H_FULL   = [4, 9, 16, 22, 14, 20, 10, 24, 16, 12, 20, 8, 18, 24, 10, 6, 14, 22, 8, 16];
+const BAR_H_MOBILE = [4, 14, 22, 12, 20, 8, 18, 10, 16, 6];
+const IS_MOBILE_BARS = typeof window !== "undefined" && window.innerWidth < 768;
+const BAR_H = IS_MOBILE_BARS ? BAR_H_MOBILE : BAR_H_FULL;
+
 const AudioBars = ({ active, color = "rgba(0,200,255," }: { active: boolean; color?: string }) => (
   <div className="flex items-center gap-[2.5px]" style={{ height: 28 }}>
     {BAR_H.map((maxH, i) => (
@@ -170,9 +176,15 @@ function useGlobeSize() {
     return Math.min(340, Math.min(window.innerWidth * 0.68, window.innerHeight * 0.48));
   });
   useEffect(() => {
-    const update = () => setSize(Math.min(340, Math.min(window.innerWidth * 0.68, window.innerHeight * 0.48)));
+    let timer: ReturnType<typeof setTimeout>;
+    const update = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        setSize(Math.min(340, Math.min(window.innerWidth * 0.68, window.innerHeight * 0.48)));
+      }, 150);
+    };
     window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
+    return () => { window.removeEventListener("resize", update); clearTimeout(timer); };
   }, []);
   return size;
 }
@@ -423,6 +435,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   const assistantName = settings.assistantName || "Horus";
   const lastAiMessage = [...messages].reverse().find(m => m.role === "assistant");
   const lastAiText = lastAiMessage?.content
@@ -456,12 +469,14 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 75% 55% at 50% 48%, rgba(0,70,110,0.22) 0%, transparent 70%)" }} />
         {/* Fine grid */}
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(0,200,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,255,1) 1px,transparent 1px)", backgroundSize: "52px 52px" }} />
-        {/* Horizontal scan line animation */}
-        <motion.div
-          className="absolute left-0 right-0 h-[1px] bg-cyan-400/20 z-0"
-          animate={{ top: ["0%", "100%", "0%"] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-        />
+        {/* Horizontal scan line animation — desktop only */}
+        {!isMobile && (
+          <motion.div
+            className="absolute left-0 right-0 h-[1px] bg-cyan-400/20 z-0"
+            animate={{ top: ["0%", "100%", "0%"] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+          />
+        )}
       </div>
 
       {/* ── Top bar: status & actions ───────────────────────────────────── */}
