@@ -379,16 +379,17 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   };
 
   const startRecording = async () => {
+    if (typeof MediaRecorder === "undefined") {
+      toast({ title: "Erro", description: "Gravação de áudio não suportada neste navegador", variant: "destructive" });
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       activeStreamRef.current = stream;
 
-      // iOS Safari supports audio/mp4; webm is only available on desktop Chrome/Firefox
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm")
-        ? "audio/webm"
-        : MediaRecorder.isTypeSupported("audio/mp4")
-        ? "audio/mp4"
-        : "";
+      // Priority order: webm (Chrome/Firefox desktop), mp4 (iOS Safari), aac (iOS fallback), default
+      const mimeType = ["audio/webm", "audio/mp4", "audio/aac", "audio/mpeg"]
+        .find(t => MediaRecorder.isTypeSupported(t)) ?? "";
 
       const recorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
@@ -402,19 +403,22 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       };
 
       recorder.onstop = () => {
-        // Use the actual mimeType the recorder used, not a hardcoded one
         const actualMime = recorder.mimeType || mimeType || "audio/mp4";
         const audioBlob = new Blob(audioChunksRef.current, { type: actualMime });
         releaseStream();
         transcribe(audioBlob);
       };
 
-      recorder.start();
+      // timeslice of 250 ms is required on iOS Safari so ondataavailable fires
+      recorder.start(250);
       setIsListening(true);
     } catch (e) {
       console.error(e);
       releaseStream();
-      toast({ title: "Erro", description: "Não foi possível acessar o microfone", variant: "destructive" });
+      const msg = (e instanceof DOMException && e.name === "NotAllowedError")
+        ? "Permissão de microfone negada. Verifique as configurações do navegador."
+        : "Não foi possível acessar o microfone";
+      toast({ title: "Erro", description: msg, variant: "destructive" });
     }
   };
 
