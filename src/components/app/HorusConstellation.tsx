@@ -9,6 +9,13 @@ interface HorusConstellationProps {
 
 const PERSPECTIVE = 500;
 
+// Detect mobile once at module load
+const IS_MOBILE = typeof window !== "undefined" && window.innerWidth < 768;
+const POINT_COUNT = IS_MOBILE ? 80 : 220;
+const RING_STEPS  = IS_MOBILE ? 60  : 120;
+// On mobile limit expensive O(n²) connections
+const MAX_CONNECTIONS = IS_MOBILE ? 120 : Infinity;
+
 interface SpherePoint {
   x0: number; y0: number; z0: number;
   radius: number; pulseOffset: number; opacity: number;
@@ -55,7 +62,7 @@ function drawOrbitRing(
   tiltX: number, tiltZ: number,
   color: [number, number, number], active: boolean, t: number,
 ) {
-  const steps = 120;
+  const steps = RING_STEPS;
   const pts: { sx: number; sy: number; depth: number }[] = [];
 
   for (let i = 0; i <= steps; i++) {
@@ -95,12 +102,13 @@ function drawOrbitRing(
 export const HorusConstellation = ({
   isThinking, isSpeaking, size = 420,
 }: HorusConstellationProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef    = useRef<number>(0);
-  const timeRef   = useRef(0);
-  const ptsRef    = useRef<SpherePoint[]>(generateSpherePoints(220));
-  const rotYRef   = useRef(0);
-  const rotXRef   = useRef(0.25);
+  const canvasRef   = useRef<HTMLCanvasElement>(null);
+  const rafRef      = useRef<number>(0);
+  const timeRef     = useRef(0);
+  const lastFrameTs = useRef(0);
+  const ptsRef      = useRef<SpherePoint[]>(generateSpherePoints(POINT_COUNT));
+  const rotYRef     = useRef(0);
+  const rotXRef     = useRef(0.25);
 
   const active = isThinking || isSpeaking;
   const cx = size / 2, cy = size / 2;
@@ -116,7 +124,14 @@ export const HorusConstellation = ({
     canvas.height = size * dpr;
     ctx.scale(dpr, dpr);
 
-    const tick = () => {
+    const tick = (timestamp: number) => {
+      // On mobile, cap at ~30fps to reduce main-thread load
+      if (IS_MOBILE) {
+        const elapsed = timestamp - lastFrameTs.current;
+        if (elapsed < 33) { rafRef.current = requestAnimationFrame(tick); return; }
+        lastFrameTs.current = timestamp;
+      }
+
       timeRef.current += 0.016;
       const t   = timeRef.current;
       const spd = isSpeaking ? 0.014 : isThinking ? 0.009 : 0.004;
@@ -161,7 +176,8 @@ export const HorusConstellation = ({
 
       /* ── Connection lines ───────────────────────────────────────────── */
       const maxD = active ? size * 0.13 : size * 0.095;
-      for (let i = 0; i < projected.length; i++) {
+      let connCount = 0;
+      outer: for (let i = 0; i < projected.length; i++) {
         if (projected[i].depth < 0.18) continue;
         for (let j = i + 1; j < projected.length; j++) {
           if (projected[j].depth < 0.18) continue;
@@ -178,6 +194,7 @@ export const HorusConstellation = ({
           ctx.strokeStyle = `rgba(0,200,255,${Math.min(a, 0.32)})`;
           ctx.lineWidth   = 0.45;
           ctx.stroke();
+          if (++connCount >= MAX_CONNECTIONS) break outer;
         }
       }
 
@@ -190,7 +207,7 @@ export const HorusConstellation = ({
         const pr    = Math.max(0.4, p.radius * sc * (active ? 1.55 : 1));
         const alpha = Math.min(depth * pulse * p.opacity, 0.95);
 
-        if (depth > 0.42) {
+        if (!IS_MOBILE && depth > 0.42) {
           const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, pr * 5);
           glow.addColorStop(0, `rgba(0,210,255,${alpha * 0.38})`);
           glow.addColorStop(1, "rgba(0,210,255,0)");
@@ -205,7 +222,7 @@ export const HorusConstellation = ({
       }
 
       /* ── Outer pulse ring when speaking ────────────────────────────── */
-      if (isSpeaking) {
+      if (isSpeaking && !IS_MOBILE) {
         const rr  = R + 10 + Math.sin(t * 3.6) * 8;
         const op  = 0.13 + Math.sin(t * 3.6) * 0.06;
         const rg  = ctx.createRadialGradient(cx, cy, rr - 20, cx, cy, rr + 20);
@@ -217,7 +234,7 @@ export const HorusConstellation = ({
       }
 
       /* ── Slow glow ring when thinking ───────────────────────────────── */
-      if (isThinking && !isSpeaking) {
+      if (isThinking && !isSpeaking && !IS_MOBILE) {
         const rr = R + 6 + Math.sin(t * 2.1) * 4;
         const op = 0.07 + Math.sin(t * 2.1) * 0.03;
         const rg = ctx.createRadialGradient(cx, cy, rr - 14, cx, cy, rr + 14);
@@ -231,7 +248,7 @@ export const HorusConstellation = ({
       rafRef.current = requestAnimationFrame(tick);
     };
 
-    tick();
+    rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
   }, [active, isSpeaking, isThinking, size, cx, cy, R]);
 
