@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAISettings } from "@/hooks/useAISettings";
 import { HorusConstellation } from "@/components/app/HorusConstellation";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 import type { AppView } from "@/pages/AppDashboard";
 
 /* ── Typewriter effect component ──────────────────────────────────── */
@@ -194,16 +195,11 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [liveTranscript, setLiveTranscript] = useState("");
   const [showProgressCards, setShowProgressCards] = useState(false);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastAssistantTextRef = useRef<string>("");
   const pendingAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -214,6 +210,13 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const globeSize = useGlobeSize();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Voice input — Web Speech API primary, gemini-stt fallback
+  const { isListening, isTranscribing, liveTranscript, startListening, stopListening } = useVoiceInput({
+    lang: "pt-BR",
+    onTranscript: (text) => handleSend(text),
+    onError: (msg) => toast({ title: "Erro", description: msg, variant: "destructive" }),
+  });
 
   // Load user profile
   useEffect(() => {
@@ -269,19 +272,11 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     load();
   }, [user]);
 
-  // Audio + mic stream cleanup on unmount
+  // Audio playback cleanup on unmount
   useEffect(() => {
     return () => {
       if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
       if (pendingAudioRef.current) { pendingAudioRef.current.pause(); pendingAudioRef.current = null; }
-      // Always release the mic stream so iOS doesn't show the orange dot indefinitely
-      if (activeStreamRef.current) {
-        activeStreamRef.current.getTracks().forEach(t => t.stop());
-        activeStreamRef.current = null;
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-        mediaRecorderRef.current.stop();
-      }
     };
   }, []);
 
@@ -360,112 +355,9 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     }
   };
 
-  const toggleVoice = async () => {
-    if (isListening) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
-  // Track the active media stream so we can always release it
-  const activeStreamRef = useRef<MediaStream | null>(null);
-
-  const releaseStream = () => {
-    if (activeStreamRef.current) {
-      activeStreamRef.current.getTracks().forEach(t => t.stop());
-      activeStreamRef.current = null;
-    }
-  };
-
-  const startRecording = async () => {
-    if (typeof MediaRecorder === "undefined") {
-      toast({ title: "Erro", description: "Gravação de áudio não suportada neste navegador", variant: "destructive" });
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      activeStreamRef.current = stream;
-
-      // Priority order: webm (Chrome/Firefox desktop), mp4 (iOS Safari), aac (iOS fallback), default
-      const mimeType = ["audio/webm", "audio/mp4", "audio/aac", "audio/mpeg"]
-        .find(t => MediaRecorder.isTypeSupported(t)) ?? "";
-
-      const recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
-
-      mediaRecorderRef.current = recorder;
-      audioChunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = () => {
-        const actualMime = recorder.mimeType || mimeType || "audio/mp4";
-        const audioBlob = new Blob(audioChunksRef.current, { type: actualMime });
-        releaseStream();
-        transcribe(audioBlob);
-      };
-
-      // timeslice of 250 ms is required on iOS Safari so ondataavailable fires
-      recorder.start(250);
-      setIsListening(true);
-    } catch (e) {
-      console.error(e);
-      releaseStream();
-      const msg = (e instanceof DOMException && e.name === "NotAllowedError")
-        ? "Permissão de microfone negada. Verifique as configurações do navegador."
-        : "Não foi possível acessar o microfone";
-      toast({ title: "Erro", description: msg, variant: "destructive" });
-    }
-  };
-
-  const stopRecording = () => {
-    const recorder = mediaRecorderRef.current;
-    if (recorder && isListening) {
-      // On iOS, calling stop() while state is 'inactive' throws — guard it
-      if (recorder.state !== "inactive") {
-        recorder.stop();
-      } else {
-        releaseStream();
-      }
-      setIsListening(false);
-    }
-  };
-
-  // Wrap FileReader in a Promise so try/catch and finally work correctly
-  const blobToBase64 = (blob: Blob): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        resolve(result.split(",")[1]);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-
-  const transcribe = async (blob: Blob) => {
-    setIsTranscribing(true);
-    try {
-      const base64 = await blobToBase64(blob);
-      const { data, error } = await supabase.functions.invoke("gemini-stt", {
-        body: { audio: base64, mimeType: blob.type }
-      });
-
-      if (error) throw error;
-      if (data?.text) {
-        setLiveTranscript(data.text);
-        handleSend(data.text);
-      }
-    } catch (e) {
-      console.error(e);
-      toast({ title: "Erro", description: "Falha ao transcrever áudio", variant: "destructive" });
-    } finally {
-      setIsTranscribing(false);
-    }
+  const toggleVoice = () => {
+    if (isListening) stopListening();
+    else startListening();
   };
 
   const clearChat = async () => {
