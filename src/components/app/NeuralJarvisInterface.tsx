@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, X, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAISettings } from "@/hooks/useAISettings";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { cn } from "@/lib/utils";
 import type { AppView } from "@/pages/AppDashboard";
 import { HorusConstellation } from "@/components/app/HorusConstellation";
@@ -168,108 +169,22 @@ export const NeuralJarvisInterface = ({
   onClose,
   onNavigate,
 }: NeuralJarvisInterfaceProps) => {
-  const [state, setState] = useState<JarvisState>("idle");
+  const [jarvisState, setJarvisState] = useState<JarvisState>("idle");
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
   const [muted, setMuted] = useState(false);
 
-  const recorderRef  = useRef<MediaRecorder | null>(null);
-  const chunksRef    = useRef<Blob[]>([]);
-  const streamRef    = useRef<MediaStream | null>(null);
   const audioRef     = useRef<HTMLAudioElement | null>(null);
   const { user }     = useAuth();
   const { settings } = useAISettings();
 
-  const globeSize =
-    typeof window !== "undefined"
-      ? Math.min(300, Math.min(window.innerWidth * 0.58, window.innerHeight * 0.38))
-      : 260;
-
-  /* ── Keyboard shortcuts ───────────────────────────────────────────── */
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { onClose(); return; }
-      if (e.key === " " && !["INPUT","TEXTAREA"].includes((e.target as HTMLElement)?.tagName ?? "")) {
-        e.preventDefault();
-        if (state === "idle") startRec();
-        else if (state === "listening") stopRec();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, state]);
-
-  /* ── Cleanup on close ─────────────────────────────────────────────── */
-  useEffect(() => {
-    if (!isOpen) {
-      if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
-      releaseStream();
-      audioRef.current?.pause();
-      audioRef.current = null;
-      setTranscript("");
-      setResponse("");
-      setState("idle");
-    }
-  }, [isOpen]);
-
-  const releaseStream = () => {
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-  };
-
-  /* ── Recording ───────────────────────────────────────────────────── */
-  const startRec = async () => {
-    if (state !== "idle") return;
+  /* ── TTS speak helper (defined before processText so it can be used inside) */
+  const speak = useCallback(async (text: string, _muted: boolean, _settings: typeof settings) => {
+    if (!text || _muted) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const mimeType = ["audio/webm", "audio/mp4", "audio/aac", "audio/mpeg"].find(
-        t => MediaRecorder.isTypeSupported(t)
-      ) ?? "";
-      const rec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      recorderRef.current = rec;
-      chunksRef.current = [];
-      rec.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      rec.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: rec.mimeType || mimeType || "audio/mp4" });
-        releaseStream();
-        processVoice(blob);
-      };
-      rec.start(250);
-      setState("listening");
-      setTranscript("");
-      setResponse("");
-    } catch (e) {
-      console.error(e);
-      releaseStream();
-    }
-  };
-
-  const stopRec = () => {
-    const rec = recorderRef.current;
-    if (rec && state === "listening") {
-      if (rec.state !== "inactive") rec.stop();
-      else releaseStream();
-      setState("processing");
-    }
-  };
-
-  /* ── Voice processing pipeline ───────────────────────────────────── */
-  const blobToBase64 = (blob: Blob): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onloadend = () => resolve((r.result as string).split(",")[1]);
-      r.onerror = reject;
-      r.readAsDataURL(blob);
-    });
-
-  const speak = async (text: string) => {
-    if (!text || muted) return;
-    try {
-      const fn = settings.voiceProvider === "elevenlabs" ? EL_TTS_FN : TTS_FN;
+      const fn = _settings.voiceProvider === "elevenlabs" ? EL_TTS_FN : TTS_FN;
       const { data, error } = await supabase.functions.invoke(fn, {
-        body: { text: text.replace(/[*#_`~\[\]()>]/g, ""), voiceId: settings.voiceId },
+        body: { text: text.replace(/[*#_`~\[\]()>]/g, ""), voiceId: _settings.voiceId },
       });
       if (error || !data?.audio) return;
       const audio = new Audio(`data:audio/mpeg;base64,${data.audio}`);
@@ -277,58 +192,55 @@ export const NeuralJarvisInterface = ({
       await audio.play().catch(() => {});
       await new Promise<void>(res => { audio.onended = () => res(); audio.onerror = () => res(); });
     } catch {}
-  };
+  }, []);
 
-  const processVoice = async (blob: Blob) => {
-    setState("processing");
-    try {
-      // 1. Transcribe
-      const base64 = await blobToBase64(blob);
-      const { data: stt, error: sttErr } = await supabase.functions.invoke("gemini-stt", {
-        body: { audio: base64, mimeType: blob.type },
-      });
-      if (sttErr) throw sttErr;
-      const text: string = stt?.text || "";
-      if (!text) { setState("idle"); return; }
-      setTranscript(text);
+  // Stable mutable refs so processText/speak can read current values without stale closures
+  const mutedRef    = useRef(muted);
+  const settingsRef = useRef(settings);
+  useEffect(() => { mutedRef.current    = muted;    }, [muted]);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
-      // 2. Check direct navigation command
-      const navView = parseNav(text);
-      if (navView) {
-        const label = VIEW_LABELS[navView] ?? navView;
-        const msg = `Abrindo ${label}.`;
-        setResponse(msg);
-        setState("responding");
-        await speak(msg);
-        onNavigate(navView);
-        onClose();
-        return;
-      }
+  const processText = useCallback(async (text: string) => {
+    setTranscript(text);
+    setJarvisState("processing");
 
-      // 3. Send to AI chat
-      if (!user) { setState("idle"); return; }
+    // Check for direct navigation command
+    const navView = parseNav(text);
+    if (navView) {
+      const label = VIEW_LABELS[navView] ?? navView;
+      const msg = `Abrindo ${label}.`;
+      setResponse(msg);
+      setJarvisState("responding");
+      await speak(msg, mutedRef.current, settingsRef.current);
+      onNavigate(navView);
+      onClose();
+      return;
+    }
 
-      // Get conversation
-      const { data: convos } = await supabase
+    // Send to AI chat
+    if (!user) { setJarvisState("idle"); return; }
+
+    const { data: convos } = await supabase
+      .from("chat_conversations")
+      .select("id")
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    let convId: string | null = null;
+    if (convos && convos.length > 0) {
+      convId = convos[0].id;
+    } else {
+      const { data: newConv } = await supabase
         .from("chat_conversations")
+        .insert({ user_id: user.id, title: "Conversa principal" })
         .select("id")
-        .eq("user_id", user.id)
-        .order("updated_at", { ascending: false })
-        .limit(1);
+        .single();
+      convId = newConv?.id ?? null;
+    }
+    if (!convId) { setJarvisState("idle"); return; }
 
-      let convId: string | null = null;
-      if (convos && convos.length > 0) {
-        convId = convos[0].id;
-      } else {
-        const { data: newConv } = await supabase
-          .from("chat_conversations")
-          .insert({ user_id: user.id, title: "Conversa principal" })
-          .select("id")
-          .single();
-        convId = newConv?.id ?? null;
-      }
-      if (!convId) { setState("idle"); return; }
-
+    try {
       const { data: chat, error: chatErr } = await supabase.functions.invoke("chat", {
         body: {
           message: text,
@@ -347,33 +259,73 @@ export const NeuralJarvisInterface = ({
       const aiText: string = chat?.response || "";
       const truncated = aiText.length > 240 ? aiText.slice(0, 240) + "…" : aiText;
       setResponse(truncated);
-      setState("responding");
+      setJarvisState("responding");
 
-      // Check if AI suggests navigation
       const aiNav = parseNav(aiText);
-
-      await speak(truncated);
+      await speak(truncated, mutedRef.current, settingsRef.current);
 
       if (aiNav) {
         onNavigate(aiNav);
         onClose();
       } else {
-        setTimeout(() => setState("idle"), 1500);
+        setTimeout(() => setJarvisState("idle"), 1200);
       }
     } catch (e) {
       console.error(e);
-      setState("idle");
+      setJarvisState("idle");
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, settings, muted, onNavigate, onClose]);
+
+  const { isListening, isTranscribing, startListening, stopListening } = useVoiceInput({
+    lang: "pt-BR",
+    onTranscript: processText,
+  });
+
+  const globeSize =
+    typeof window !== "undefined"
+      ? Math.min(300, Math.min(window.innerWidth * 0.58, window.innerHeight * 0.38))
+      : 260;
+
+  /* ── Keyboard shortcuts ───────────────────────────────────────────── */
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === " " && !["INPUT","TEXTAREA"].includes((e.target as HTMLElement)?.tagName ?? "")) {
+        e.preventDefault();
+        if (jarvisState === "idle") startListening();
+        else if (jarvisState === "listening") stopListening();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, jarvisState, startListening, stopListening, onClose]);
+
+  /* ── Cleanup on close ─────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!isOpen) {
+      audioRef.current?.pause();
+      audioRef.current = null;
+      setTranscript("");
+      setResponse("");
+      setJarvisState("idle");
+    }
+  }, [isOpen]);
+
+  /* ── Sync hook listening state → jarvisState ─────────────────────── */
+  useEffect(() => {
+    if (isListening && jarvisState === "idle") setJarvisState("listening");
+    if (!isListening && jarvisState === "listening") setJarvisState("processing");
+  }, [isListening, jarvisState]);
 
   const handleMic = () => {
-    if (state === "idle") startRec();
-    else if (state === "listening") stopRec();
+    if (jarvisState === "idle") { setTranscript(""); setResponse(""); startListening(); }
+    else if (jarvisState === "listening") stopListening();
   };
 
-  const isListening   = state === "listening";
-  const isProcessing  = state === "processing";
-  const isResponding  = state === "responding";
+  const isProcessing  = jarvisState === "processing" || isTranscribing;
+  const isResponding  = jarvisState === "responding";
 
   const btnDisabled = isProcessing || isResponding;
 
