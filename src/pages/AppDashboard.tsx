@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useState, useEffect } from "react";
 import { AppSidebar } from "@/components/app/AppSidebar";
 import { ChatView } from "@/components/app/ChatView";
 import { TasksView } from "@/components/app/TasksView";
@@ -18,9 +18,11 @@ import { CommandPalette } from "@/components/app/CommandPalette";
 import { GoogleCalendarOAuthHandler } from "@/components/app/GoogleCalendarOAuthHandler";
 import { ErrorBoundary } from "@/components/app/ErrorBoundary";
 import { ProfileDropdown } from "@/components/app/ProfileDropdown";
+import { NeuralJarvisInterface } from "@/components/app/NeuralJarvisInterface";
 import { Button } from "@/components/ui/button";
-import { Search, ChevronRight, Menu } from "lucide-react";
+import { Search, ChevronRight, Menu, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 export type AppView =
   | "dashboard"
@@ -114,6 +116,19 @@ const AppDashboard = () => {
   const [activeView, setActiveView] = useState<AppView>("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [jarvisOpen, setJarvisOpen] = useState(false);
+
+  // Alt+H global shortcut to open Horus neural interface
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setJarvisOpen(o => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const renderView = () => {
     if (activeView === "dashboard") return <DashboardView onNavigate={setActiveView} />;
@@ -147,6 +162,13 @@ const AppDashboard = () => {
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <GoogleCalendarOAuthHandler />
       <CommandPalette onNavigate={setActiveView} />
+
+      {/* Neural Jarvis Interface overlay */}
+      <NeuralJarvisInterface
+        isOpen={jarvisOpen}
+        onClose={() => setJarvisOpen(false)}
+        onNavigate={(view) => { setActiveView(view); setJarvisOpen(false); }}
+      />
 
       {mobileSidebarOpen && (
         <div
@@ -246,6 +268,52 @@ const AppDashboard = () => {
           <ErrorBoundary key={activeView}>{renderView()}</ErrorBoundary>
         </main>
       </div>
+
+      {/* Floating Horus neural trigger button */}
+      <motion.button
+        className="fixed bottom-6 right-6 z-[190] flex flex-col items-center justify-center gap-0.5 rounded-full"
+        style={{
+          width: 58,
+          height: 58,
+          background: "radial-gradient(circle at 35% 35%, rgba(0,160,220,0.22), rgba(0,60,120,0.35))",
+          border: "1.5px solid rgba(0,210,255,0.45)",
+          boxShadow: "0 0 22px rgba(0,200,255,0.28), 0 0 6px rgba(0,200,255,0.15), inset 0 0 12px rgba(0,200,255,0.06)",
+        }}
+        onClick={() => setJarvisOpen(true)}
+        whileHover={{ scale: 1.08, boxShadow: "0 0 32px rgba(0,200,255,0.5), 0 0 10px rgba(0,200,255,0.3)" }}
+        whileTap={{ scale: 0.93 }}
+        animate={{
+          boxShadow: [
+            "0 0 22px rgba(0,200,255,0.28), 0 0 6px rgba(0,200,255,0.15)",
+            "0 0 32px rgba(0,200,255,0.45), 0 0 12px rgba(0,200,255,0.25)",
+            "0 0 22px rgba(0,200,255,0.28), 0 0 6px rgba(0,200,255,0.15)",
+          ],
+        }}
+        transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+        title="Horus Neural (Alt+H)"
+      >
+        {/* Outer orbit ring */}
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          style={{ border: "1px solid rgba(0,210,255,0.25)" }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+        />
+        {/* Inner ring */}
+        <motion.div
+          className="absolute inset-2 rounded-full"
+          style={{ border: "1px solid rgba(0,180,255,0.15)" }}
+          animate={{ rotate: -360 }}
+          transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+        />
+        <Mic className="w-5 h-5 text-cyan-300 relative z-10" />
+        <span
+          className="text-[8px] font-mono font-bold tracking-widest text-cyan-400/70 relative z-10"
+          style={{ letterSpacing: "0.25em" }}
+        >
+          HORUS
+        </span>
+      </motion.button>
     </div>
   );
 };
