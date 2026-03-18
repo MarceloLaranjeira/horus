@@ -636,20 +636,26 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         }
         const ctx = audioContextRef.current;
 
-        // Resume if suspended (should already be unlocked from sendMessage gesture)
-        if (ctx.state === "suspended") {
+        // Resume if suspended — on iOS the context may still be "suspended" even after
+        // calling resume() in the gesture, since the promise resolves asynchronously.
+        // We always attempt resume and proceed regardless of current state.
+        if (ctx.state !== "running") {
           await ctx.resume().catch(() => {});
         }
 
+        // If still not running after awaiting resume, fall back
         if (ctx.state !== "running") {
-          console.warn("[TTS] AudioContext not running, falling back to speechSynthesis");
+          console.warn("[TTS] AudioContext not running after resume(), falling back to speechSynthesis. State:", ctx.state);
           fallbackSpeechSynthesis();
           return;
         }
 
         try {
           const arrayBuffer = await blob.arrayBuffer();
-          const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+          // decodeAudioData uses a callback API on some iOS versions — wrap in Promise
+          const audioBuffer = await new Promise<AudioBuffer>((resolve, reject) => {
+            ctx.decodeAudioData(arrayBuffer, resolve, reject);
+          });
           const source = ctx.createBufferSource();
           source.buffer = audioBuffer;
           source.connect(ctx.destination);
@@ -660,8 +666,20 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           source.start(0);
           audioSourceRef.current = source;
         } catch (e) {
-          console.error("[TTS] AudioContext decode/play failed:", e);
-          fallbackSpeechSynthesis();
+          console.error("[TTS] AudioContext decode/play failed, trying HTMLAudioElement fallback:", e);
+          // Secondary fallback: HTMLAudioElement with Object URL (works on some devices where decodeAudioData fails)
+          try {
+            const url = URL.createObjectURL(blob);
+            const fallbackAudio = new Audio();
+            fallbackAudio.setAttribute("playsinline", "");
+            fallbackAudio.src = url;
+            fallbackAudio.onended = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
+            fallbackAudio.onerror = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); fallbackSpeechSynthesis(); };
+            audioRef.current = fallbackAudio;
+            await fallbackAudio.play();
+          } catch {
+            fallbackSpeechSynthesis();
+          }
         }
       };
 
@@ -853,6 +871,17 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       transcriptRef.current = "";
       return;
     }
+
+    // Unlock AudioContext here (user gesture context) so TTS works when recognition ends
+    // via recognition.onend which is NOT a gesture context
+    if (settings.ttsEnabled) {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      audioContextRef.current.resume().catch(() => {});
+      console.log("[TTS] AudioContext unlocked in toggleVoice gesture");
+    }
+
     stopSpeaking();
 
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
