@@ -386,9 +386,9 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     ? lastAiMessage.content.replace(/[*#_`~\[\]()>]/g, "").slice(0, 220)
     : null;
 
-  const isBusy = isLoading || isTranscribing;
+  const isBusy = isLoading;
   const statusLabel = isBusy
-    ? (isTranscribing ? "TRANSCREVENDO" : "PROCESSANDO")
+    ? "PROCESSANDO"
     : isListening
     ? "OUVINDO"
     : isSpeaking
