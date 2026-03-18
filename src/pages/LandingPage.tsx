@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
 import {
   Brain,
@@ -31,13 +31,10 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import horusLogo from "@/assets/horus-logo.png";
 
-// ─── Asaas Checkout URLs ─────────────────────────────────────────────────────
-// Substitua pelas URLs reais do seu checkout Asaas
-const ASAAS_LINKS = {
-  mensal: "https://www.asaas.com/c/SEU_LINK_MENSAL",
-  anual: "https://www.asaas.com/c/SEU_LINK_ANUAL",
-  vitalicio: "https://www.asaas.com/c/SEU_LINK_VITALICIO",
-};
+// ─── Checkout route ───────────────────────────────────────────────────────────
+// Os botões de CTA apontam para /onboarding, que coleta os dados do usuário,
+// cria a assinatura no Asaas via Edge Function e redireciona para o pagamento.
+const CHECKOUT_URL = "/onboarding?mode=checkout";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const fadeUp = {
@@ -145,18 +142,14 @@ function Navbar() {
           >
             Entrar
           </Link>
-          <a
-            href={ASAAS_LINKS.mensal}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <Link to={CHECKOUT_URL}>
             <Button
               size="sm"
               className="bg-cyan-500 hover:bg-cyan-400 text-black font-semibold px-5 rounded-full"
             >
               Começar agora
             </Button>
-          </a>
+          </Link>
         </div>
 
         {/* Mobile burger */}
@@ -194,15 +187,11 @@ function Navbar() {
                 Entrar
               </Button>
             </Link>
-            <a
-              href={ASAAS_LINKS.mensal}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <Link to={CHECKOUT_URL} onClick={() => setOpen(false)}>
               <Button className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-semibold">
                 Começar agora
               </Button>
-            </a>
+            </Link>
           </div>
         </motion.div>
       )}
@@ -270,11 +259,7 @@ function Hero() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="flex flex-wrap gap-3 mb-10"
           >
-            <a
-              href={ASAAS_LINKS.mensal}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <Link to={CHECKOUT_URL}>
               <Button
                 size="lg"
                 className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-full px-8 gap-2"
@@ -282,7 +267,7 @@ function Hero() {
                 Começar agora
                 <ArrowRight size={16} />
               </Button>
-            </a>
+            </Link>
             <Link to="/auth">
               <Button
                 size="lg"
@@ -644,59 +629,16 @@ function HowItWorks() {
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────
 function Pricing() {
-  const [billing, setBilling] = useState<"mensal" | "anual">("anual");
-
-  const plans = [
-    {
-      name: "Mensal",
-      price: "R$ 39",
-      period: "/mês",
-      description: "Perfeito para experimentar sem compromisso.",
-      asaasKey: "mensal" as keyof typeof ASAAS_LINKS,
-      highlight: false,
-      features: [
-        "Chat com IA ilimitado",
-        "Tarefas e projetos",
-        "Hábitos e lembretes",
-        "Finanças pessoais",
-        "Agenda e Google Calendar",
-        "Suporte por email",
-      ],
-    },
-    {
-      name: "Anual",
-      price: "R$ 27",
-      period: "/mês",
-      badge: "Mais popular",
-      totalNote: "Cobrado R$ 324/ano — economia de R$ 144",
-      description: "O melhor custo-benefício para usuários sérios.",
-      asaasKey: "anual" as keyof typeof ASAAS_LINKS,
-      highlight: true,
-      features: [
-        "Tudo do plano Mensal",
-        "Integração Gmail & WhatsApp",
-        "Análises e insights avançados",
-        "Briefing diário inteligente",
-        "Suporte prioritário",
-        "Novos recursos em primeira mão",
-      ],
-    },
-    {
-      name: "Vitalício",
-      price: "R$ 497",
-      period: "único",
-      description: "Pague uma vez, use para sempre.",
-      asaasKey: "vitalicio" as keyof typeof ASAAS_LINKS,
-      highlight: false,
-      features: [
-        "Tudo do plano Anual",
-        "Acesso vitalício sem mensalidade",
-        "Todas as integrações futuras",
-        "Acesso a funcionalidades beta",
-        "Suporte VIP",
-        "Badge de fundador",
-      ],
-    },
+  const planFeatures = [
+    "Chat com IA ilimitado (GPT-4o, Claude, Gemini)",
+    "Tarefas, projetos e hábitos",
+    "Finanças pessoais com análises",
+    "Agenda + Google Calendar sincronizado",
+    "Notas e lembretes inteligentes",
+    "Integração Gmail & WhatsApp",
+    "Briefing diário personalizado",
+    "PWA — funciona como app nativo",
+    "Suporte em português",
   ];
 
   return (
@@ -704,92 +646,65 @@ function Pricing() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div variants={fadeUp} className="text-center mb-16">
           <Badge className="mb-4 bg-green-500/10 text-green-400 border-green-500/20">
-            Preços transparentes
+            Preço transparente
           </Badge>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-            Escolha seu plano
+            Um plano. Tudo incluso.
           </h2>
           <p className="text-slate-400 text-lg">
-            Sem surpresas. Cancele quando quiser.
+            Sem tier bloqueado. Sem surpresas. Cancele quando quiser.
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {plans.map((plan, i) => (
-            <motion.div
-              key={plan.name}
-              variants={fadeUp}
-              custom={i}
-              className={cn(
-                "relative rounded-2xl p-7 flex flex-col",
-                plan.highlight
-                  ? "bg-gradient-to-b from-cyan-950/60 to-blue-950/40 border-2 border-cyan-500/40 shadow-[0_0_40px_rgba(0,200,255,0.10)]"
-                  : "bg-white/[0.03] border border-white/8"
-              )}
-            >
-              {plan.badge && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className="bg-cyan-500 text-black text-xs font-bold px-4 py-1 rounded-full">
-                    {plan.badge}
-                  </span>
-                </div>
-              )}
+        <div className="max-w-md mx-auto">
+          <motion.div
+            variants={fadeUp}
+            className="relative rounded-2xl p-8 flex flex-col bg-gradient-to-b from-cyan-950/60 to-blue-950/40 border-2 border-cyan-500/40 shadow-[0_0_60px_rgba(0,200,255,0.12)]"
+          >
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+              <span className="bg-cyan-500 text-black text-xs font-bold px-4 py-1 rounded-full">
+                Plano Horus
+              </span>
+            </div>
 
-              <div className="mb-6">
-                <p className="text-slate-300 font-semibold mb-1">{plan.name}</p>
-                <div className="flex items-end gap-1 mb-1">
-                  <span className="text-4xl font-bold text-white">
-                    {plan.price}
-                  </span>
-                  <span className="text-slate-400 mb-1">{plan.period}</span>
-                </div>
-                {plan.totalNote && (
-                  <p className="text-xs text-cyan-400 mt-1">{plan.totalNote}</p>
-                )}
-                <p className="text-slate-500 text-sm mt-2">{plan.description}</p>
+            <div className="text-center mb-8">
+              <div className="flex items-end justify-center gap-1 mb-1">
+                <span className="text-5xl font-bold text-white">R$ 39</span>
+                <span className="text-slate-400 mb-1.5 text-lg">,90/mês</span>
               </div>
+              <p className="text-cyan-400 text-sm">
+                Assinatura recorrente — cancele quando quiser
+              </p>
+              <p className="text-slate-500 text-sm mt-1">
+                Pix, cartão de crédito ou boleto
+              </p>
+            </div>
 
-              <ul className="space-y-2.5 flex-1 mb-8">
-                {plan.features.map((feat) => (
-                  <li key={feat} className="flex items-start gap-2.5 text-sm">
-                    <Check
-                      size={15}
-                      className={
-                        plan.highlight ? "text-cyan-400 mt-0.5 shrink-0" : "text-slate-400 mt-0.5 shrink-0"
-                      }
-                    />
-                    <span className="text-slate-300">{feat}</span>
-                  </li>
-                ))}
-              </ul>
+            <ul className="space-y-3 flex-1 mb-8">
+              {planFeatures.map((feat) => (
+                <li key={feat} className="flex items-start gap-3 text-sm">
+                  <Check size={15} className="text-cyan-400 mt-0.5 shrink-0" />
+                  <span className="text-slate-200">{feat}</span>
+                </li>
+              ))}
+            </ul>
 
-              <a
-                href={ASAAS_LINKS[plan.asaasKey]}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button
-                  className={cn(
-                    "w-full rounded-xl font-semibold",
-                    plan.highlight
-                      ? "bg-cyan-500 hover:bg-cyan-400 text-black"
-                      : "bg-white/8 hover:bg-white/15 text-white border border-white/10"
-                  )}
-                >
-                  Assinar {plan.name}
-                </Button>
-              </a>
-            </motion.div>
-          ))}
+            <Link to={CHECKOUT_URL}>
+              <Button className="w-full rounded-xl font-bold text-base h-12 bg-cyan-500 hover:bg-cyan-400 text-black gap-2">
+                Assinar agora
+                <ArrowRight size={16} />
+              </Button>
+            </Link>
+          </motion.div>
         </div>
 
         <motion.p
           variants={fadeIn}
           className="text-center text-slate-500 text-sm mt-8"
         >
-          Pagamento seguro via{" "}
+          Pagamento processado com segurança via{" "}
           <span className="text-slate-400 font-medium">Asaas</span> — Pix,
-          cartão de crédito e boleto
+          cartão de crédito e boleto bancário
         </motion.p>
       </div>
     </Section>
@@ -1030,11 +945,7 @@ function FinalCTA() {
           </p>
 
           <div className="flex flex-wrap justify-center gap-4 mb-8">
-            <a
-              href={ASAAS_LINKS.mensal}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <Link to={CHECKOUT_URL}>
               <Button
                 size="lg"
                 className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-full px-10 gap-2"
@@ -1042,7 +953,7 @@ function FinalCTA() {
                 Começar agora
                 <ArrowRight size={16} />
               </Button>
-            </a>
+            </Link>
             <Link to="/auth">
               <Button
                 size="lg"

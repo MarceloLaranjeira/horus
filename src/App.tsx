@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import OnboardingPage from "./pages/OnboardingPage";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/app" element={<ProtectedRoute><AppDashboard /></ProtectedRoute>} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
