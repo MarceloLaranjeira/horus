@@ -9,7 +9,6 @@ import { ProtectedRoute } from "@/components/app/ProtectedRoute";
 import { PWAInstallBanner } from "@/components/app/PWAInstallBanner";
 import AppDashboard from "./pages/AppDashboard";
 import Index from "./pages/Index";
-import OnboardingPage from "./pages/OnboardingPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
@@ -27,7 +26,6 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/app" element={<ProtectedRoute><AppDashboard /></ProtectedRoute>} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
