@@ -115,6 +115,8 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const lastAssistantTextRef = useRef<string>("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -434,19 +436,14 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     setAttachedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Pre-unlock audio element ref for mobile TTS (must be created in user gesture)
-  const pendingAudioRef = useRef<HTMLAudioElement | null>(null);
-
   const sendMessage = async (text: string) => {
-    // Immediately unlock audio in user gesture context for mobile TTS
+    // Unlock AudioContext in user gesture context - stays unlocked permanently for mobile TTS
     if (settings.ttsEnabled) {
-      const audio = new Audio();
-      audio.preload = "auto";
-      // Play silent audio to unlock autoplay on iOS/Android
-      audio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-      audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
-      pendingAudioRef.current = audio;
-      console.log("[TTS] Audio element pre-unlocked in user gesture");
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      audioContextRef.current.resume().catch(() => {});
+      console.log("[TTS] AudioContext unlocked in user gesture, state:", audioContextRef.current.state);
     }
 
     // Build message with file info
@@ -584,6 +581,10 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
   const handleSend = () => sendMessage(input.trim());
 
   const stopSpeaking = useCallback(() => {
+    if (audioSourceRef.current) {
+      try { audioSourceRef.current.stop(); } catch { /* already stopped */ }
+      audioSourceRef.current = null;
+    }
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -601,57 +602,85 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
     setIsSpeaking(true);
     lastAssistantTextRef.current = text;
 
-    // Detect iOS/Safari for special handling
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-    const isIOSSafari = isIOS && isSafari;
-    console.log("[TTS] isIOSSafari:", isIOSSafari);
-
-    // Reuse pre-unlocked audio element from user gesture, or create new one
-    const hasPending = !!pendingAudioRef.current;
-    const audio = pendingAudioRef.current || new Audio();
-    pendingAudioRef.current = null;
-    audio.preload = "auto";
-    audioRef.current = audio;
-    console.log("[TTS] Using", hasPending ? "pre-unlocked" : "new", "audio element");
-
-    // On mobile, if we don't have a pre-unlocked element, try to unlock now
-    // by playing a silent sound (may not work without gesture, but worth trying)
-    if (!hasPending) {
-      audio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-      try { await audio.play(); audio.pause(); audio.currentTime = 0; } catch { /* expected outside gesture */ }
-    }
-
     try {
       const cleanText = text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 3000);
-      if (!cleanText.trim()) { setIsSpeaking(false); audioRef.current = null; return; }
+      if (!cleanText.trim()) { setIsSpeaking(false); return; }
 
       const provider = settings.ttsProvider || "elevenlabs";
       const voiceId = settings.ttsVoiceId;
       console.log("[TTS] Provider:", provider, "| VoiceId:", voiceId, "| Text length:", cleanText.length);
 
-      const playAudioBlob = (blob: Blob) => {
-        const url = URL.createObjectURL(blob);
-        audio.pause();
-        audio.currentTime = 0;
-        audio.src = url;
-        audio.onended = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
-        audio.onerror = (e) => { console.error("[TTS] Audio error:", e); setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
-        audio.load();
-        audio.play().catch((err) => {
-          console.warn("[TTS] Play blocked, falling back to speechSynthesis:", err);
-          URL.revokeObjectURL(url);
-          // Fallback: use native speechSynthesis
-          if ("speechSynthesis" in window) {
-            const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 500));
-            utterance.lang = settings.voiceLang || "pt-BR";
-            utterance.onend = () => { setIsSpeaking(false); };
-            utterance.onerror = () => { setIsSpeaking(false); };
-            window.speechSynthesis.speak(utterance);
-          } else {
+      const fallbackSpeechSynthesis = () => {
+        if ("speechSynthesis" in window) {
+          const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 500));
+          utterance.lang = settings.voiceLang || "pt-BR";
+          utterance.onend = () => { setIsSpeaking(false); };
+          utterance.onerror = () => { setIsSpeaking(false); };
+          window.speechSynthesis.speak(utterance);
+        } else {
+          setIsSpeaking(false);
+        }
+      };
+
+      // Play audio blob via AudioContext (works on mobile without requiring a new user gesture)
+      const playAudioBlob = async (blob: Blob) => {
+        // Stop any currently playing source
+        if (audioSourceRef.current) {
+          try { audioSourceRef.current.stop(); } catch { /* already stopped */ }
+          audioSourceRef.current = null;
+        }
+
+        // Get or create AudioContext
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        const ctx = audioContextRef.current;
+
+        // Resume if suspended — on iOS the context may still be "suspended" even after
+        // calling resume() in the gesture, since the promise resolves asynchronously.
+        // We always attempt resume and proceed regardless of current state.
+        if (ctx.state !== "running") {
+          await ctx.resume().catch(() => {});
+        }
+
+        // If still not running after awaiting resume, fall back
+        if (ctx.state !== "running") {
+          console.warn("[TTS] AudioContext not running after resume(), falling back to speechSynthesis. State:", ctx.state);
+          fallbackSpeechSynthesis();
+          return;
+        }
+
+        try {
+          const arrayBuffer = await blob.arrayBuffer();
+          // decodeAudioData uses a callback API on some iOS versions — wrap in Promise
+          const audioBuffer = await new Promise<AudioBuffer>((resolve, reject) => {
+            ctx.decodeAudioData(arrayBuffer, resolve, reject);
+          });
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(ctx.destination);
+          source.onended = () => {
             setIsSpeaking(false);
+            audioSourceRef.current = null;
+          };
+          source.start(0);
+          audioSourceRef.current = source;
+        } catch (e) {
+          console.error("[TTS] AudioContext decode/play failed, trying HTMLAudioElement fallback:", e);
+          // Secondary fallback: HTMLAudioElement with Object URL (works on some devices where decodeAudioData fails)
+          try {
+            const url = URL.createObjectURL(blob);
+            const fallbackAudio = new Audio();
+            fallbackAudio.setAttribute("playsinline", "");
+            fallbackAudio.src = url;
+            fallbackAudio.onended = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); };
+            fallbackAudio.onerror = () => { setIsSpeaking(false); audioRef.current = null; URL.revokeObjectURL(url); fallbackSpeechSynthesis(); };
+            audioRef.current = fallbackAudio;
+            await fallbackAudio.play();
+          } catch {
+            fallbackSpeechSynthesis();
           }
-        });
+        }
       };
 
       if (provider === "elevenlabs") {
@@ -681,15 +710,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         } catch (err: any) {
           if (err.name === "AbortError") {
             console.warn("[TTS] ElevenLabs timeout, falling back to speechSynthesis");
-            if ("speechSynthesis" in window) {
-              const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 500));
-              utterance.lang = settings.voiceLang || "pt-BR";
-              utterance.onend = () => { setIsSpeaking(false); };
-              utterance.onerror = () => { setIsSpeaking(false); };
-              window.speechSynthesis.speak(utterance);
-            } else {
-              setIsSpeaking(false);
-            }
+            fallbackSpeechSynthesis();
           } else {
             throw err;
           }
@@ -698,7 +719,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 30000);
-          
+
           const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tts`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
@@ -706,7 +727,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
             signal: controller.signal,
           });
           clearTimeout(timeoutId);
-          
+
           if (!response.ok) {
             setIsSpeaking(false);
             const err = await response.json().catch(() => ({}));
@@ -717,15 +738,7 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
         } catch (err: any) {
           if (err.name === "AbortError") {
             console.warn(`[TTS] ${provider} timeout, falling back to speechSynthesis`);
-            if ("speechSynthesis" in window) {
-              const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`~\[\]()>]/g, "").substring(0, 500));
-              utterance.lang = settings.voiceLang || "pt-BR";
-              utterance.onend = () => { setIsSpeaking(false); };
-              utterance.onerror = () => { setIsSpeaking(false); };
-              window.speechSynthesis.speak(utterance);
-            } else {
-              setIsSpeaking(false);
-            }
+            fallbackSpeechSynthesis();
           } else {
             setIsSpeaking(false);
             toast({ title: `Erro TTS ${provider}`, description: err.message || "Erro desconhecido", variant: "destructive" });
@@ -858,6 +871,17 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
       transcriptRef.current = "";
       return;
     }
+
+    // Unlock AudioContext here (user gesture context) so TTS works when recognition ends
+    // via recognition.onend which is NOT a gesture context
+    if (settings.ttsEnabled) {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      audioContextRef.current.resume().catch(() => {});
+      console.log("[TTS] AudioContext unlocked in toggleVoice gesture");
+    }
+
     stopSpeaking();
 
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -983,10 +1007,11 @@ export const ChatView = ({ onNavigate }: { onNavigate?: (view: AppView) => void 
           {!isSpeaking && lastAiText && settings.ttsEnabled && (
             <button
               onClick={() => {
-                const a = new Audio();
-                a.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-                a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
-                pendingAudioRef.current = a;
+                // Ensure AudioContext is unlocked in this user gesture before replaying
+                if (!audioContextRef.current) {
+                  audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+                }
+                audioContextRef.current.resume().catch(() => {});
                 replayLastResponse();
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-400/20 bg-cyan-400/5 text-cyan-400/60 text-[10px] font-mono tracking-wider uppercase hover:bg-cyan-400/10 hover:text-cyan-400/80 transition-colors"
