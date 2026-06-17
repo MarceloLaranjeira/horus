@@ -49,18 +49,21 @@ export interface GmailMessage {
 export function useGmail() {
   const [emails, setEmails] = useState<GmailMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [readingEmail, setReadingEmail] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<GmailMessage | null>(null);
   const [sending, setSending] = useState(false);
 
   const fetchEmails = useCallback(async (maxResults = 20, query = "in:inbox") => {
     setLoading(true);
+    setError(null);
     try {
       const data = await callGmailFn("list_emails", { maxResults, query });
       setEmails(data.emails || []);
       return data.emails || [];
-    } catch (e) {
+    } catch (e: any) {
       console.error("Gmail fetch error:", e);
+      setError(e?.message || "Erro ao carregar emails");
       return [];
     } finally {
       setLoading(false);
@@ -96,5 +99,5 @@ export function useGmail() {
 
   const clearSelectedEmail = useCallback(() => setSelectedEmail(null), []);
 
-  return { emails, loading, fetchEmails, readEmail, readingEmail, selectedEmail, clearSelectedEmail, sendEmail, sending };
+  return { emails, loading, error, fetchEmails, readEmail, readingEmail, selectedEmail, clearSelectedEmail, sendEmail, sending };
 }

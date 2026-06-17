@@ -19,7 +19,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export const GmailView = () => {
-  const { emails, loading, fetchEmails, readEmail, readingEmail, selectedEmail, clearSelectedEmail, sendEmail, sending } = useGmail();
+  const { emails, loading, error, fetchEmails, readEmail, readingEmail, selectedEmail, clearSelectedEmail, sendEmail, sending } = useGmail();
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("in:inbox");
   const [showCompose, setShowCompose] = useState(false);
@@ -102,6 +102,14 @@ export const GmailView = () => {
         <ScrollArea className="flex-1">
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+          ) : error && emails.length === 0 ? (
+            <div className="text-center py-12 px-6">
+              <Mail className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto">{error}</p>
+              <p className="text-xs text-muted-foreground/70 mt-2">
+                Conecte sua conta Google em Configurações &gt; Integrações para ler e enviar emails.
+              </p>
+            </div>
           ) : emails.length === 0 ? (
             <div className="text-center py-12">
               <Mail className="w-10 h-10 mx-auto text-muted-foreground/40 mb-2" />

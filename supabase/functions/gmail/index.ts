@@ -11,21 +11,41 @@ async function refreshAccessToken(
   userId: string,
   creds: any
 ): Promise<string | null> {
-  if (!creds.refresh_token) return null;
+  if (!creds.refresh_token) {
+    console.error("No refresh_token available for user:", userId);
+    return null;
+  }
+
+  // Credenciais OAuth vêm das variáveis de ambiente do servidor — nunca são
+  // armazenadas em user_integrations (que guarda apenas tokens do usuário).
+  const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
+  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
 
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: creds.client_id,
-      client_secret: creds.client_secret,
+      client_id: clientId,
+      client_secret: clientSecret,
       refresh_token: creds.refresh_token,
       grant_type: "refresh_token",
     }),
   });
 
-  if (!res.ok) return null;
   const data = await res.json();
+
+  if (!res.ok) {
+    console.error("Token refresh failed:", JSON.stringify(data));
+    // Refresh token revogado/inválido: marca a integração como desconectada.
+    if (data.error === "invalid_grant") {
+      await supabase
+        .from("user_integrations")
+        .update({ enabled: false })
+        .eq("user_id", userId)
+        .eq("integration_type", "google_calendar");
+    }
+    return null;
+  }
 
   await supabase
     .from("user_integrations")
@@ -54,18 +74,20 @@ async function getAccessToken(
     .maybeSingle();
 
   if (error || !integration) {
-    return { token: null, error: "Credenciais do Google não configuradas. Configure o Google Calendar nas integrações primeiro." };
+    return { token: null, error: "Google não conectado. Vá em Configurações > Integrações para conectar sua conta Google." };
   }
 
   const creds = integration.credentials as any;
   let accessToken = creds.access_token;
 
-  if (creds.expires_at && Date.now() > creds.expires_at) {
+  // Renova se o token expirou ou está prestes a expirar (buffer de 5 minutos).
+  const bufferMs = 5 * 60 * 1000;
+  if (creds.expires_at && Date.now() > (creds.expires_at - bufferMs) && creds.refresh_token) {
     accessToken = await refreshAccessToken(supabase, userId, creds);
   }
 
   if (!accessToken) {
-    return { token: null, error: "Token de acesso expirado. Re-autorize o Google nas integrações." };
+    return { token: null, error: "Sua autorização do Google expirou. Reconecte sua conta em Configurações > Integrações." };
   }
 
   return { token: accessToken, error: null };
@@ -95,6 +117,14 @@ Deno.serve(async (req) => {
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!Deno.env.get("GOOGLE_CLIENT_ID") || !Deno.env.get("GOOGLE_CLIENT_SECRET")) {
+      console.error("Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET");
+      return new Response(JSON.stringify({ error: "Google OAuth não configurado no servidor. Contate o administrador." }), {
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
